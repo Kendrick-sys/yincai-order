@@ -153,7 +153,7 @@ function ModelCard({
               </div>
               <div>
                 <Label className="text-xs text-gray-500 mb-1 block">配件</Label>
-                <Input placeholder="如：铝合金银色拉杆" value={model.accessories} onChange={e => onChange("accessories", e.target.value)} className="h-9 text-sm bg-white" />
+                <Input placeholder="如：304不锈钉铰链" value={model.accessories} onChange={e => onChange("accessories", e.target.value)} className="h-9 text-sm bg-white" />
               </div>
             </div>
           </div>
@@ -200,7 +200,7 @@ function ModelCard({
 
           {/* 三、丝印描述 */}
           <div className={`rounded-lg p-4 transition-colors ${model.needSilkPrint ? "bg-indigo-50/50" : "bg-gray-50"}`}>
-            <SectionHeader icon={Printer} title="三、丝印描述（吟彩版）" switchField="needSilkPrint" color="bg-indigo-500" />
+            <SectionHeader icon={Printer} title="三、丝印描述" switchField="needSilkPrint" color="bg-indigo-500" />
             {model.needSilkPrint ? (
               <div className="space-y-3">
                 <Textarea
@@ -439,7 +439,7 @@ export default function OrderForm() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">订单描述</Label>
-              <Input placeholder="如：安卡手提箱系列" value={header.orderDescription} onChange={e => setHeader(h => ({ ...h, orderDescription: e.target.value }))} className="h-9 text-sm" />
+              <Input placeholder="订单描述" value={header.orderDescription} onChange={e => setHeader(h => ({ ...h, orderDescription: e.target.value }))} className="h-9 text-sm" />
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">客户名称</Label>
@@ -472,7 +472,7 @@ export default function OrderForm() {
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">订单号</Label>
-              <Input placeholder="如：SO-2024-001" value={header.orderNo} onChange={e => setHeader(h => ({ ...h, orderNo: e.target.value }))} className="h-9 text-sm" />
+              <Input placeholder="如：ODYC-20260307-001" value={header.orderNo} onChange={e => setHeader(h => ({ ...h, orderNo: e.target.value }))} className="h-9 text-sm" />
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">预计交货日期</Label>

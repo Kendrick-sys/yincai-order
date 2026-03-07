@@ -18,13 +18,13 @@ import { Link } from "wouter";
 
 type CustomerForm = {
   name: string;
-  code: string;
+  address: string;
   contact: string;
   phone: string;
   remarks: string;
 };
 
-const emptyForm: CustomerForm = { name: "", code: "", contact: "", phone: "", remarks: "" };
+const emptyForm: CustomerForm = { name: "", address: "", contact: "", phone: "", remarks: "" };
 
 export default function Customers() {
   const { data: customers = [], refetch } = trpc.customers.list.useQuery();
@@ -45,16 +45,16 @@ export default function Customers() {
 
   const openEdit = (c: any) => {
     setEditingId(c.id);
-    setForm({ name: c.name ?? "", code: c.code ?? "", contact: c.contact ?? "", phone: c.phone ?? "", remarks: c.remarks ?? "" });
+    setForm({ name: c.name ?? "", address: c.address ?? c.code ?? "", contact: c.contact ?? "", phone: c.phone ?? "", remarks: c.remarks ?? "" });
     setDialogOpen(true);
   };
 
   const handleSave = () => {
     if (!form.name.trim()) { toast.error("客户名称不能为空"); return; }
     if (editingId !== null) {
-      updateMut.mutate({ id: editingId, data: form });
+      updateMut.mutate({ id: editingId, data: { ...form, code: form.address } });
     } else {
-      createMut.mutate(form);
+      createMut.mutate({ ...form, code: form.address });
     }
   };
 
@@ -114,8 +114,8 @@ export default function Customers() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-foreground">{c.name}</span>
-                    {c.code && (
-                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{c.code}</span>
+                    {(c.address || c.code) && (
+                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{c.address || c.code}</span>
                     )}
                   </div>
                   {(c.contact || c.phone) && (
@@ -159,12 +159,12 @@ export default function Customers() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-sm font-medium">客户编码</Label>
+                <Label className="text-sm font-medium">客户地址</Label>
                 <Input
                   className="mt-1"
-                  placeholder="可选"
-                  value={form.code}
-                  onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
+                  placeholder="如：广东省广州市"
+                  value={form.address}
+                  onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                 />
               </div>
               <div>
