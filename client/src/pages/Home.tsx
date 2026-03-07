@@ -2,12 +2,13 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Plus, Search, FileDown, Pencil, Trash2,
   ClipboardList, Package, CheckCircle2, XCircle,
   Clock, Factory, ChevronRight, Copy, Printer,
   Users, Trash, Eye, ArrowUpDown, ArrowUp, ArrowDown,
-  CalendarRange, Loader2, X, AlertTriangle
+  CalendarRange, Loader2, X, AlertTriangle, MessageSquare
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useState, useEffect, useMemo } from "react";
@@ -511,9 +512,24 @@ export default function Home() {
                   }`}>
                     {/* 订单信息 */}
                     <div>
-                      <p className="font-medium text-gray-800 text-sm leading-tight">
-                        {order.orderDescription || "（未填写描述）"}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium text-gray-800 text-sm leading-tight">
+                          {order.orderDescription || "（未填写描述）"}
+                        </p>
+                        {order.remarks && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-default flex-shrink-0">
+                                <MessageSquare className="w-3.5 h-3.5 text-gray-400 hover:text-[#1A3C5E] transition-colors" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                              <p className="font-medium text-foreground mb-1">备注</p>
+                              <p className="text-muted-foreground whitespace-pre-wrap">{order.remarks}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {order.orderNo ? `订单号：${order.orderNo}` : ""}
                         {order.orderNo && order.orderDate ? "  ·  " : ""}

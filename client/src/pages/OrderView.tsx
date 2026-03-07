@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Pencil, Printer, FileDown, ImageOff } from "lucide-react";
+import { ArrowLeft, Pencil, Printer, FileDown, ImageOff, Box, Tag, Layers, Archive, Paintbrush } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -19,18 +19,50 @@ function downloadOrderExcel(orderId: number) {
   a.click();
 }
 
+/** 基本信息字段：标签 + 值 */
 function InfoRow({ label, value, span }: { label: string; value?: string | null; span?: boolean }) {
   return (
-    <div className={`flex flex-col gap-0.5 ${span ? "col-span-2" : ""}`}>
-      <span className="text-xs text-gray-400 font-medium">{label}</span>
-      <span className="text-sm text-gray-800">{value || "—"}</span>
+    <div className={`flex flex-col gap-1 ${span ? "col-span-2" : ""}`}>
+      <span className="text-xs text-gray-400 font-medium tracking-wide">{label}</span>
+      <span className="text-sm text-gray-800 leading-relaxed">{value || "—"}</span>
     </div>
   );
 }
 
+/** 型号内各描述区块的大标题（带图标 + 色条 + 分割线） */
+function BlockTitle({ icon: Icon, children, color = "bg-[#1A3C5E]" }: {
+  icon: React.ElementType;
+  children: React.ReactNode;
+  color?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <div className={`w-1 h-5 rounded-full ${color} flex-shrink-0`} />
+      <Icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+      <h4 className="text-sm font-bold text-gray-700 tracking-wide">{children}</h4>
+    </div>
+  );
+}
+
+/** 描述区块内的字段：标签小、值大，带底部分割线 */
+function DescField({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="py-2">
+      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{value}</p>
+    </div>
+  );
+}
+
+/** 描述区块内的字段网格（横排多列） */
+function DescGrid({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 divide-y divide-gray-50 md:divide-y-0">{children}</div>;
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 mb-3">
+    <div className="flex items-center gap-2 mb-4">
       <div className="w-1 h-5 rounded-full bg-[#1A3C5E]" />
       <h3 className="font-semibold text-gray-700 text-sm">{children}</h3>
     </div>
@@ -40,8 +72,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function ImageGallery({ images, label }: { images: string[]; label: string }) {
   if (!images || images.length === 0) return null;
   return (
-    <div className="mt-2">
-      <p className="text-xs text-gray-400 mb-1.5">{label}附件图片</p>
+    <div className="mt-3">
+      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">{label}附件图片</p>
       <div className="flex flex-wrap gap-2">
         {images.map((url, i) => (
           <a key={i} href={url} target="_blank" rel="noopener noreferrer">
@@ -64,7 +96,7 @@ export default function OrderView() {
 
   const { data: order, isLoading } = trpc.orders.get.useQuery(
     { id: orderId },
-    { staleTime: 30_000 }  // 30秒内不重新拉取，与 PrintPreview 共享缓存
+    { staleTime: 30_000 }
   );
 
   if (isLoading) {
@@ -183,64 +215,73 @@ export default function OrderView() {
                     <span className="text-white/80 text-sm">数量：{m.quantity || "—"}</span>
                   </div>
 
-                  <div className="p-5 space-y-5">
+                  <div className="p-5 space-y-0 divide-y divide-gray-100">
+
                     {/* 箱体描述 */}
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">箱体描述</p>
-                      <div className="grid grid-cols-3 gap-x-8 gap-y-3">
-                        <InfoRow label="上盖材质" value={m.topCover} />
-                        <InfoRow label="下盖材质" value={m.bottomCover} />
-                        <InfoRow label="配件" value={m.accessories} />
-                      </div>
+                    <div className="pb-5">
+                      <BlockTitle icon={Box} color="bg-blue-500">箱体描述</BlockTitle>
+                      <DescGrid>
+                        <DescField label="上盖材质" value={m.topCover} />
+                        <DescField label="下盖材质" value={m.bottomCover} />
+                        <DescField label="配件" value={m.accessories} />
+                      </DescGrid>
+                      {!m.topCover && !m.bottomCover && !m.accessories && (
+                        <p className="text-sm text-gray-400 italic">暂无箱体描述</p>
+                      )}
                     </div>
 
                     {/* 贴纸描述 */}
                     {m.needSticker && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">贴纸描述</p>
-                        <div className="grid grid-cols-3 gap-x-8 gap-y-3">
-                          <InfoRow label="贴纸来源" value={m.stickerSource} />
-                          <InfoRow label="贴纸描述" value={m.stickerDesc} span />
-                        </div>
+                      <div className="py-5">
+                        <BlockTitle icon={Tag} color="bg-amber-500">贴纸描述</BlockTitle>
+                        <DescGrid>
+                          <DescField label="贴纸来源" value={m.stickerSource} />
+                          <DescField label="贴纸描述" value={m.stickerDesc} />
+                        </DescGrid>
                         <ImageGallery images={stickerImages} label="贴纸" />
                       </div>
                     )}
 
                     {/* 丝印描述 */}
                     {m.needSilkPrint && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">丝印描述</p>
-                        <InfoRow label="丝印描述" value={m.silkPrintDesc} />
+                      <div className="py-5">
+                        <BlockTitle icon={Paintbrush} color="bg-purple-500">丝印描述</BlockTitle>
+                        <DescField label="丝印描述" value={m.silkPrintDesc} />
                         <ImageGallery images={silkPrintImages} label="丝印" />
                       </div>
                     )}
 
                     {/* 内衬描述 */}
                     {m.needLiner && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">内衬描述</p>
-                        <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                          <InfoRow label="上盖内衬" value={m.topLiner} />
-                          <InfoRow label="下盖内衬" value={m.bottomLiner} />
-                        </div>
+                      <div className="py-5">
+                        <BlockTitle icon={Layers} color="bg-teal-500">内衬描述</BlockTitle>
+                        <DescGrid>
+                          <DescField label="上盖内衬" value={m.topLiner} />
+                          <DescField label="下盖内衬" value={m.bottomLiner} />
+                        </DescGrid>
                         <ImageGallery images={linerImages} label="内衬" />
                       </div>
                     )}
 
                     {/* 纸箱描述 */}
                     {m.needCarton && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">纸箱描述</p>
-                        <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                          <InfoRow label="内箱规格" value={m.innerBox} />
-                          <InfoRow label="外箱规格" value={m.outerBox} />
-                        </div>
+                      <div className="py-5">
+                        <BlockTitle icon={Archive} color="bg-orange-500">纸箱描述</BlockTitle>
+                        <DescGrid>
+                          <DescField label="内箱规格" value={m.innerBox} />
+                          <DescField label="外箱规格" value={m.outerBox} />
+                        </DescGrid>
                       </div>
                     )}
 
+                    {/* 型号备注 */}
                     {m.modelRemarks && (
-                      <InfoRow label="型号备注" value={m.modelRemarks} />
+                      <div className="pt-4">
+                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-1">型号备注</p>
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{m.modelRemarks}</p>
+                      </div>
                     )}
+
                   </div>
                 </div>
               );
