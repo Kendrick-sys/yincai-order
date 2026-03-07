@@ -111,16 +111,20 @@ export const orderModels = mysqlTable("orderModels", {
   silkPrintImages: text("silkPrintImages"), // JSON 数组，存丝印图片 URL 列表
 
   // 四、内衬描述
-  needLiner:      boolean("needLiner").default(true).notNull(),
-  topLiner:       text("topLiner"),
-  bottomLiner:    text("bottomLiner"),
-  linerImages:    text("linerImages"),     // JSON 数组，存内衬CAD图片 URL 列表
+  needLiner:          boolean("needLiner").default(true).notNull(),
+  topLiner:           text("topLiner"),
+  bottomLiner:        text("bottomLiner"),
+  linerImages:        text("linerImages"),          // 已废弃，保留向下兼容
+  topLinerImages:     text("topLinerImages"),       // JSON 数组，上盖内衬图片
+  bottomLinerImages:  text("bottomLinerImages"),    // JSON 数组，下盖内衬图片
 
   // 五、纸箱描述
-  needCarton:     boolean("needCarton").default(true).notNull(),
-  innerBox:       text("innerBox"),
-  outerBox:       text("outerBox"),
-  boxImages:      text("boxImages"),       // JSON 数组，存纸箱图片 URL 列表
+  needCarton:         boolean("needCarton").default(true).notNull(),
+  innerBox:           text("innerBox"),
+  outerBox:           text("outerBox"),
+  boxImages:          text("boxImages"),            // 已废弃，保留向下兼容
+  innerBoxImages:     text("innerBoxImages"),       // JSON 数组，内箱图片
+  outerBoxImages:     text("outerBoxImages"),       // JSON 数组，外箱图片
 
   modelRemarks:   text("modelRemarks"),
 

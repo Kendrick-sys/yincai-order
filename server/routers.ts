@@ -38,15 +38,19 @@ const modelSchema = z.object({
   silkPrintDesc:   z.string().optional(),
   silkPrintImages: z.string().optional(),   // JSON 数组字符串
   // 内衬
-  needLiner:       z.boolean().default(true),
-  topLiner:        z.string().optional(),
-  bottomLiner:     z.string().optional(),
-  linerImages:     z.string().optional(),   // JSON 数组字符串
+  needLiner:           z.boolean().default(true),
+  topLiner:            z.string().optional(),
+  bottomLiner:         z.string().optional(),
+  linerImages:         z.string().optional(),          // 已废弃，保留向下兼容
+  topLinerImages:      z.string().optional(),          // JSON 数组字符串，上盖内衬图片
+  bottomLinerImages:   z.string().optional(),          // JSON 数组字符串，下盖内衬图片
   // 纸箱
-  needCarton:      z.boolean().default(true),
-  innerBox:        z.string().optional(),
-  outerBox:        z.string().optional(),
-  boxImages:       z.string().optional(),   // JSON 数组字符串
+  needCarton:          z.boolean().default(true),
+  innerBox:            z.string().optional(),
+  outerBox:            z.string().optional(),
+  boxImages:           z.string().optional(),          // 已废弃，保留向下兼容
+  innerBoxImages:      z.string().optional(),          // JSON 数组字符串，内箱图片
+  outerBoxImages:      z.string().optional(),          // JSON 数组字符串，外箱图片
   // 备注
   modelRemarks:    z.string().optional(),
 });

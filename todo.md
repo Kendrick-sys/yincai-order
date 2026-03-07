@@ -246,3 +246,19 @@
 - [x] 前端：OrderForm.tsx 纸箱描述区域增加图片上传组件
 - [x] 前端：OrderView.tsx/PrintPreview.tsx 同步展示纸箱图片
 - [x] 代码审查和性能优化
+
+## 新功能（第三十四批）
+
+- [x] 数据库 order_models 表：linerImages 拆分为 topLinerImages / bottomLinerImages
+- [x] 数据库 order_models 表：boxImages 拆分为 innerBoxImages / outerBoxImages
+- [x] 后端 routers.ts：modelSchema 同步更新字段
+- [x] 前端 OrderForm.tsx：内衬区域拆分为上盖/下盖两个 ImageUploader
+- [x] 前端 OrderForm.tsx：纸箱区域拆分为内箱/外箱两个 ImageUploader
+- [x] 前端 OrderView.tsx：内衬/纸箱图片展示同步拆分
+- [x] Excel 导出：内衬列拆分为「上盖内衬图片」「下盖内衬图片」两列
+- [x] Excel 导出：纸箱列拆分为「内箱图片」「外箱图片」两列
+- [x] Excel 导出：修复「内筱」「外筱」错别字 → 「内箱」「外箱」
+- [x] PDF 打印预览：内衬图片拆分为上盖/下盖展示
+- [x] PDF 打印预览：纸箱图片拆分为内箱/外箱展示
+- [x] 全局错别字修复（内筱→内箱，外筱→外箱）
+- [x] 代码审查和性能优化

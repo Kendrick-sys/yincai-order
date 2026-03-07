@@ -124,7 +124,10 @@ const imgRowStyle: React.CSSProperties = {
 function ModelRow({ m, i }: { m: any; i: number }) {
   const stickerImgs = parseImages(m.stickerImages);
   const silkImgs = parseImages(m.silkPrintImages);
-  const linerImgs = parseImages(m.linerImages);
+  const topLinerImgs = parseImages(m.topLinerImages);
+  const bottomLinerImgs = parseImages(m.bottomLinerImages);
+  const innerBoxImgs = parseImages(m.innerBoxImages);
+  const outerBoxImgs = parseImages(m.outerBoxImages);
 
   return (
     <div style={{ marginBottom: "16px", border: "1px solid #ddd", borderRadius: "4px", overflow: "hidden" }}>
@@ -212,11 +215,28 @@ function ModelRow({ m, i }: { m: any; i: number }) {
                       {m.bottomLiner && <span>下盖：{m.bottomLiner}</span>}
                     </div>
                   )}
-                  {linerImgs.length > 0 && (
-                    <div style={imgRowStyle}>
-                      {linerImgs.map((url, idx) => (
-                        <img key={idx} src={url} alt={`内衬图${idx + 1}`} style={imgStyle} />
-                      ))}
+                  {(topLinerImgs.length > 0 || bottomLinerImgs.length > 0) && (
+                    <div style={{ display: "flex", gap: "12px", marginTop: "4px" }}>
+                      {topLinerImgs.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: "9px", color: "#888", marginBottom: "2px" }}>上盖内衬</div>
+                          <div style={imgRowStyle}>
+                            {topLinerImgs.map((url, idx) => (
+                              <img key={idx} src={url} alt={`上盖内衬图${idx + 1}`} style={imgStyle} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {bottomLinerImgs.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: "9px", color: "#888", marginBottom: "2px" }}>下盖内衬</div>
+                          <div style={imgRowStyle}>
+                            {bottomLinerImgs.map((url, idx) => (
+                              <img key={idx} src={url} alt={`下盖内衬图${idx + 1}`} style={imgStyle} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -229,13 +249,43 @@ function ModelRow({ m, i }: { m: any; i: number }) {
           {/* 纸箱 */}
           {m.needCarton && (
             <tr>
-              <td style={tdLabel2}>纸箱规格</td>
+              <td style={tdLabel2}>纸箱描述</td>
               <td style={{ ...tdValue2 }} colSpan={5}>
-                {m.innerBox && <span>内箱：{m.innerBox}</span>}
-                {m.innerBox && m.outerBox && (
-                  <span style={{ margin: "0 8px", color: "#ccc" }}>|</span>
-                )}
-                {m.outerBox && <span>外箱：{m.outerBox}</span>}
+                <div>
+                  {(m.innerBox || m.outerBox) && (
+                    <div style={{ marginBottom: "4px" }}>
+                      {m.innerBox && <span>内箱：{m.innerBox}</span>}
+                      {m.innerBox && m.outerBox && (
+                        <span style={{ margin: "0 8px", color: "#ccc" }}>|</span>
+                      )}
+                      {m.outerBox && <span>外箱：{m.outerBox}</span>}
+                    </div>
+                  )}
+                  {(innerBoxImgs.length > 0 || outerBoxImgs.length > 0) && (
+                    <div style={{ display: "flex", gap: "12px", marginTop: "4px" }}>
+                      {innerBoxImgs.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: "9px", color: "#888", marginBottom: "2px" }}>内箱图片</div>
+                          <div style={imgRowStyle}>
+                            {innerBoxImgs.map((url, idx) => (
+                              <img key={idx} src={url} alt={`内箱图${idx + 1}`} style={imgStyle} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {outerBoxImgs.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: "9px", color: "#888", marginBottom: "2px" }}>外箱图片</div>
+                          <div style={imgRowStyle}>
+                            {outerBoxImgs.map((url, idx) => (
+                              <img key={idx} src={url} alt={`外箱图${idx + 1}`} style={imgStyle} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </td>
             </tr>
           )}

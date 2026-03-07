@@ -295,8 +295,10 @@ export default function OrderView() {
             {models.map((m: any, i: number) => {
               const stickerImages = (() => { try { return JSON.parse(m.stickerImages || "[]"); } catch { return []; } })();
               const silkPrintImages = (() => { try { return JSON.parse(m.silkPrintImages || "[]"); } catch { return []; } })();
-              const linerImages = (() => { try { return JSON.parse(m.linerImages || "[]"); } catch { return []; } })();
-              const boxImages = (() => { try { return JSON.parse(m.boxImages || "[]"); } catch { return []; } })();
+              const topLinerImages = (() => { try { return JSON.parse(m.topLinerImages || "[]"); } catch { return []; } })();
+              const bottomLinerImages = (() => { try { return JSON.parse(m.bottomLinerImages || "[]"); } catch { return []; } })();
+              const innerBoxImages = (() => { try { return JSON.parse(m.innerBoxImages || "[]"); } catch { return []; } })();
+              const outerBoxImages = (() => { try { return JSON.parse(m.outerBoxImages || "[]"); } catch { return []; } })();
 
               return (
                 <div key={i} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -353,7 +355,24 @@ export default function OrderView() {
                           <DescField label="上盖内衬" value={m.topLiner} />
                           <DescField label="下盖内衬" value={m.bottomLiner} />
                         </DescGrid>
-                        <ImageGallery images={linerImages} label="内衬" />
+                        <div className="grid grid-cols-2 gap-4 mt-3">
+                          <div>
+                            {topLinerImages.length > 0 && (
+                              <>
+                                <p className="text-xs font-medium text-gray-500 mb-1">上盖内衬图片</p>
+                                <ImageGallery images={topLinerImages} label="上盖内衬" />
+                              </>
+                            )}
+                          </div>
+                          <div>
+                            {bottomLinerImages.length > 0 && (
+                              <>
+                                <p className="text-xs font-medium text-gray-500 mb-1">下盖内衬图片</p>
+                                <ImageGallery images={bottomLinerImages} label="下盖内衬" />
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -362,10 +381,27 @@ export default function OrderView() {
                       <div className="py-5">
                         <BlockTitle icon={Archive} color="bg-orange-500">纸箱描述</BlockTitle>
                         <DescGrid>
-                          <DescField label="内筱规格" value={m.innerBox} />
-                          <DescField label="外筱规格" value={m.outerBox} />
+                          <DescField label="内箱规格" value={m.innerBox} />
+                          <DescField label="外箱规格" value={m.outerBox} />
                         </DescGrid>
-                        <ImageGallery images={boxImages} label="纸箱" />
+                        <div className="grid grid-cols-2 gap-4 mt-3">
+                          <div>
+                            {innerBoxImages.length > 0 && (
+                              <>
+                                <p className="text-xs font-medium text-gray-500 mb-1">内箱图片</p>
+                                <ImageGallery images={innerBoxImages} label="内箱" />
+                              </>
+                            )}
+                          </div>
+                          <div>
+                            {outerBoxImages.length > 0 && (
+                              <>
+                                <p className="text-xs font-medium text-gray-500 mb-1">外箱图片</p>
+                                <ImageGallery images={outerBoxImages} label="外箱" />
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
 

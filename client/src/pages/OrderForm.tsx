@@ -33,14 +33,16 @@ interface ModelRow {
   needSilkPrint:   boolean;
   silkPrintDesc:   string;
   silkPrintImages: string[];
-  needLiner:       boolean;
-  topLiner:        string;
-  bottomLiner:     string;
-  linerImages:     string[];
-  needCarton:      boolean;
-  innerBox:        string;
-  outerBox:        string;
-  boxImages:       string[];   // 纸箱图片 URL 列表
+  needLiner:           boolean;
+  topLiner:            string;
+  bottomLiner:         string;
+  topLinerImages:      string[];   // 上盖内衬图片
+  bottomLinerImages:   string[];   // 下盖内衬图片
+  needCarton:          boolean;
+  innerBox:            string;
+  outerBox:            string;
+  innerBoxImages:      string[];   // 内箱图片
+  outerBoxImages:      string[];   // 外箱图片
   modelRemarks:    string;
   _expanded:       boolean;
 }
@@ -50,8 +52,8 @@ const emptyModel = (): ModelRow => ({
   topCover: "", bottomCover: "", accessories: "",
   needSticker: true, stickerSource: "", stickerDesc: "", stickerImages: [],
   needSilkPrint: true, silkPrintDesc: "", silkPrintImages: [],
-  needLiner: true, topLiner: "", bottomLiner: "", linerImages: [],
-  needCarton: true, innerBox: "", outerBox: "", boxImages: [],
+  needLiner: true, topLiner: "", bottomLiner: "", topLinerImages: [], bottomLinerImages: [],
+  needCarton: true, innerBox: "", outerBox: "", innerBoxImages: [], outerBoxImages: [],
   modelRemarks: "", _expanded: true,
 });
 
@@ -243,15 +245,27 @@ function ModelCard({
                     <Textarea placeholder="材质、颜色、厚度等" value={model.bottomLiner} onChange={e => onChange("bottomLiner", e.target.value)} rows={2} className="text-sm bg-white resize-none" />
                   </div>
                 </div>
-                <div>
-                  <Label className="text-xs text-gray-500 mb-1.5 block">内衬图片（可上传 CAD 图纸）</Label>
-                  <ImageUploader
-                    label="内衬CAD"
-                    category="liner"
-                    images={model.linerImages}
-                    onChange={urls => onChange("linerImages", urls)}
-                    maxCount={5}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1.5 block">上盖内衬图片</Label>
+                    <ImageUploader
+                      label="上盖内衬"
+                      category="liner"
+                      images={model.topLinerImages}
+                      onChange={urls => onChange("topLinerImages", urls)}
+                      maxCount={5}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1.5 block">下盖内衬图片</Label>
+                    <ImageUploader
+                      label="下盖内衬"
+                      category="liner"
+                      images={model.bottomLinerImages}
+                      onChange={urls => onChange("bottomLinerImages", urls)}
+                      maxCount={5}
+                    />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -266,22 +280,35 @@ function ModelCard({
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs text-gray-500 mb-1 block">内筱规格</Label>
+                    <Label className="text-xs text-gray-500 mb-1 block">内箱规格</Label>
                     <Input placeholder="如：30×20×15cm，白色" value={model.innerBox} onChange={e => onChange("innerBox", e.target.value)} className="h-9 text-sm bg-white" />
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-500 mb-1 block">外筱规格</Label>
+                    <Label className="text-xs text-gray-500 mb-1 block">外箱规格</Label>
                     <Input placeholder="如：60×40×30cm，五层瓦楞" value={model.outerBox} onChange={e => onChange("outerBox", e.target.value)} className="h-9 text-sm bg-white" />
                   </div>
                 </div>
-                <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">纸箱图片（包装图、设计稿等）</Label>
-                  <ImageUploader
-                    label="纸箱图片"
-                    category="carton"
-                    images={model.boxImages}
-                    onChange={urls => onChange("boxImages", urls)}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1.5 block">内箱图片</Label>
+                    <ImageUploader
+                      label="内箱"
+                      category="carton"
+                      images={model.innerBoxImages}
+                      onChange={urls => onChange("innerBoxImages", urls)}
+                      maxCount={5}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1.5 block">外箱图片</Label>
+                    <ImageUploader
+                      label="外箱"
+                      category="carton"
+                      images={model.outerBoxImages}
+                      onChange={urls => onChange("outerBoxImages", urls)}
+                      maxCount={5}
+                    />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -380,14 +407,16 @@ export default function OrderForm() {
         needSilkPrint:   m.needSilkPrint ?? true,
         silkPrintDesc:   m.silkPrintDesc ?? "",
         silkPrintImages: m.silkPrintImages ? JSON.parse(m.silkPrintImages) : [],
-        needLiner:       m.needLiner ?? true,
-        topLiner:        m.topLiner ?? "",
-        bottomLiner:     m.bottomLiner ?? "",
-        linerImages:     m.linerImages ? JSON.parse(m.linerImages) : [],
-        needCarton:      m.needCarton ?? true,
-        innerBox:        m.innerBox ?? "",
-        outerBox:        m.outerBox ?? "",
-        boxImages:       m.boxImages ? JSON.parse(m.boxImages) : [],
+        needLiner:           m.needLiner ?? true,
+        topLiner:            m.topLiner ?? "",
+        bottomLiner:         m.bottomLiner ?? "",
+        topLinerImages:      m.topLinerImages ? JSON.parse(m.topLinerImages) : [],
+        bottomLinerImages:   m.bottomLinerImages ? JSON.parse(m.bottomLinerImages) : [],
+        needCarton:          m.needCarton ?? true,
+        innerBox:            m.innerBox ?? "",
+        outerBox:            m.outerBox ?? "",
+        innerBoxImages:      m.innerBoxImages ? JSON.parse(m.innerBoxImages) : [],
+        outerBoxImages:      m.outerBoxImages ? JSON.parse(m.outerBoxImages) : [],
         modelRemarks:    m.modelRemarks ?? "",
         _expanded:       false,
       })));
@@ -418,12 +447,14 @@ export default function OrderForm() {
     }
     // 亚马逊订单号为可选，无需必填验证
     // 序列化图片数组为 JSON 字符串存储
-    const modelsPayload = models.map(({ _expanded, stickerImages, silkPrintImages, linerImages, boxImages, ...m }) => ({
+    const modelsPayload = models.map(({ _expanded, topLinerImages, bottomLinerImages, innerBoxImages, outerBoxImages, stickerImages, silkPrintImages, ...m }) => ({
       ...m,
-      stickerImages:   JSON.stringify(stickerImages),
-      silkPrintImages: JSON.stringify(silkPrintImages),
-      linerImages:     JSON.stringify(linerImages),
-      boxImages:       JSON.stringify(boxImages),
+      stickerImages:       JSON.stringify(stickerImages),
+      silkPrintImages:     JSON.stringify(silkPrintImages),
+      topLinerImages:      JSON.stringify(topLinerImages),
+      bottomLinerImages:   JSON.stringify(bottomLinerImages),
+      innerBoxImages:      JSON.stringify(innerBoxImages),
+      outerBoxImages:      JSON.stringify(outerBoxImages),
     }));
     if (isEdit && orderId) {
       updateMutation.mutate({ id: orderId, order: { ...header, status }, models: modelsPayload });

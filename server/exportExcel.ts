@@ -271,7 +271,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
 
   // ── 第5行：列标题
   ws.getRow(5).height = 24;
-  const headers = ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "丝印描述", "上盖内衬", "下盖内衬", "内筋规格", "外筋规格", "备注"];
+  const headers = ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "丝印描述", "上盖内衬", "下盖内衬", "内箱规格", "外箱规格", "备注"];
   headers.forEach((h, i) => {
     setCell(ws, 5, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
   });
@@ -316,15 +316,24 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
     currentRow++;
 
     // 图片行
-    const stickerUrls: string[] = m.needSticker ? parseJsonArray(m.stickerImages) : [];
-    const silkUrls: string[]    = m.needSilkPrint ? parseJsonArray(m.silkPrintImages) : [];
-    const linerUrls: string[]   = m.needLiner ? parseJsonArray(m.linerImages) : [];
-    const hasImages = stickerUrls.length > 0 || silkUrls.length > 0 || linerUrls.length > 0;
+    const stickerUrls: string[]      = m.needSticker   ? parseJsonArray(m.stickerImages)      : [];
+    const silkUrls: string[]         = m.needSilkPrint  ? parseJsonArray(m.silkPrintImages)    : [];
+    const topLinerUrls: string[]     = m.needLiner       ? parseJsonArray(m.topLinerImages)     : [];
+    const bottomLinerUrls: string[]  = m.needLiner       ? parseJsonArray(m.bottomLinerImages)  : [];
+    const innerBoxUrls: string[]     = m.needCarton      ? parseJsonArray(m.innerBoxImages)     : [];
+    const outerBoxUrls: string[]     = m.needCarton      ? parseJsonArray(m.outerBoxImages)     : [];
+    const hasImages = stickerUrls.length > 0 || silkUrls.length > 0
+      || topLinerUrls.length > 0 || bottomLinerUrls.length > 0
+      || innerBoxUrls.length > 0 || outerBoxUrls.length > 0;
 
     if (hasImages) {
       const IMG_HEIGHT_PT = 80;
       const imgStartRow = currentRow;
-      const maxRows = Math.max(stickerUrls.length, silkUrls.length, linerUrls.length);
+      const maxRows = Math.max(
+        stickerUrls.length, silkUrls.length,
+        topLinerUrls.length, bottomLinerUrls.length,
+        innerBoxUrls.length, outerBoxUrls.length
+      );
 
       for (let r = imgStartRow; r < imgStartRow + maxRows; r++) {
         ws.getRow(r).height = IMG_HEIGHT_PT;
@@ -347,8 +356,17 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       if (silkUrls.length > 0) {
         await embedImagesInColumn(wb, ws, imgStartRow, COL_SILK_DESC, silkUrls, COLORS.silk, "丝印", IMG_HEIGHT_PT);
       }
-      if (linerUrls.length > 0) {
-        await embedImagesInColumn(wb, ws, imgStartRow, COL_TOP_LINER, linerUrls, COLORS.liner, "内衬", IMG_HEIGHT_PT);
+      if (topLinerUrls.length > 0) {
+        await embedImagesInColumn(wb, ws, imgStartRow, COL_TOP_LINER, topLinerUrls, COLORS.liner, "上盖内衬", IMG_HEIGHT_PT);
+      }
+      if (bottomLinerUrls.length > 0) {
+        await embedImagesInColumn(wb, ws, imgStartRow, COL_BOT_LINER, bottomLinerUrls, COLORS.liner, "下盖内衬", IMG_HEIGHT_PT);
+      }
+      if (innerBoxUrls.length > 0) {
+        await embedImagesInColumn(wb, ws, imgStartRow, 12, innerBoxUrls, COLORS.carton, "内箱", IMG_HEIGHT_PT);
+      }
+      if (outerBoxUrls.length > 0) {
+        await embedImagesInColumn(wb, ws, imgStartRow, 13, outerBoxUrls, COLORS.carton, "外箱", IMG_HEIGHT_PT);
       }
 
       currentRow += maxRows;

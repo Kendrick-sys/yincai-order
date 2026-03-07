@@ -145,7 +145,7 @@ export async function getActivePiByOrderId(orderId: number) {
     .then(rows => rows.filter(r => r.docType === "pi" && r.status === "active"));
 }
 
-// ─── 查询单个单据 ─────────// ─── 版本号+1并更新PDF ──────────────────────────────────────────
+// ─── 版本号+1并更新PDF ──────────────────────────────────────────────────────
 
 export async function incrementDocumentVersion(id: number, pdfUrl: string, pdfKey: string) {
   const db = await getDb();
