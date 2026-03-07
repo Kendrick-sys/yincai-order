@@ -6,7 +6,7 @@ import {
   Plus, Search, FileDown, Pencil, Trash2,
   ClipboardList, Package, CheckCircle2, XCircle,
   Clock, Factory, ChevronRight, Copy, Printer,
-  Users, Trash
+  Users, Trash, Eye
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useState } from "react";
@@ -178,11 +178,11 @@ export default function Home() {
           {/* 表头 */}
           <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
             <span>订单信息</span>
-            <span>客户</span>
-            <span>交货日期</span>
-            <span>制单员</span>
-            <span>状态</span>
-            <span>操作</span>
+            <span className="text-center">客户</span>
+            <span className="text-center">交货日期</span>
+            <span className="text-center">制单员</span>
+            <span className="text-center">状态</span>
+            <span className="text-center">操作</span>
           </div>
 
           {isLoading ? (
@@ -211,11 +211,11 @@ export default function Home() {
                       </p>
                     </div>
                     {/* 客户 */}
-                    <span className="text-sm text-gray-600">{order.customer || "—"}</span>
+                    <span className="text-sm text-gray-600 text-center">{order.customer || "—"}</span>
                     {/* 交货日期 */}
-                    <span className="text-sm text-gray-600">{order.deliveryDate || "—"}</span>
+                    <span className="text-sm text-gray-600 text-center">{order.deliveryDate || "—"}</span>
                     {/* 制单员 */}
-                    <span className="text-sm text-gray-600">{order.maker || "—"}</span>
+                    <span className="text-sm text-gray-600 text-center">{order.maker || "—"}</span>
                     {/* 状态 */}
                     <div className="flex flex-col gap-1">
                       <Badge className={`text-xs border w-fit ${statusCfg.color}`} variant="outline">
@@ -232,7 +232,15 @@ export default function Home() {
                       )}
                     </div>
                     {/* 操作 */}
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 justify-center">
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-8 w-8 text-gray-400 hover:text-[#1A3C5E]"
+                        onClick={() => navigate(`/order/${order.id}/view`)}
+                        title="预览"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="ghost" size="icon"
                         className="h-8 w-8 text-gray-400 hover:text-[#1A3C5E]"

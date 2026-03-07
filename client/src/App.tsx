@@ -9,6 +9,7 @@ import OrderForm from "./pages/OrderForm";
 import PrintPreview from "./pages/PrintPreview";
 import Customers from "./pages/Customers";
 import Trash from "./pages/Trash";
+import OrderView from "./pages/OrderView";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/order/new"} component={OrderForm} />
       <Route path={"/order/:id/edit"} component={OrderForm} />
+      <Route path={"/order/:id/view"} component={OrderView} />
       <Route path={"/order/:id/print"} component={PrintPreview} />
       <Route path={"/customers"} component={Customers} />
       <Route path={"/trash"} component={Trash} />
