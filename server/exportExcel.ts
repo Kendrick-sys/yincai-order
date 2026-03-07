@@ -840,7 +840,7 @@ export async function generateMonthlyOrdersExcel(
   const wsModelDetail = wb.addWorksheet(`型号数量明细${statusSuffix}`);
   buildModelDetailSheet(
     wsModelDetail,
-    `吹彩 ${monthStr} 型号数量明细${statusSuffix}`,
+    `吟彩 ${monthStr} 型号数量明细${statusSuffix}`,
     allModelDetails
   );
 
@@ -849,7 +849,7 @@ export async function generateMonthlyOrdersExcel(
   const wsAlibaba = wb.addWorksheet(`阿里巴巴${statusSuffix}`);
   buildSummarySheet(
     wsAlibaba,
-    `吹彩 ${monthStr} 阿里巴巴订单汇总${statusSuffix}  共 ${alibabaOrders.length} 张`,
+    `吟彩 ${monthStr} 阿里巴巴订单汇总${statusSuffix}  共 ${alibabaOrders.length} 张`,
     alibabaOrders
   );
 
@@ -858,7 +858,7 @@ export async function generateMonthlyOrdersExcel(
   const ws1688 = wb.addWorksheet(`1688${statusSuffix}`);
   buildSummarySheet(
     ws1688,
-    `吹彩 ${monthStr} 1688订单汇总${statusSuffix}  共 ${orders1688.length} 张`,
+    `吟彩 ${monthStr} 1688订单汇总${statusSuffix}  共 ${orders1688.length} 张`,
     orders1688
   );
 
@@ -867,7 +867,7 @@ export async function generateMonthlyOrdersExcel(
   const wsAmazon = wb.addWorksheet(`亚马逊${statusSuffix}`);
   buildSummarySheet(
     wsAmazon,
-    `吹彩 ${monthStr} 亚马逊订单汇总${statusSuffix}  共 ${amazonOrders.length} 张`,
+    `吟彩 ${monthStr} 亚马逊订单汇总${statusSuffix}  共 ${amazonOrders.length} 张`,
     amazonOrders
   );
 
