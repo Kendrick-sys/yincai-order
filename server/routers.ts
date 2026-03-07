@@ -117,6 +117,49 @@ export const appRouter = router({
         await deleteOrder(input.id);
         return { success: true };
       }),
+
+    // 复制订单（复制主表+型号，状态重置为草稿）
+    duplicate: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const original = await getOrderById(input.id);
+        if (!original) throw new Error("订单不存在");
+        const today = new Date().toISOString().slice(0, 10);
+        const newId = await createOrder(
+          {
+            orderNo: undefined,
+            orderDescription: original.orderDescription ? `${original.orderDescription}（复制）` : "（复制）",
+            customer: original.customer ?? undefined,
+            maker: original.maker ?? undefined,
+            salesperson: original.salesperson ?? undefined,
+            orderDate: today,
+            deliveryDate: original.deliveryDate ?? undefined,
+            remarks: original.remarks ?? undefined,
+            status: "draft",
+          },
+          (original.models ?? []).map((m: any) => ({
+            modelName: m.modelName ?? undefined,
+            modelCode: m.modelCode ?? undefined,
+            quantity: m.quantity ?? undefined,
+            topCover: m.topCover ?? undefined,
+            bottomCover: m.bottomCover ?? undefined,
+            accessories: m.accessories ?? undefined,
+            needSticker: m.needSticker ?? true,
+            stickerSource: m.stickerSource ?? undefined,
+            stickerDesc: m.stickerDesc ?? undefined,
+            needSilkPrint: m.needSilkPrint ?? true,
+            silkPrintDesc: m.silkPrintDesc ?? undefined,
+            needLiner: m.needLiner ?? true,
+            topLiner: m.topLiner ?? undefined,
+            bottomLiner: m.bottomLiner ?? undefined,
+            needCarton: m.needCarton ?? true,
+            innerBox: m.innerBox ?? undefined,
+            outerBox: m.outerBox ?? undefined,
+            modelRemarks: m.modelRemarks ?? undefined,
+          }))
+        );
+        return { id: newId };
+      }),
   }),
 });
 

@@ -16,6 +16,17 @@ import { useLocation, useParams } from "wouter";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
+// ─── 预设客户列表 ────────────────────────────────────────────────────────────────
+const PRESET_CUSTOMERS: string[] = [
+  "香港佬",
+  "安卡",
+  "山海关",
+  "萨克斯",
+  "迪卡伦",
+  "小米",
+  "华为",
+];
+
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 interface ModelRow {
   modelName:     string;
@@ -389,7 +400,31 @@ export default function OrderForm() {
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">客户名称</Label>
-              <Input placeholder="如：香港佬" value={header.customer} onChange={e => setHeader(h => ({ ...h, customer: e.target.value }))} className="h-9 text-sm" />
+              <div className="flex gap-2">
+                <Select
+                  value={PRESET_CUSTOMERS.includes(header.customer) ? header.customer : (header.customer ? "__custom__" : "")}
+                  onValueChange={v => {
+                    if (v === "__custom__") return;
+                    setHeader(h => ({ ...h, customer: v }));
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-sm w-40 flex-shrink-0">
+                    <SelectValue placeholder="选择客户" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRESET_CUSTOMERS.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                    <SelectItem value="__custom__">手动输入...</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="手动输入客户名称"
+                  value={header.customer}
+                  onChange={e => setHeader(h => ({ ...h, customer: e.target.value }))}
+                  className="h-9 text-sm flex-1"
+                />
+              </div>
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">金蝶订单号</Label>

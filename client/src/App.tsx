@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import OrderForm from "./pages/OrderForm";
+import PrintPreview from "./pages/PrintPreview";
 
 function Router() {
   return (
@@ -13,6 +14,7 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/order/new"} component={OrderForm} />
       <Route path={"/order/:id/edit"} component={OrderForm} />
+      <Route path={"/order/:id/print"} component={PrintPreview} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

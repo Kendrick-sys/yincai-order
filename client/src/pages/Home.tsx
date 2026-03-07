@@ -5,9 +5,8 @@ import { Input } from "@/components/ui/input";
 import {
   Plus, Search, FileDown, Pencil, Trash2,
   ClipboardList, Package, CheckCircle2, XCircle,
-  Clock, Factory, ChevronRight
+  Clock, Factory, ChevronRight, Copy, Printer
 } from "lucide-react";
-
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -35,6 +34,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
 
   const { data: orders = [], isLoading, refetch } = trpc.orders.list.useQuery();
+
   const deleteMutation = trpc.orders.delete.useMutation({
     onSuccess: () => { toast.success("订单已删除"); refetch(); },
     onError: () => toast.error("删除失败，请重试"),
@@ -42,6 +42,14 @@ export default function Home() {
   const updateStatusMutation = trpc.orders.updateStatus.useMutation({
     onSuccess: () => { toast.success("状态已更新"); refetch(); },
     onError: () => toast.error("状态更新失败"),
+  });
+  const duplicateMutation = trpc.orders.duplicate.useMutation({
+    onSuccess: (data) => {
+      toast.success("订单已复制，正在跳转编辑...");
+      refetch();
+      navigate(`/order/${data.id}/edit`);
+    },
+    onError: () => toast.error("复制失败，请重试"),
   });
 
   const filtered = orders.filter(o =>
@@ -62,6 +70,11 @@ export default function Home() {
   const handleDelete = (id: number, desc: string) => {
     if (!confirm(`确定要删除订单「${desc || id}」吗？此操作不可恢复。`)) return;
     deleteMutation.mutate({ id });
+  };
+
+  const handleDuplicate = (id: number, desc: string) => {
+    if (!confirm(`确定要复制订单「${desc || id}」吗？将生成一份草稿副本。`)) return;
+    duplicateMutation.mutate({ id });
   };
 
   const nextStatus: Record<StatusKey, StatusKey | null> = {
@@ -190,6 +203,23 @@ export default function Home() {
                         title="编辑"
                       >
                         <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-8 w-8 text-gray-400 hover:text-purple-600"
+                        onClick={() => navigate(`/order/${order.id}/print`)}
+                        title="打印预览"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-8 w-8 text-gray-400 hover:text-blue-600"
+                        onClick={() => handleDuplicate(order.id, order.orderDescription ?? "")}
+                        title="复制订单"
+                        disabled={duplicateMutation.isPending}
+                      >
+                        <Copy className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost" size="icon"
