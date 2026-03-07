@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import { getOrderById, getDb } from "./db";
 import { orders as ordersTable, orderModels as orderModelsTable } from "../drizzle/schema";
-import { and, isNull, like, eq, sql } from "drizzle-orm";
+import { and, isNull, like, eq } from "drizzle-orm";
 import https from "https";
 import http from "http";
 
@@ -23,6 +23,8 @@ const COLORS = {
   disabledFg: "AAAAAA",
   border:     "DDDDDD",
   imgBg:      "FFFDE7",
+  overseas:   "D6E4F7",
+  domestic:   "F0F0F0",
 };
 
 function fill(hex: string): ExcelJS.Fill {
@@ -107,11 +109,11 @@ async function embedImagesInColumn(
   wb: ExcelJS.Workbook,
   ws: ExcelJS.Worksheet,
   startRow: number,
-  col: number,           // 1-indexed 列号
+  col: number,
   urls: string[],
   bgHex: string,
   labelText: string,
-  imgHeightPt = 80       // 每张图片行高（points）
+  imgHeightPt = 80
 ): Promise<number> {
   if (urls.length === 0) return 0;
 
@@ -125,14 +127,12 @@ async function embedImagesInColumn(
       const imgId = wb.addImage({ buffer: buf as any, extension: ext });
       const r = startRow + rowsUsed;
       ws.getRow(r).height = imgHeightPt;
-      // 填充背景
       const cell = ws.getCell(r, col);
       cell.fill = fill(bgHex);
       cell.border = border();
       cell.alignment = { horizontal: "center", vertical: "bottom", wrapText: true };
       cell.font = font("888888", false, 7);
       cell.value = rowsUsed === 0 ? labelText : "";
-      // 嵌入图片（0-indexed）
       ws.addImage(imgId, {
         tl: { col: col - 1, row: r - 1 } as any,
         br: { col: col,     row: r     } as any,
@@ -147,7 +147,7 @@ async function embedImagesInColumn(
 }
 
 /**
- * 生成单张订单的 Excel（吟彩版 + 厂部版两个 sheet）
+ * 生成单张订单的 Excel（只有「吟彩销售订单记录表」一个工作表）
  */
 export async function generateOrderExcel(orderId: number): Promise<Buffer> {
   const order = await getOrderById(orderId);
@@ -157,252 +157,313 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
   wb.creator = "吟彩销售订单系统";
   wb.created = new Date();
 
-  for (const version of ["yincai", "factory"] as const) {
-    const isYincai = version === "yincai";
-    const sheetName = isYincai ? "吟彩版" : "厂部版";
-    const ws = wb.addWorksheet(sheetName, {
-      pageSetup: {
-        paperSize: 9, // A4
-        orientation: "landscape",
-        fitToPage: true,
-        fitToWidth: 1,
-        fitToHeight: 0,
-        margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
-      },
-    });
+  const ws = wb.addWorksheet("吟彩销售订单记录表", {
+    pageSetup: {
+      paperSize: 9, // A4
+      orientation: "landscape",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
+    },
+  });
 
-    // 列宽定义
-    // 吟彩版列：描述项目|型号名称|数量|上盖|下盖|配件|贴纸来源|贴纸描述|丝印描述|上盖内衬|下盖内衬|内箱|外箱|备注
-    // 厂部版列：描述项目|型号名称|数量|上盖|下盖|配件|贴纸来源|贴纸描述|上盖内衬|下盖内衬|内箱|外箱|备注
-    const colWidths = isYincai
-      ? [18, 16, 8, 14, 14, 12, 12, 18, 18, 16, 16, 14, 14, 14]
-      : [18, 16, 8, 14, 14, 12, 12, 18, 16, 16, 14, 14, 14];
-    colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  // 列宽：描述项目|型号名称|数量|上盖|下盖|配件|贴纸来源|贴纸描述|丝印描述|上盖内衬|下盖内衬|内箱|外箱|备注
+  const colWidths = [18, 16, 8, 14, 14, 12, 12, 18, 18, 16, 16, 14, 14, 14];
+  colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  const totalCols = colWidths.length;
 
-    const totalCols = colWidths.length;
+  // 列索引（1-indexed）
+  const COL_STICKER_DESC = 8;
+  const COL_SILK_DESC    = 9;
+  const COL_TOP_LINER    = 10;
+  const COL_BOT_LINER    = 11;
 
-    // 列索引映射（1-indexed）
-    // 吟彩版: A=1描述项目, B=2型号名称, C=3数量, D=4上盖, E=5下盖, F=6配件
-    //         G=7贴纸来源, H=8贴纸描述, I=9丝印描述, J=10上盖内衬, K=11下盖内衬
-    //         L=12内箱, M=13外箱, N=14备注
-    // 厂部版: A=1描述项目, B=2型号名称, C=3数量, D=4上盖, E=5下盖, F=6配件
-    //         G=7贴纸来源, H=8贴纸描述, I=9上盖内衬, J=10下盖内衬
-    //         K=11内箱, L=12外箱, M=13备注
-    const COL_STICKER_DESC = 8;  // H列：贴纸描述（两版相同）
-    const COL_SILK_DESC    = isYincai ? 9  : -1; // I列（仅吟彩版）
-    const COL_TOP_LINER    = isYincai ? 10 : 9;
-    const COL_BOT_LINER    = isYincai ? 11 : 10;
+  // ── 第1行：大标题
+  ws.getRow(1).height = 36;
+  mergeSet(ws, 1, 1, 1, totalCols, "吟彩销售订单记录表", COLORS.headerBg, COLORS.headerFg, true, 14);
 
-    // ── 第1行：大标题
-    ws.getRow(1).height = 36;
-    mergeSet(ws, 1, 1, 1, totalCols,
-      "吟彩销售订单记录表",
-      COLORS.headerBg, COLORS.headerFg, true, 14);
-
-    // ── 第2行：订单基本信息
-    ws.getRow(2).height = 20;
-    const customerTypeLabel = order.customerType === "overseas" ? "国外" : "国内";
-    const customsLabel = order.customerType === "overseas"
-      ? ((order as any).customsDeclared ? "「需要报关」" : "「无需报关」")
-      : "";
-    const basicInfo = [
-      `订单描述：${order.orderDescription ?? ""}`,
-      `客户：${order.customer ?? ""}  [${customerTypeLabel}]${customsLabel}`,
-      `订单号：${order.orderNo ?? ""}`,
-      `下单日期：${order.orderDate ?? ""}`,
-      `交货日期：${order.deliveryDate ?? ""}`,
-      `制单员：${order.maker ?? ""}  销售员：${order.salesperson ?? ""}`,
-    ];
-    const infoCells = [
-      basicInfo.slice(0, 2).join("   "),
-      basicInfo.slice(2, 4).join("   "),
-      basicInfo.slice(4).join("   "),
-    ];
-    const infoSpan = Math.floor(totalCols / 3);
-    for (let i = 0; i < 3; i++) {
-      const c1 = i * infoSpan + 1;
-      const c2 = i === 2 ? totalCols : (i + 1) * infoSpan;
-      mergeSet(ws, 2, c1, 2, c2, infoCells[i], COLORS.labelBg, COLORS.labelFg, false, 9);
-    }
-
-    // ── 第3行：列标题
-    ws.getRow(3).height = 24;
-    const headers = isYincai
-      ? ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "丝印描述", "上盖内衬", "下盖内衬", "内箱规格", "外箱规格", "备注"]
-      : ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "上盖内衬", "下盖内衬", "内箱规格", "外箱规格", "备注"];
-    headers.forEach((h, i) => {
-      setCell(ws, 3, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
-    });
-
-    // ── 数据行（每个型号：文字行 + 图片行）───────────────────────────────────
-    const models = order.models ?? [];
-    let currentRow = 4;
-
-    for (let idx = 0; idx < models.length; idx++) {
-      const m = models[idx];
-      const dataRow = currentRow;
-      ws.getRow(dataRow).height = 40;
-
-      const rowBg = idx % 2 === 0 ? COLORS.valueBg : "FAFBFC";
-
-      // A列：序号
-      setCell(ws, dataRow, 1, `型号 ${idx + 1}`, COLORS.sectionBox, COLORS.sectionFg, true, 9, "center");
-      // B: 型号名称
-      setCell(ws, dataRow, 2, m.modelName ?? "", rowBg, COLORS.valueFg);
-      // C: 数量
-      setCell(ws, dataRow, 3, m.quantity ?? "", rowBg, COLORS.valueFg, false, 10, "center");
-      // D: 上盖
-      setCell(ws, dataRow, 4, m.topCover ?? "", rowBg, COLORS.valueFg);
-      // E: 下盖
-      setCell(ws, dataRow, 5, m.bottomCover ?? "", rowBg, COLORS.valueFg);
-      // F: 配件
-      setCell(ws, dataRow, 6, m.accessories ?? "", rowBg, COLORS.valueFg);
-
-      // G: 贴纸来源
-      const stickerBg = m.needSticker ? rowBg : COLORS.disabled;
-      const stickerFg = m.needSticker ? COLORS.valueFg : COLORS.disabledFg;
-      setCell(ws, dataRow, 7, m.needSticker ? (m.stickerSource ?? "") : "不需要", stickerBg, stickerFg);
-      // H: 贴纸描述
-      setCell(ws, dataRow, COL_STICKER_DESC, m.needSticker ? (m.stickerDesc ?? "") : "—", stickerBg, stickerFg);
-
-      if (isYincai) {
-        // I: 丝印描述
-        const silkBg = m.needSilkPrint ? rowBg : COLORS.disabled;
-        const silkFg = m.needSilkPrint ? COLORS.valueFg : COLORS.disabledFg;
-        setCell(ws, dataRow, COL_SILK_DESC, m.needSilkPrint ? (m.silkPrintDesc ?? "") : "不需要", silkBg, silkFg);
-      }
-
-      // 内衬
-      const linerBg = m.needLiner ? rowBg : COLORS.disabled;
-      const linerFg = m.needLiner ? COLORS.valueFg : COLORS.disabledFg;
-      setCell(ws, dataRow, COL_TOP_LINER, m.needLiner ? (m.topLiner ?? "") : "不需要", linerBg, linerFg);
-      setCell(ws, dataRow, COL_BOT_LINER, m.needLiner ? (m.bottomLiner ?? "") : "—", linerBg, linerFg);
-
-      // 纸箱
-      const cartonColStart = isYincai ? 12 : 11;
-      const cartonBg = m.needCarton ? rowBg : COLORS.disabled;
-      const cartonFg = m.needCarton ? COLORS.valueFg : COLORS.disabledFg;
-      setCell(ws, dataRow, cartonColStart,     m.needCarton ? (m.innerBox ?? "") : "不需要", cartonBg, cartonFg);
-      setCell(ws, dataRow, cartonColStart + 1, m.needCarton ? (m.outerBox ?? "") : "—", cartonBg, cartonFg);
-
-      // 备注
-      setCell(ws, dataRow, totalCols, m.modelRemarks ?? "", rowBg, COLORS.valueFg);
-
-      currentRow++;
-
-      // ── 图片行：按列分别嵌入图片 ────────────────────────────────────────────
-      const stickerUrls: string[] = m.needSticker ? parseJsonArray(m.stickerImages) : [];
-      const silkUrls: string[]    = (isYincai && m.needSilkPrint) ? parseJsonArray(m.silkPrintImages) : [];
-      const linerUrls: string[]   = m.needLiner ? parseJsonArray(m.linerImages) : [];
-
-      const hasImages = stickerUrls.length > 0 || silkUrls.length > 0 || linerUrls.length > 0;
-
-      if (hasImages) {
-        const IMG_HEIGHT_PT = 80; // 每张图片行高（points）
-        const imgStartRow = currentRow;
-
-        // 先计算各列最多需要多少行（每张图片一行）
-        const maxRows = Math.max(
-          stickerUrls.length,
-          silkUrls.length,
-          linerUrls.length,
-        );
-
-        // 预设所有图片行的行高，并填充背景
-        for (let r = imgStartRow; r < imgStartRow + maxRows; r++) {
-          ws.getRow(r).height = IMG_HEIGHT_PT;
-          // 填充整行背景
-          for (let c = 1; c <= totalCols; c++) {
-            const cell = ws.getCell(r, c);
-            cell.fill = fill(COLORS.imgBg);
-            cell.border = border();
-          }
-        }
-
-        // A列标注"附件图片"（跨所有图片行）
-        if (maxRows === 1) {
-          setCell(ws, imgStartRow, 1, "附件图片", COLORS.labelBg, COLORS.labelFg, true, 8, "center");
-        } else {
-          mergeSet(ws, imgStartRow, 1, imgStartRow + maxRows - 1, 1, "附件图片", COLORS.labelBg, COLORS.labelFg, true, 8);
-        }
-
-        // 贴纸图片 → 贴纸描述列（H列 = COL_STICKER_DESC）
-        if (stickerUrls.length > 0) {
-          await embedImagesInColumn(wb, ws, imgStartRow, COL_STICKER_DESC, stickerUrls, COLORS.sticker, "贴纸", IMG_HEIGHT_PT);
-        }
-
-        // 丝印图片 → 丝印描述列（I列，仅吟彩版）
-        if (isYincai && silkUrls.length > 0 && COL_SILK_DESC > 0) {
-          await embedImagesInColumn(wb, ws, imgStartRow, COL_SILK_DESC, silkUrls, COLORS.silk, "丝印", IMG_HEIGHT_PT);
-        }
-
-        // 内衬图片 → 上盖内衬列（J/I列）
-        if (linerUrls.length > 0) {
-          await embedImagesInColumn(wb, ws, imgStartRow, COL_TOP_LINER, linerUrls, COLORS.liner, "内衬", IMG_HEIGHT_PT);
-        }
-
-        currentRow += maxRows;
-      }
-    }
-
-    // 如果没有型号，加一个空行提示
-    if (models.length === 0) {
-      ws.getRow(currentRow).height = 30;
-      mergeSet(ws, currentRow, 1, currentRow, totalCols, "（暂无型号数据）", COLORS.disabled, COLORS.disabledFg);
-      currentRow++;
-    }
-
-    // ── 备注行 ────────────────────────────────────────────────────────────────
-    const remarkRow = currentRow + 1;
-    ws.getRow(remarkRow).height = 18;
-    mergeSet(ws, remarkRow, 1, remarkRow, 2, "订单备注", COLORS.labelBg, COLORS.labelFg, true, 9);
-    mergeSet(ws, remarkRow, 3, remarkRow, totalCols, order.remarks ?? "", COLORS.valueBg, COLORS.valueFg);
-
-    // ── 收件人信息行 ──────────────────────────────────────────────────────────
-    const recipientRow = remarkRow + 1;
-    ws.getRow(recipientRow).height = 18;
-    const recipientInfo = [
-      order.recipientName    ? `收件人：${order.recipientName}` : "",
-      order.recipientPhone   ? `电话：${order.recipientPhone}` : "",
-      order.recipientAddress ? `地址：${order.recipientAddress}` : "",
-      order.factoryShipNo    ? `工厂发货单号：${order.factoryShipNo}` : "",
-    ].filter(Boolean).join("   ");
-
-    if (recipientInfo) {
-      mergeSet(ws, recipientRow, 1, recipientRow, 2, "收件信息", COLORS.labelBg, COLORS.labelFg, true, 9);
-      mergeSet(ws, recipientRow, 3, recipientRow, totalCols, recipientInfo, COLORS.valueBg, COLORS.valueFg);
-    } else {
-      mergeSet(ws, recipientRow, 1, recipientRow, totalCols, "", COLORS.valueBg, COLORS.valueFg);
-    }
-
-    // ── 签名行 ────────────────────────────────────────────────────────────────
-    const signRow = recipientRow + 1;
-    ws.getRow(signRow).height = 28;
-    const depts = ["计划部", "仓库", "质检部", "生产部"];
-    const signSpan = Math.floor(totalCols / depts.length);
-    depts.forEach((dept, i) => {
-      const c1 = i * signSpan + 1;
-      const c2 = i === depts.length - 1 ? totalCols : (i + 1) * signSpan;
-      mergeSet(ws, signRow, c1, signRow, c2, `${dept}签名：`, COLORS.labelBg, COLORS.labelFg, false, 9);
-    });
-
-    // 打印区域
-    ws.pageSetup.printArea = `A1:${String.fromCharCode(64 + totalCols)}${signRow}`;
-    ws.pageSetup.firstPageNumber = 1;
+  // ── 第2行：订单基本信息（含国内/国外 + 报关标注）
+  ws.getRow(2).height = 20;
+  const isOverseas = (order as any).customerType === "overseas";
+  const customerTypeLabel = isOverseas ? "国外" : "国内";
+  const customsLabel = isOverseas
+    ? ((order as any).customsDeclared ? "  需要报关" : "  无需报关")
+    : "";
+  const basicInfo = [
+    `订单描述：${order.orderDescription ?? ""}`,
+    `客户：${order.customer ?? ""}  [${customerTypeLabel}]${customsLabel}`,
+    `订单号：${order.orderNo ?? ""}`,
+    `下单日期：${order.orderDate ?? ""}`,
+    `交货日期：${order.deliveryDate ?? ""}`,
+    `制单员：${order.maker ?? ""}  销售员：${order.salesperson ?? ""}`,
+  ];
+  const infoCells = [
+    basicInfo.slice(0, 2).join("   "),
+    basicInfo.slice(2, 4).join("   "),
+    basicInfo.slice(4).join("   "),
+  ];
+  const infoSpan = Math.floor(totalCols / 3);
+  for (let i = 0; i < 3; i++) {
+    const c1 = i * infoSpan + 1;
+    const c2 = i === 2 ? totalCols : (i + 1) * infoSpan;
+    const infoBg = i === 0 && isOverseas ? COLORS.overseas : COLORS.labelBg;
+    mergeSet(ws, 2, c1, 2, c2, infoCells[i], infoBg, COLORS.labelFg, false, 9);
   }
+
+  // ── 第3行：列标题
+  ws.getRow(3).height = 24;
+  const headers = ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "丝印描述", "上盖内衬", "下盖内衬", "内箱规格", "外箱规格", "备注"];
+  headers.forEach((h, i) => {
+    setCell(ws, 3, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
+  });
+
+  // ── 数据行（每个型号：文字行 + 图片行）
+  const models = order.models ?? [];
+  let currentRow = 4;
+
+  for (let idx = 0; idx < models.length; idx++) {
+    const m = models[idx];
+    const dataRow = currentRow;
+    ws.getRow(dataRow).height = 40;
+    const rowBg = idx % 2 === 0 ? COLORS.valueBg : "FAFBFC";
+
+    setCell(ws, dataRow, 1, `型号 ${idx + 1}`, COLORS.sectionBox, COLORS.sectionFg, true, 9, "center");
+    setCell(ws, dataRow, 2, m.modelName ?? "", rowBg, COLORS.valueFg);
+    setCell(ws, dataRow, 3, m.quantity ?? "", rowBg, COLORS.valueFg, false, 10, "center");
+    setCell(ws, dataRow, 4, m.topCover ?? "", rowBg, COLORS.valueFg);
+    setCell(ws, dataRow, 5, m.bottomCover ?? "", rowBg, COLORS.valueFg);
+    setCell(ws, dataRow, 6, m.accessories ?? "", rowBg, COLORS.valueFg);
+
+    const stickerBg = m.needSticker ? rowBg : COLORS.disabled;
+    const stickerFg = m.needSticker ? COLORS.valueFg : COLORS.disabledFg;
+    setCell(ws, dataRow, 7, m.needSticker ? (m.stickerSource ?? "") : "不需要", stickerBg, stickerFg);
+    setCell(ws, dataRow, COL_STICKER_DESC, m.needSticker ? (m.stickerDesc ?? "") : "—", stickerBg, stickerFg);
+
+    const silkBg = m.needSilkPrint ? rowBg : COLORS.disabled;
+    const silkFg = m.needSilkPrint ? COLORS.valueFg : COLORS.disabledFg;
+    setCell(ws, dataRow, COL_SILK_DESC, m.needSilkPrint ? (m.silkPrintDesc ?? "") : "不需要", silkBg, silkFg);
+
+    const linerBg = m.needLiner ? rowBg : COLORS.disabled;
+    const linerFg = m.needLiner ? COLORS.valueFg : COLORS.disabledFg;
+    setCell(ws, dataRow, COL_TOP_LINER, m.needLiner ? (m.topLiner ?? "") : "不需要", linerBg, linerFg);
+    setCell(ws, dataRow, COL_BOT_LINER, m.needLiner ? (m.bottomLiner ?? "") : "—", linerBg, linerFg);
+
+    const cartonBg = m.needCarton ? rowBg : COLORS.disabled;
+    const cartonFg = m.needCarton ? COLORS.valueFg : COLORS.disabledFg;
+    setCell(ws, dataRow, 12, m.needCarton ? (m.innerBox ?? "") : "不需要", cartonBg, cartonFg);
+    setCell(ws, dataRow, 13, m.needCarton ? (m.outerBox ?? "") : "—", cartonBg, cartonFg);
+    setCell(ws, dataRow, totalCols, m.modelRemarks ?? "", rowBg, COLORS.valueFg);
+
+    currentRow++;
+
+    // 图片行
+    const stickerUrls: string[] = m.needSticker ? parseJsonArray(m.stickerImages) : [];
+    const silkUrls: string[]    = m.needSilkPrint ? parseJsonArray(m.silkPrintImages) : [];
+    const linerUrls: string[]   = m.needLiner ? parseJsonArray(m.linerImages) : [];
+    const hasImages = stickerUrls.length > 0 || silkUrls.length > 0 || linerUrls.length > 0;
+
+    if (hasImages) {
+      const IMG_HEIGHT_PT = 80;
+      const imgStartRow = currentRow;
+      const maxRows = Math.max(stickerUrls.length, silkUrls.length, linerUrls.length);
+
+      for (let r = imgStartRow; r < imgStartRow + maxRows; r++) {
+        ws.getRow(r).height = IMG_HEIGHT_PT;
+        for (let c = 1; c <= totalCols; c++) {
+          const cell = ws.getCell(r, c);
+          cell.fill = fill(COLORS.imgBg);
+          cell.border = border();
+        }
+      }
+
+      if (maxRows === 1) {
+        setCell(ws, imgStartRow, 1, "附件图片", COLORS.labelBg, COLORS.labelFg, true, 8, "center");
+      } else {
+        mergeSet(ws, imgStartRow, 1, imgStartRow + maxRows - 1, 1, "附件图片", COLORS.labelBg, COLORS.labelFg, true, 8);
+      }
+
+      if (stickerUrls.length > 0) {
+        await embedImagesInColumn(wb, ws, imgStartRow, COL_STICKER_DESC, stickerUrls, COLORS.sticker, "贴纸", IMG_HEIGHT_PT);
+      }
+      if (silkUrls.length > 0) {
+        await embedImagesInColumn(wb, ws, imgStartRow, COL_SILK_DESC, silkUrls, COLORS.silk, "丝印", IMG_HEIGHT_PT);
+      }
+      if (linerUrls.length > 0) {
+        await embedImagesInColumn(wb, ws, imgStartRow, COL_TOP_LINER, linerUrls, COLORS.liner, "内衬", IMG_HEIGHT_PT);
+      }
+
+      currentRow += maxRows;
+    }
+  }
+
+  if (models.length === 0) {
+    ws.getRow(currentRow).height = 30;
+    mergeSet(ws, currentRow, 1, currentRow, totalCols, "（暂无型号数据）", COLORS.disabled, COLORS.disabledFg);
+    currentRow++;
+  }
+
+  // 备注行
+  const remarkRow = currentRow + 1;
+  ws.getRow(remarkRow).height = 18;
+  mergeSet(ws, remarkRow, 1, remarkRow, 2, "订单备注", COLORS.labelBg, COLORS.labelFg, true, 9);
+  mergeSet(ws, remarkRow, 3, remarkRow, totalCols, order.remarks ?? "", COLORS.valueBg, COLORS.valueFg);
+
+  // 收件人信息行
+  const recipientRow = remarkRow + 1;
+  ws.getRow(recipientRow).height = 18;
+  const recipientInfo = [
+    order.recipientName    ? `收件人：${order.recipientName}` : "",
+    order.recipientPhone   ? `电话：${order.recipientPhone}` : "",
+    order.recipientAddress ? `地址：${order.recipientAddress}` : "",
+    order.factoryShipNo    ? `工厂发货单号：${order.factoryShipNo}` : "",
+  ].filter(Boolean).join("   ");
+
+  if (recipientInfo) {
+    mergeSet(ws, recipientRow, 1, recipientRow, 2, "收件信息", COLORS.labelBg, COLORS.labelFg, true, 9);
+    mergeSet(ws, recipientRow, 3, recipientRow, totalCols, recipientInfo, COLORS.valueBg, COLORS.valueFg);
+  } else {
+    mergeSet(ws, recipientRow, 1, recipientRow, totalCols, "", COLORS.valueBg, COLORS.valueFg);
+  }
+
+  // 签名行
+  const signRow = recipientRow + 1;
+  ws.getRow(signRow).height = 28;
+  const depts = ["计划部", "仓库", "质检部", "生产部"];
+  const signSpan = Math.floor(totalCols / depts.length);
+  depts.forEach((dept, i) => {
+    const c1 = i * signSpan + 1;
+    const c2 = i === depts.length - 1 ? totalCols : (i + 1) * signSpan;
+    mergeSet(ws, signRow, c1, signRow, c2, `${dept}签名：`, COLORS.labelBg, COLORS.labelFg, false, 9);
+  });
+
+  ws.pageSetup.printArea = `A1:${String.fromCharCode(64 + totalCols)}${signRow}`;
+  ws.pageSetup.firstPageNumber = 1;
 
   const buffer = await wb.xlsx.writeBuffer();
   return Buffer.from(buffer);
 }
 
-/**
- * 按年月批量导出该月所有订单 Excel（每个订单一个 Sheet）
- * @param year   4位年份，如 2026
- * @param month  1-12月份
- * @param status 可选状态筛选，不传则导出全部
- */
+// ──────────────────────────────────────────────────────────────────────────────
+// 按月汇总导出辅助类型
+// ──────────────────────────────────────────────────────────────────────────────
+
 type OrderStatus = "draft" | "submitted" | "in_production" | "completed" | "cancelled";
 
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  draft: "草稿",
+  submitted: "已提交",
+  in_production: "生产中",
+  completed: "已完成",
+  cancelled: "已取消",
+};
+
+const STATUS_DISPLAY: Record<string, string> = {
+  draft: "草稿",
+  submitted: "已提交",
+  in_production: "生产中",
+  completed: "已完成",
+  cancelled: "已取消",
+};
+
+/**
+ * 在汇总工作表中写入一批订单的汇总行
+ * 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 订单号 | 下单日期 | 交货日期 | 制单员 | 销售员 | 状态 | 型号数 | 备注
+ */
+function buildSummarySheet(
+  ws: ExcelJS.Worksheet,
+  sheetTitle: string,
+  ordersData: Array<{
+    id: number;
+    orderDescription: string | null;
+    customer: string | null;
+    customerType: string | null;
+    customsDeclared: boolean | null;
+    orderNo: string | null;
+    orderDate: string | null;
+    deliveryDate: string | null;
+    maker: string | null;
+    salesperson: string | null;
+    status: string | null;
+    remarks: string | null;
+    modelCount: number;
+  }>
+) {
+  const COL_WIDTHS = [6, 22, 18, 10, 10, 16, 12, 12, 10, 10, 10, 8, 28];
+  COL_WIDTHS.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  const totalCols = COL_WIDTHS.length;
+
+  // 第1行：大标题
+  ws.getRow(1).height = 34;
+  mergeSet(ws, 1, 1, 1, totalCols, sheetTitle, COLORS.headerBg, COLORS.headerFg, true, 13);
+
+  // 第2行：列标题
+  ws.getRow(2).height = 22;
+  const headers = ["序号", "订单描述", "客户", "国内/国外", "是否报关", "订单号", "下单日期", "交货日期", "制单员", "销售员", "状态", "型号数", "备注"];
+  headers.forEach((h, i) => {
+    setCell(ws, 2, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
+  });
+
+  if (ordersData.length === 0) {
+    ws.getRow(3).height = 28;
+    mergeSet(ws, 3, 1, 3, totalCols, "（本月暂无此类订单）", COLORS.disabled, COLORS.disabledFg);
+    return;
+  }
+
+  ordersData.forEach((order, idx) => {
+    const row = idx + 3;
+    ws.getRow(row).height = 32;
+    const rowBg = idx % 2 === 0 ? COLORS.valueBg : "FAFBFC";
+    const isOverseas = order.customerType === "overseas";
+    const customerTypeTxt = isOverseas ? "国外" : "国内";
+    const customsTxt = isOverseas
+      ? (order.customsDeclared ? "需要报关" : "无需报关")
+      : "—";
+    const statusTxt = STATUS_DISPLAY[order.status ?? ""] ?? (order.status ?? "");
+
+    // 国外行用浅蓝背景，国内用默认背景
+    const rowActualBg = isOverseas ? (idx % 2 === 0 ? "EBF4FF" : "D6EAFF") : rowBg;
+
+    const values = [
+      String(idx + 1),
+      order.orderDescription ?? "",
+      order.customer ?? "",
+      customerTypeTxt,
+      customsTxt,
+      order.orderNo ?? "",
+      order.orderDate ?? "",
+      order.deliveryDate ?? "",
+      order.maker ?? "",
+      order.salesperson ?? "",
+      statusTxt,
+      String(order.modelCount),
+      order.remarks ?? "",
+    ];
+
+    values.forEach((val, ci) => {
+      const align: ExcelJS.Alignment["horizontal"] = (ci === 0 || ci === 11) ? "center" : "left";
+      // 国内/国外列和报关列用特殊颜色
+      let cellBg = rowActualBg;
+      let cellFg = COLORS.valueFg;
+      if (ci === 3) {
+        cellBg = isOverseas ? COLORS.overseas : COLORS.domestic;
+        cellFg = isOverseas ? "1A3C5E" : "555555";
+      } else if (ci === 4 && isOverseas) {
+        cellBg = order.customsDeclared ? "FFF3CD" : "F0F0F0";
+        cellFg = order.customsDeclared ? "7B5800" : "555555";
+      }
+      setCell(ws, row, ci + 1, val, cellBg, cellFg, false, 9, align);
+    });
+  });
+}
+
+/**
+ * 按年月批量导出该月所有订单 Excel
+ * 共3个工作表：
+ *   1. 「吟彩X月所有销售」 - 全部订单汇总
+ *   2. 「国内」 - 国内客户订单
+ *   3. 「国外」 - 国外客户订单（含报关信息）
+ */
 export async function generateMonthlyOrdersExcel(
   year: number,
   month: number,
@@ -411,7 +472,6 @@ export async function generateMonthlyOrdersExcel(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  // orderDate 格式为 "YYYY-MM-DD"，按前缀匹配
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
 
   const conditions = [
@@ -424,153 +484,68 @@ export async function generateMonthlyOrdersExcel(
     .where(and(...conditions))
     .orderBy(ordersTable.orderDate);
 
-  const statusLabel = status ? `「${{
-    draft: "草稿", submitted: "已提交",
-    in_production: "生产中", completed: "已完成", cancelled: "已取消"
-  }[status] ?? status}」` : "全部";
+  const statusLabel = status ? `「${STATUS_LABEL[status] ?? status}」` : "全部";
 
   if (monthOrders.length === 0) {
     throw new Error(`${year}年${month}月${statusLabel}订单暂无数据`);
   }
 
-  // 为每个订单加载型号
-  const ordersWithModels = await Promise.all(
+  // 加载每个订单的型号数量
+  const ordersWithModelCount = await Promise.all(
     monthOrders.map(async (order) => {
       const models = await db!.select().from(orderModelsTable)
-        .where(eq(orderModelsTable.orderId, order.id))
-        .orderBy(orderModelsTable.sortOrder);
-      return { ...order, models };
+        .where(eq(orderModelsTable.orderId, order.id));
+      return {
+        id: order.id,
+        orderDescription: order.orderDescription,
+        customer: order.customer,
+        customerType: (order as any).customerType as string | null,
+        customsDeclared: (order as any).customsDeclared as boolean | null,
+        orderNo: order.orderNo,
+        orderDate: order.orderDate,
+        deliveryDate: order.deliveryDate,
+        maker: order.maker,
+        salesperson: order.salesperson,
+        status: order.status,
+        remarks: order.remarks,
+        modelCount: models.length,
+      };
     })
   );
+
+  const domesticOrders = ordersWithModelCount.filter(o => o.customerType !== "overseas");
+  const overseasOrders = ordersWithModelCount.filter(o => o.customerType === "overseas");
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "吟彩销售订单系统";
   wb.created = new Date();
 
-  for (const order of ordersWithModels) {
-    for (const version of ["yincai", "factory"] as const) {
-      const isYincai = version === "yincai";
-      // Sheet 名称：订单描述前8字 + 版本
-      const descShort = (order.orderDescription ?? `订单${order.id}`).slice(0, 8);
-      const sheetName = `${descShort}_${isYincai ? "吟" : "厂"}`;
-      const ws = wb.addWorksheet(sheetName, {
-        pageSetup: {
-          paperSize: 9,
-          orientation: "landscape",
-          fitToPage: true,
-          fitToWidth: 1,
-          fitToHeight: 0,
-        },
-      });
+  const monthStr = `${year}年${month}月`;
+  const statusSuffix = status ? `（${STATUS_LABEL[status]}）` : "";
 
-      const totalCols = isYincai ? 14 : 13;
-      const colWidths = isYincai
-        ? [14, 14, 8, 14, 14, 12, 12, 20, 20, 20, 20, 16, 16, 16]
-        : [14, 14, 8, 14, 14, 12, 12, 20, 20, 20, 16, 16, 16];
-      colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  // ── 工作表1：全部订单汇总
+  const wsAll = wb.addWorksheet(`吟彩${monthStr}所有销售${statusSuffix}`);
+  buildSummarySheet(
+    wsAll,
+    `吟彩 ${monthStr} 销售订单汇总${statusSuffix}  共 ${ordersWithModelCount.length} 张`,
+    ordersWithModelCount
+  );
 
-      const COL_STICKER_DESC = 8;
-      const COL_SILK_DESC    = isYincai ? 9  : -1;
-      const COL_TOP_LINER    = isYincai ? 10 : 9;
-      const COL_BOT_LINER    = isYincai ? 11 : 10;
+  // ── 工作表2：国内订单
+  const wsDomestic = wb.addWorksheet(`国内${statusSuffix}`);
+  buildSummarySheet(
+    wsDomestic,
+    `吟彩 ${monthStr} 国内销售订单${statusSuffix}  共 ${domesticOrders.length} 张`,
+    domesticOrders
+  );
 
-      // 第1行：大标题
-      ws.getRow(1).height = 36;
-      mergeSet(ws, 1, 1, 1, totalCols,
-        "吟彩销售订单记录表",
-        COLORS.headerBg, COLORS.headerFg, true, 14);
-
-      // 第2行：基本信息
-      ws.getRow(2).height = 20;
-      const customerTypeLabel = order.customerType === "overseas" ? "国外" : "国内";
-      const customsLabel = order.customerType === "overseas"
-        ? ((order as any).customsDeclared ? "「需要报关」" : "「无需报关」")
-        : "";
-      const basicInfo = [
-        `订单描述：${order.orderDescription ?? ""}`,
-        `客户：${order.customer ?? ""}  [${customerTypeLabel}]${customsLabel}`,
-        `订单号：${order.orderNo ?? ""}`,
-        `下单日期：${order.orderDate ?? ""}`,
-        `交货日期：${order.deliveryDate ?? ""}`,
-        `制单员：${order.maker ?? ""}  销售员：${order.salesperson ?? ""}`,
-      ];
-      const infoCells = [
-        basicInfo.slice(0, 2).join("   "),
-        basicInfo.slice(2, 4).join("   "),
-        basicInfo.slice(4).join("   "),
-      ];
-      const infoSpan = Math.floor(totalCols / 3);
-      for (let i = 0; i < 3; i++) {
-        const c1 = i * infoSpan + 1;
-        const c2 = i === 2 ? totalCols : (i + 1) * infoSpan;
-        mergeSet(ws, 2, c1, 2, c2, infoCells[i], COLORS.labelBg, COLORS.labelFg, false, 9);
-      }
-
-      // 第3行：列标题
-      ws.getRow(3).height = 24;
-      const headers = isYincai
-        ? ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "丝印描述", "上盖内衬", "下盖内衬", "内箱规格", "外箱规格", "备注"]
-        : ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "上盖内衬", "下盖内衬", "内箱规格", "外箱规格", "备注"];
-      headers.forEach((h, i) => {
-        setCell(ws, 3, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
-      });
-
-      // 数据行（复用 addModelRows 逻辑）
-      const models = order.models ?? [];
-      let currentRow = 4;
-      for (let idx = 0; idx < models.length; idx++) {
-        const m = models[idx] as any;
-        const textRow = currentRow;
-        ws.getRow(textRow).height = 60;
-        const rowData = isYincai
-          ? [
-              `第${idx + 1}个型号`,
-              m.modelName ?? "", m.quantity ?? "",
-              m.topCover ?? "", m.bottomCover ?? "", m.accessories ?? "",
-              m.stickerSource ?? "", m.stickerDesc ?? "",
-              m.silkPrintDesc ?? "",
-              m.topLiner ?? "", m.bottomLiner ?? "",
-              m.innerBox ?? "", m.outerBox ?? "", m.modelRemarks ?? "",
-            ]
-          : [
-              `第${idx + 1}个型号`,
-              m.modelName ?? "", m.quantity ?? "",
-              m.topCover ?? "", m.bottomCover ?? "", m.accessories ?? "",
-              m.stickerSource ?? "", m.stickerDesc ?? "",
-              m.topLiner ?? "", m.bottomLiner ?? "",
-              m.innerBox ?? "", m.outerBox ?? "", m.modelRemarks ?? "",
-            ];
-        rowData.forEach((val, ci) => {
-          setCell(ws, textRow, ci + 1, String(val), COLORS.valueBg, COLORS.valueFg, false, 9);
-        });
-        currentRow++;
-      }
-
-      // 收件人行
-      const recipientRow = currentRow;
-      ws.getRow(recipientRow).height = 20;
-      const recipientInfo = [
-        `收件人：${order.recipientName ?? ""}`,
-        `电话：${order.recipientPhone ?? ""}`,
-        `地址：${order.recipientAddress ?? ""}`,
-        `工厂发货单号：${order.factoryShipNo ?? ""}`,
-      ].join("   ");
-      mergeSet(ws, recipientRow, 1, recipientRow, totalCols, recipientInfo, COLORS.labelBg, COLORS.labelFg, false, 9);
-
-      // 签名行
-      const signRow = recipientRow + 1;
-      ws.getRow(signRow).height = 28;
-      const depts = ["计划部", "仓库", "质检部", "生产部"];
-      const signSpan = Math.floor(totalCols / depts.length);
-      depts.forEach((dept, i) => {
-        const c1 = i * signSpan + 1;
-        const c2 = i === depts.length - 1 ? totalCols : (i + 1) * signSpan;
-        mergeSet(ws, signRow, c1, signRow, c2, `${dept}签名：`, COLORS.labelBg, COLORS.labelFg, false, 9);
-      });
-
-      ws.pageSetup.printArea = `A1:${String.fromCharCode(64 + totalCols)}${signRow}`;
-    }
-  }
+  // ── 工作表3：国外订单
+  const wsOverseas = wb.addWorksheet(`国外${statusSuffix}`);
+  buildSummarySheet(
+    wsOverseas,
+    `吟彩 ${monthStr} 国外销售订单${statusSuffix}  共 ${overseasOrders.length} 张`,
+    overseasOrders
+  );
 
   const buffer = await wb.xlsx.writeBuffer();
   return Buffer.from(buffer);
