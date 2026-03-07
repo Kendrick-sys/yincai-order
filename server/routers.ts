@@ -88,14 +88,7 @@ const orderHeaderSchema = z.object({
       path: ["alibaba1688OrderNo"],
     });
   }
-  // 亚马逊订单时，订单号必填
-  if (data.isAmazon && !data.amazonOrderNo?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "亚马逊订单号不能为空",
-      path: ["amazonOrderNo"],
-    });
-  }
+  // 亚马逊订单：订单号为可选，无需必填验证
 });
 
 const customerSchema = z.object({

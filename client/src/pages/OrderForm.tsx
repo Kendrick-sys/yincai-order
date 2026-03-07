@@ -403,10 +403,7 @@ export default function OrderForm() {
       toast.warning("1688订单号不能为空");
       return;
     }
-    if (header.isAmazon && !header.amazonOrderNo?.trim()) {
-      toast.warning("亚马逊订单号不能为空");
-      return;
-    }
+    // 亚马逊订单号为可选，无需必填验证
     // 序列化图片数组为 JSON 字符串存储
     const modelsPayload = models.map(({ _expanded, stickerImages, silkPrintImages, linerImages, ...m }) => ({
       ...m,
@@ -666,18 +663,11 @@ export default function OrderForm() {
                 {header.isAmazon && (
                   <div className="flex items-center gap-1 flex-1 max-w-xs">
                     <Input
-                      placeholder="请输入亚马逊订单号"
+                      placeholder="订单号（可选）"
                       value={header.amazonOrderNo}
                       onChange={e => setHeader(h => ({ ...h, amazonOrderNo: e.target.value }))}
-                      className={`h-8 text-sm flex-1 ${
-                        !header.amazonOrderNo?.trim()
-                          ? "border-red-400 focus:border-red-500 bg-red-50/30"
-                          : "border-[#1D6FA4]/40 focus:border-[#1D6FA4]"
-                      }`}
+                      className="h-8 text-sm flex-1 border-[#1D6FA4]/40 focus:border-[#1D6FA4]"
                     />
-                    {!header.amazonOrderNo?.trim() && (
-                      <span className="text-red-500 text-xs whitespace-nowrap">必填</span>
-                    )}
                   </div>
                 )}
               </div>
