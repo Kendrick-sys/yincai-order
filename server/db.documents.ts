@@ -145,7 +145,20 @@ export async function getActivePiByOrderId(orderId: number) {
     .then(rows => rows.filter(r => r.docType === "pi" && r.status === "active"));
 }
 
-// ─── 查询单个单据 ──────────────────────────────────────────────────────────────
+// ─── 查询单个单据 ─────────// ─── 版本号+1并更新PDF ──────────────────────────────────────────
+
+export async function incrementDocumentVersion(id: number, pdfUrl: string, pdfKey: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const rows = await db.select({ version: documents.version }).from(documents).where(eq(documents.id, id));
+  const currentVersion = rows[0]?.version ?? 1;
+  await db.update(documents)
+    .set({ version: currentVersion + 1, pdfUrl, pdfKey })
+    .where(eq(documents.id, id));
+  return currentVersion + 1;
+}
+
+// ─── 查询单个单据 ──────────────────────────────────────────────
 
 export async function getDocumentById(id: number) {
   const db = await getDb();

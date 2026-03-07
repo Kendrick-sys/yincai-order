@@ -13,6 +13,7 @@ import {
   generateDocNo, createDocument, updateDocumentPdf,
   getDocumentsByOrderId, getDocumentById, voidDocument,
   getActivePiByOrderId, getDocPrefixes, saveDocPrefixes,
+  incrementDocumentVersion,
 } from "./db.documents";
 import { generateContractCnPdf, generatePiCiPdf } from "./generatePdf";
 import { storagePut } from "./storage";
@@ -45,6 +46,7 @@ const modelSchema = z.object({
   needCarton:      z.boolean().default(true),
   innerBox:        z.string().optional(),
   outerBox:        z.string().optional(),
+  boxImages:       z.string().optional(),   // JSON 数组字符串
   // 备注
   modelRemarks:    z.string().optional(),
 });
@@ -236,6 +238,59 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await voidDocument(input.id);
         return { success: true };
+      }),
+
+    // 重新生成单据 PDF（版本号+1）
+    regenerate: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const doc = await getDocumentById(input.id);
+        if (!doc) throw new Error("单据不存在");
+        if (doc.status === "voided") throw new Error("已作废的单据不能重新生成");
+
+        const lineItems = JSON.parse(doc.lineItems ?? "[]");
+
+        let pdfBuffer: Buffer;
+        if (doc.docType === "contract_cn") {
+          pdfBuffer = await generateContractCnPdf({
+            docNo: doc.docNo,
+            orderDate: new Date(doc.createdAt).toISOString().slice(0, 10),
+            deliveryDate: "",
+            counterpartyName: doc.counterpartyName ?? "",
+            counterpartyAddress: doc.counterpartyAddress ?? undefined,
+            lineItems,
+            totalAmount: parseFloat(doc.totalAmount ?? "0"),
+            depositPct: doc.depositPct ?? 30,
+            balancePct: doc.balancePct ?? 70,
+          });
+        } else {
+          pdfBuffer = await generatePiCiPdf({
+            docType: doc.docType as "pi" | "ci",
+            docNo: doc.docNo,
+            docDate: new Date(doc.createdAt).toISOString().slice(0, 10),
+            deliveryDate: "",
+            buyerName: doc.counterpartyName ?? "",
+            buyerAddress: doc.counterpartyAddress ?? undefined,
+            lineItems,
+            totalAmount: parseFloat(doc.totalAmount ?? "0"),
+            currency: (doc.currency ?? "USD") as "USD" | "EUR",
+            depositPct: doc.depositPct ?? 30,
+            balancePct: doc.balancePct ?? 70,
+            incoterms: doc.incoterms ?? undefined,
+            portOfLoading: doc.portOfLoading ?? undefined,
+            bankChoice: (doc.bankChoice ?? "icbc") as "icbc" | "citi",
+          });
+        }
+
+        // 上传新 PDF
+        const newVersion = (doc.version ?? 1) + 1;
+        const fileKey = `documents/${doc.docNo}-v${newVersion}-${Date.now()}.pdf`;
+        const { url } = await storagePut(fileKey, pdfBuffer, "application/pdf");
+
+        // 版本号+1
+        await incrementDocumentVersion(input.id, url, fileKey);
+
+        return { pdfUrl: url, version: newVersion };
       }),
 
     // 获取订单下的有效 PI 列表（供 CI 选择）
@@ -440,6 +495,7 @@ export const appRouter = router({
             needCarton:      m.needCarton ?? true,
             innerBox:        m.innerBox ?? undefined,
             outerBox:        m.outerBox ?? undefined,
+            boxImages:       m.boxImages ?? undefined,
             modelRemarks:    m.modelRemarks ?? undefined,
           }))
         );

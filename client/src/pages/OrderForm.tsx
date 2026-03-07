@@ -40,6 +40,7 @@ interface ModelRow {
   needCarton:      boolean;
   innerBox:        string;
   outerBox:        string;
+  boxImages:       string[];   // 纸箱图片 URL 列表
   modelRemarks:    string;
   _expanded:       boolean;
 }
@@ -50,7 +51,7 @@ const emptyModel = (): ModelRow => ({
   needSticker: true, stickerSource: "", stickerDesc: "", stickerImages: [],
   needSilkPrint: true, silkPrintDesc: "", silkPrintImages: [],
   needLiner: true, topLiner: "", bottomLiner: "", linerImages: [],
-  needCarton: true, innerBox: "", outerBox: "",
+  needCarton: true, innerBox: "", outerBox: "", boxImages: [],
   modelRemarks: "", _expanded: true,
 });
 
@@ -262,14 +263,25 @@ function ModelCard({
           <div className={`rounded-lg p-4 transition-colors ${model.needCarton ? "bg-amber-50/50" : "bg-gray-50"}`}>
             <SectionHeader icon={Archive} title="五、纸箱描述" switchField="needCarton" color="bg-amber-500" />
             {model.needCarton ? (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">内箱规格</Label>
-                  <Input placeholder="如：30×20×15cm，白色" value={model.innerBox} onChange={e => onChange("innerBox", e.target.value)} className="h-9 text-sm bg-white" />
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">内筱规格</Label>
+                    <Input placeholder="如：30×20×15cm，白色" value={model.innerBox} onChange={e => onChange("innerBox", e.target.value)} className="h-9 text-sm bg-white" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">外筱规格</Label>
+                    <Input placeholder="如：60×40×30cm，五层瓦楞" value={model.outerBox} onChange={e => onChange("outerBox", e.target.value)} className="h-9 text-sm bg-white" />
+                  </div>
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">外箱规格</Label>
-                  <Input placeholder="如：60×40×30cm，五层瓦楞" value={model.outerBox} onChange={e => onChange("outerBox", e.target.value)} className="h-9 text-sm bg-white" />
+                  <Label className="text-xs text-gray-500 mb-1 block">纸箱图片（包装图、设计稿等）</Label>
+                  <ImageUploader
+                    label="纸箱图片"
+                    category="carton"
+                    images={model.boxImages}
+                    onChange={urls => onChange("boxImages", urls)}
+                  />
                 </div>
               </div>
             ) : (
@@ -375,6 +387,7 @@ export default function OrderForm() {
         needCarton:      m.needCarton ?? true,
         innerBox:        m.innerBox ?? "",
         outerBox:        m.outerBox ?? "",
+        boxImages:       m.boxImages ? JSON.parse(m.boxImages) : [],
         modelRemarks:    m.modelRemarks ?? "",
         _expanded:       false,
       })));
@@ -405,11 +418,12 @@ export default function OrderForm() {
     }
     // 亚马逊订单号为可选，无需必填验证
     // 序列化图片数组为 JSON 字符串存储
-    const modelsPayload = models.map(({ _expanded, stickerImages, silkPrintImages, linerImages, ...m }) => ({
+    const modelsPayload = models.map(({ _expanded, stickerImages, silkPrintImages, linerImages, boxImages, ...m }) => ({
       ...m,
       stickerImages:   JSON.stringify(stickerImages),
       silkPrintImages: JSON.stringify(silkPrintImages),
       linerImages:     JSON.stringify(linerImages),
+      boxImages:       JSON.stringify(boxImages),
     }));
     if (isEdit && orderId) {
       updateMutation.mutate({ id: orderId, order: { ...header, status }, models: modelsPayload });

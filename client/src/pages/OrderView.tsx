@@ -296,6 +296,7 @@ export default function OrderView() {
               const stickerImages = (() => { try { return JSON.parse(m.stickerImages || "[]"); } catch { return []; } })();
               const silkPrintImages = (() => { try { return JSON.parse(m.silkPrintImages || "[]"); } catch { return []; } })();
               const linerImages = (() => { try { return JSON.parse(m.linerImages || "[]"); } catch { return []; } })();
+              const boxImages = (() => { try { return JSON.parse(m.boxImages || "[]"); } catch { return []; } })();
 
               return (
                 <div key={i} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -361,9 +362,10 @@ export default function OrderView() {
                       <div className="py-5">
                         <BlockTitle icon={Archive} color="bg-orange-500">纸箱描述</BlockTitle>
                         <DescGrid>
-                          <DescField label="内箱规格" value={m.innerBox} />
-                          <DescField label="外箱规格" value={m.outerBox} />
+                          <DescField label="内筱规格" value={m.innerBox} />
+                          <DescField label="外筱规格" value={m.outerBox} />
                         </DescGrid>
+                        <ImageGallery images={boxImages} label="纸箱" />
                       </div>
                     )}
 

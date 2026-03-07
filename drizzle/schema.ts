@@ -120,6 +120,7 @@ export const orderModels = mysqlTable("orderModels", {
   needCarton:     boolean("needCarton").default(true).notNull(),
   innerBox:       text("innerBox"),
   outerBox:       text("outerBox"),
+  boxImages:      text("boxImages"),       // JSON 数组，存纸箱图片 URL 列表
 
   modelRemarks:   text("modelRemarks"),
 
@@ -163,6 +164,9 @@ export const documents = mysqlTable("documents", {
   // 存储
   pdfUrl:         text("pdfUrl"),                                    // 生成的PDF下载URL
   pdfKey:         varchar("pdfKey", { length: 512 }),                // S3 key
+
+  // 版本号（重新生成时+1）
+  version:        int("version").default(1).notNull(),
 
   // 状态
   status: mysqlEnum("status", ["active", "voided"]).default("active").notNull(), // active=有效, voided=已作废

@@ -232,3 +232,17 @@
 - [x] 前端：DocumentDialog CI Tab 增加「从PI创建」选项，选择后自动填充数据
 - [x] 前端：设置页面新增「单据编号前缀」配置表单
 - [x] 代码审查和性能优化
+
+## 新功能（第三十三批）
+- [x] 数据库 documents 表增加 version 字段（默认为1，重新生成时+1）
+- [x] 后端：tRPC documents.regenerate 路由（重新生成PDF，版本号+1）
+- [x] 后端：ZIP批量导出路由（/api/export/documents/:orderId/zip）
+- [x] 数据库 order_models 表增加 boxImages 字段（纸箱图片JSON数组）
+- [x] 后端：orderModels schema 增加 boxImages 字段支持
+- [x] 前端：DocumentHistory 增加「重新生成」按钮
+- [x] 前端：DocumentHistory 显示版本号标签
+- [x] 前端：OrderView.tsx 历史单据区域展示 PI→CI 关联关系
+- [x] 前端：OrderView.tsx 增加「批量下载ZIP」按钮
+- [x] 前端：OrderForm.tsx 纸箱描述区域增加图片上传组件
+- [x] 前端：OrderView.tsx/PrintPreview.tsx 同步展示纸箱图片
+- [x] 代码审查和性能优化

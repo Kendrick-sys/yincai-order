@@ -11,6 +11,10 @@ import { generateOrderExcel, generateMonthlyOrdersExcel } from "../exportExcel";
 import { generateCustomersExcel } from "../exportCustomers";
 import { storagePut } from "../storage";
 import { nanoid } from "nanoid";
+import archiver from "archiver";
+import { getDocumentsByOrderId } from "../db.documents";
+import https from "https";
+import http from "http";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -102,6 +106,54 @@ async function startServer() {
       res.json({ url });
     } catch (err: any) {
       res.status(500).json({ error: err.message ?? "上传失败" });
+    }
+  });
+
+  // 单据 ZIP 批量导出路由
+  app.get("/api/export/documents/:orderId/zip", async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.orderId);
+      if (isNaN(orderId)) { res.status(400).json({ error: "无效的订单ID" }); return; }
+
+      const docs = await getDocumentsByOrderId(orderId);
+      const activeDocs = docs.filter(d => d.status === "active" && d.pdfUrl);
+
+      if (activeDocs.length === 0) {
+        res.status(404).json({ error: "该订单下没有有效的单据" }); return;
+      }
+
+      const filename = encodeURIComponent(`订单${orderId}_单据包_${new Date().toISOString().slice(0,10)}.zip`);
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${filename}`);
+
+      const archive = archiver("zip", { zlib: { level: 6 } });
+      archive.pipe(res);
+
+      // 并发下载所有 PDF 并追加到 zip
+      const downloadFile = (url: string): Promise<Buffer> => new Promise((resolve, reject) => {
+        const protocol = url.startsWith("https") ? https : http;
+        protocol.get(url, (response) => {
+          const chunks: Buffer[] = [];
+          response.on("data", (chunk: Buffer) => chunks.push(chunk));
+          response.on("end", () => resolve(Buffer.concat(chunks)));
+          response.on("error", reject);
+        }).on("error", reject);
+      });
+
+      for (const doc of activeDocs) {
+        try {
+          const buf = await downloadFile(doc.pdfUrl!);
+          const typeLabel = { contract_cn: "采购合同", pi: "PI形式发票", ci: "CI商业发票" }[doc.docType] ?? doc.docType;
+          const versionSuffix = (doc.version ?? 1) > 1 ? `_v${doc.version}` : "";
+          archive.append(buf, { name: `${typeLabel}_${doc.docNo}${versionSuffix}.pdf` });
+        } catch {
+          // 跳过下载失败的单据
+        }
+      }
+
+      await archive.finalize();
+    } catch (err: any) {
+      if (!res.headersSent) res.status(500).json({ error: err.message ?? "导出失败" });
     }
   });
 
