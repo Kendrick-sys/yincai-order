@@ -349,3 +349,10 @@
 - [x] 订单详情页：已有 DocumentHistory 组件，确认已完整实现
 - [x] tRPC：已有 documents.listByOrder procedure
 - [x] TypeScript 0 错误，测试全部通过
+
+## 新功能（第四十四批）
+
+- [x] generatePdf.ts：Liner 材质名称（PU/EPE/XPE/EVA）中文括号说明翻译为英文
+- [x] generatePdf.ts：Logo 材质名称（PVC/滴胶/PC/鄧射/金属拉丝）全部翻译为英文
+- [x] generatePdf.ts：Silk Print 等其他附加模块检查是否有中文残留（已验证无中文）
+- [x] TypeScript 0 错误，测试全部通过

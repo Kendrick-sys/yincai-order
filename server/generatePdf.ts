@@ -9,6 +9,40 @@
 import puppeteer from "puppeteer-core";
 import { ENV } from "./_core/env";
 
+// ─── 材质名称中英文映射（确保 PI/CI PDF 纯英文输出） ─────────────────────────────────────
+
+const LINER_MATERIAL_EN: Record<string, string> = {
+  "PU":           "PU Foam",
+  "EPE":          "EPE Foam",
+  "EPE (珍珠棉)": "EPE Foam",
+  "XPE":          "XPE Foam",
+  "XPE (交联聚乙烯)": "XPE Foam",
+  "EVA":          "EVA Foam",
+  "其他":         "Other",
+};
+
+const LOGO_MATERIAL_EN: Record<string, string> = {
+  "PVC":          "PVC",
+  "滴胶":         "Epoxy Resin",
+  "PC":           "PC",
+  "鄧射":         "Laser Engraving",
+  "镜面鄧射":     "Mirror Laser",
+  "金属拉丝":     "Metal Brushed",
+  "其他":         "Other",
+};
+
+/** 将 Liner 材质名称转为英文（如未匹配则保留原字符串） */
+function linerMatEn(mat?: string): string {
+  if (!mat) return "";
+  return LINER_MATERIAL_EN[mat] ?? mat;
+}
+
+/** 将 Logo 材质名称转为英文（如未匹配则保留原字符串） */
+function logoMatEn(mat?: string): string {
+  if (!mat) return "";
+  return LOGO_MATERIAL_EN[mat] ?? mat;
+}
+
 // ─── 类型定义 ──────────────────────────────────────────────────────────────────
 
 export interface LineItem {
@@ -503,7 +537,7 @@ function buildPiCiHtml(data: PiCiData): string {
   const extraRows: string[] = [];
   if (extras) {
     if (extras.hasLiner && extras.linerAmount > 0) {
-      const matLabel = extras.linerMaterial ? ` (${extras.linerMaterial})` : "";
+      const matLabel = extras.linerMaterial ? ` (${linerMatEn(extras.linerMaterial)})` : "";
       const desc = extras.linerDescription ? ` - ${extras.linerDescription}` : "";
       extraRows.push(`<tr><td colspan="3" style="text-align:left">Liner${matLabel}${desc}</td><td>${extras.linerQuantity}</td><td>${extras.linerUnitPrice > 0 ? currencySymbol + extras.linerUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerAmount.toFixed(2)}</td></tr>`);
     }
@@ -511,7 +545,7 @@ function buildPiCiHtml(data: PiCiData): string {
       extraRows.push(`<tr><td colspan="3" style="text-align:left">Liner Mold Fee</td><td>${extras.linerTemplateQuantity}</td><td>${extras.linerTemplateUnitPrice > 0 ? currencySymbol + extras.linerTemplateUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerTemplateAmount.toFixed(2)}</td></tr>`);
     }
     if (extras.hasLogo && extras.logoAmount > 0) {
-      const matLabel = extras.logoMaterial ? ` (${extras.logoMaterial})` : "";
+      const matLabel = extras.logoMaterial ? ` (${logoMatEn(extras.logoMaterial)})` : "";
       const desc = extras.logoDescription ? ` - ${extras.logoDescription}` : "";
       extraRows.push(`<tr><td colspan="3" style="text-align:left">Custom Logo${matLabel}${desc}</td><td>${extras.logoQuantity}</td><td>${extras.logoUnitPrice > 0 ? currencySymbol + extras.logoUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.logoAmount.toFixed(2)}</td></tr>`);
     }
