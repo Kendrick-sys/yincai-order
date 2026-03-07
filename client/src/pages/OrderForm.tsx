@@ -460,88 +460,103 @@ export default function OrderForm() {
               <Label className="text-xs text-gray-500 mb-1 block">
                 客户名称 <span className="text-destructive">*</span>
               </Label>
-              <div className="flex gap-3">
-                <CustomerCombobox
-                  value={header.customer}
-                  onChange={v => setHeader(h => ({ ...h, customer: v }))}
-                  customers={customerList}
-                  className="flex-1"
-                />
-                {/* 新老客户 + 国内/国外 + 报关 */}
-                <div className="flex gap-2 flex-shrink-0 flex-wrap">
-                  {[
-                    { value: false, label: "老客户" },
-                    { value: true,  label: "新客户" },
-                  ].map(opt => (
-                    <button
-                      key={String(opt.value)}
-                      type="button"
-                      onClick={() => setHeader(h => ({ ...h, isNewCustomer: opt.value }))}
-                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
-                        ${header.isNewCustomer === opt.value
-                          ? opt.value
-                            ? "border-green-500 bg-green-50 text-green-700"
-                            : "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:border-primary/50"
-                        }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                  {/* 国内/国外 */}
-                  {["domestic", "overseas"].map(ct => (
-                    <button
-                      key={ct}
-                      type="button"
-                      onClick={() => setHeader(h => ({ ...h, customerType: ct as "domestic" | "overseas", customsDeclared: false }))}
-                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
-                        ${header.customerType === ct
-                          ? ct === "overseas"
-                            ? "border-blue-500 bg-blue-50 text-blue-700"
-                            : "border-gray-400 bg-gray-100 text-gray-700"
-                          : "border-border text-muted-foreground hover:border-primary/50"
-                        }`}
-                    >
-                      {ct === "domestic" ? "国内" : "国外"}
-                    </button>
-                  ))}
-                  {/* 报关（仅国外时显示） */}
-                  {header.customerType === "overseas" && (
-                    <button
-                      type="button"
-                      onClick={() => setHeader(h => ({ ...h, customsDeclared: !h.customsDeclared }))}
-                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
-                        ${header.customsDeclared
-                          ? "border-orange-500 bg-orange-50 text-orange-700"
-                          : "border-border text-muted-foreground hover:border-orange-400"
-                        }`}
-                    >
-                      {header.customsDeclared ? "需要报关 ✓" : "是否报关"}
-                    </button>
-                  )}
-                  {/* 阿里巴巴订单 */}
+              {/* 第一行：客户选择器 */}
+              <CustomerCombobox
+                value={header.customer}
+                onChange={v => setHeader(h => ({ ...h, customer: v }))}
+                customers={customerList}
+                className="w-full"
+              />
+              {/* 第二行：新老客户 + 国内/国外 */}
+              <div className="flex items-center gap-4 mt-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-400 w-14 flex-shrink-0">客户类型</span>
+                  <div className="flex gap-1.5">
+                    {[
+                      { value: false, label: "老客户" },
+                      { value: true,  label: "新客户" },
+                    ].map(opt => (
+                      <button
+                        key={String(opt.value)}
+                        type="button"
+                        onClick={() => setHeader(h => ({ ...h, isNewCustomer: opt.value }))}
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
+                          ${header.isNewCustomer === opt.value
+                            ? opt.value
+                              ? "border-green-500 bg-green-50 text-green-700"
+                              : "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:border-primary/50"
+                          }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="w-px h-5 bg-border flex-shrink-0" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-400 w-14 flex-shrink-0">订单地区</span>
+                  <div className="flex gap-1.5">
+                    {["domestic", "overseas"].map(ct => (
+                      <button
+                        key={ct}
+                        type="button"
+                        onClick={() => setHeader(h => ({ ...h, customerType: ct as "domestic" | "overseas", customsDeclared: false }))}
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
+                          ${header.customerType === ct
+                            ? ct === "overseas"
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-gray-400 bg-gray-100 text-gray-700"
+                            : "border-border text-muted-foreground hover:border-primary/50"
+                          }`}
+                      >
+                        {ct === "domestic" ? "国内" : "国外"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* 第三行：报关（仅国外时显示） */}
+              {header.customerType === "overseas" && (
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <span className="text-xs text-gray-400 w-14 flex-shrink-0">报关状态</span>
                   <button
                     type="button"
-                    onClick={() => setHeader(h => ({ ...h, isAlibaba: !h.isAlibaba, alibabaOrderNo: h.isAlibaba ? "" : h.alibabaOrderNo }))}
+                    onClick={() => setHeader(h => ({ ...h, customsDeclared: !h.customsDeclared }))}
                     className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
-                      ${header.isAlibaba
-                        ? "border-[#FF6A00] bg-orange-50 text-[#FF6A00]"
-                        : "border-border text-muted-foreground hover:border-[#FF6A00]"
+                      ${header.customsDeclared
+                        ? "border-orange-500 bg-orange-50 text-orange-700"
+                        : "border-border text-muted-foreground hover:border-orange-400"
                       }`}
                   >
-                    {header.isAlibaba ? "阿里巴巴 ✓" : "阿里巴巴"}
+                    {header.customsDeclared ? "☑ 需要报关" : "☐ 无需报关"}
                   </button>
+                  <span className="text-xs text-gray-400 ml-1">
+                    {header.customsDeclared ? "已标记需要报关" : "点击切换报关状态"}
+                  </span>
                 </div>
-                {/* 阿里巴巴订单号输入（仅选了阿里巴巴时显示） */}
+              )}
+              {/* 第四行：阿里巴巴订单 */}
+              <div className="flex items-center gap-1.5 mt-2.5">
+                <span className="text-xs text-gray-400 w-14 flex-shrink-0">订单渠道</span>
+                <button
+                  type="button"
+                  onClick={() => setHeader(h => ({ ...h, isAlibaba: !h.isAlibaba, alibabaOrderNo: h.isAlibaba ? "" : h.alibabaOrderNo }))}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
+                    ${header.isAlibaba
+                      ? "border-[#FF6A00] bg-orange-50 text-[#FF6A00]"
+                      : "border-border text-muted-foreground hover:border-[#FF6A00]"
+                    }`}
+                >
+                  {header.isAlibaba ? "☑ 阿里巴巴订单" : "☐ 阿里巴巴订单"}
+                </button>
                 {header.isAlibaba && (
-                  <div className="mt-2">
-                    <Input
-                      placeholder="请输入阿里巴巴订单号"
-                      value={header.alibabaOrderNo}
-                      onChange={e => setHeader(h => ({ ...h, alibabaOrderNo: e.target.value }))}
-                      className="h-9 text-sm border-[#FF6A00]/40 focus:border-[#FF6A00]"
-                    />
-                  </div>
+                  <Input
+                    placeholder="请输入阿里巴巴订单号"
+                    value={header.alibabaOrderNo}
+                    onChange={e => setHeader(h => ({ ...h, alibabaOrderNo: e.target.value }))}
+                    className="h-8 text-sm border-[#FF6A00]/40 focus:border-[#FF6A00] flex-1 max-w-xs"
+                  />
                 )}
               </div>
             </div>
