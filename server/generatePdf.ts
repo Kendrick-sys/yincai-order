@@ -23,13 +23,13 @@ export interface LineItem {
 export interface ContractCnData {
   docNo: string;
   orderDate: string;
-  deliveryDate: string;
-  counterpartyName: string;       // 供货单位（乙方）
+  counterpartyName: string;       // 采购方（甲方）
   counterpartyAddress?: string;
   lineItems: LineItem[];
   totalAmount: number;
   depositPct: number;
   balancePct: number;
+  needInvoice?: boolean;          // 是否需要开票
 }
 
 export interface PiCiData {
@@ -126,16 +126,17 @@ function formatAmount(amount: number, currency = "CNY"): string {
 // ─── HTML 模板：国内采购合同 ────────────────────────────────────────────────────
 
 function buildContractCnHtml(data: ContractCnData): string {
-  const { docNo, orderDate, deliveryDate, counterpartyName, counterpartyAddress, lineItems, totalAmount, depositPct, balancePct } = data;
+  const { docNo, orderDate, counterpartyName, counterpartyAddress, lineItems, totalAmount, depositPct, balancePct, needInvoice } = data;
   const depositAmount = totalAmount * depositPct / 100;
   const balanceAmount = totalAmount * balancePct / 100;
   const totalChinese = numberToChinese(totalAmount);
 
+  // 列顺序：产品名称 | 型号 | 材质 | 数量 | 单价 | 金额
   const tableRows = lineItems.map(item => `
     <tr>
       <td>${item.modelName || ""}</td>
-      <td>${item.material || ""}</td>
       <td>${item.spec || ""}</td>
+      <td>${item.material || ""}</td>
       <td>${item.quantity || ""}</td>
       <td>${item.unitPrice > 0 ? formatAmount(item.unitPrice) : ""}</td>
       <td>${item.amount > 0 ? formatAmount(item.amount) : ""}</td>
@@ -202,20 +203,20 @@ function buildContractCnHtml(data: ContractCnData): string {
   <span>下单日期：${orderDate}</span>
 </div>
 
-<div class="party-row">采购单位：${ENV.companyCnName}&nbsp;&nbsp;&nbsp;&nbsp;（以下简称甲方）</div>
-<div class="party-row">供货单位：${counterpartyName}&nbsp;&nbsp;&nbsp;&nbsp;（以下简称乙方）</div>
+<div class="party-row">甲方（采购方）：${counterpartyName}&nbsp;&nbsp;&nbsp;&nbsp;（以下简称甲方）</div>
+<div class="party-row">乙方（供货方）：${ENV.companyCnName}&nbsp;&nbsp;&nbsp;&nbsp;（以下简称乙方）</div>
 
 <p class="preamble">
 甲、乙双方为了实现各自的经营目的，本着自愿、公平和诚实守信的原则，经双方充分协商达成一致甲方同意向乙方订购产品，特订立本合同，以资双方共同遵守。
 </p>
 
-<div class="section-title">一、产品的名称、型号、数量和金额：</div>
+<div class="section-title">一、箱子明细：</div>
 <p class="clause">1. 具体产品明细、单价及总金额详见下方表格或双方确认的《采购订单》。</p>
 
 <table>
   <thead>
     <tr>
-      <th>产品名称</th><th>材质</th><th>规格</th><th>数量（个）</th><th>单价（元）</th><th>金额（元）</th>
+      <th>产品名称</th><th>型号</th><th>材质</th><th>数量（个）</th><th>单价（元）</th><th>金额（元）</th>
     </tr>
   </thead>
   <tbody>
@@ -235,12 +236,11 @@ function buildContractCnHtml(data: ContractCnData): string {
 
 <div class="section-title">三、付款方式：</div>
 <p class="clause"><span class="clause-num">1. 定金：</span>合同签订后3个工作日内，甲方向乙方支付合同总金额的 ${depositPct}% 作为预付款（${formatAmount(depositAmount)}）。</p>
-<p class="clause"><span class="clause-num">2. 尾款：</span>乙方完成生产，经甲方（或甲方指定代表）验货合格，并提供全额增值税专用发票后，甲方向乙方支付剩余 ${balancePct}% 尾款（${formatAmount(balanceAmount)}）。乙方收到尾款后应在24小时内安排发货。</p>
+<p class="clause"><span class="clause-num">2. 尾款：</span>乙方完成生产，经甲方（或甲方指定代表）验货合格${needInvoice ? "，并提供全额增值税专用发票" : ""}后，甲方向乙方支付剩余 ${balancePct}% 尾款（${formatAmount(balanceAmount)}）。乙方收到尾款后应在24小时内安排发货。</p>
 
-<div class="section-title">四、交货时间、地点及运输：</div>
-<p class="clause"><span class="clause-num">1. 交货时间：</span>乙方应严格按照约定的日期交货（${deliveryDate}）。</p>
-<p class="clause"><span class="clause-num">2. 交货地点：</span><strong>${counterpartyAddress || "（以双方确认为准）"}</strong></p>
-<p class="clause"><span class="clause-num">3. 运输方式与费用：</span>除非另有约定，运输费用及运输途中的保险费用由乙方承担。货物在交付给甲方指定的收货人之前，毁损、灭失的风险由乙方承担。</p>
+<div class="section-title">四、交货地点及运输：</div>
+<p class="clause"><span class="clause-num">1. 交货地点：</span><strong>${counterpartyAddress || "（以双方确认为准）"}</strong></p>
+<p class="clause"><span class="clause-num">2. 运输方式与费用：</span>除非另有约定，运输费用及运输途中的保险费用由乙方承担。货物在交付给甲方指定的收货人之前，毁损、灭失的风险由乙方承担。</p>
 
 <div class="section-title">五、违约责任：</div>
 <p class="clause"><span class="clause-num">1. 逾期交货：</span>乙方应严格按期供货。未经甲方书面同意，如乙方延期交货，每延期一天，应向甲方支付合同总金额 1% 的违约金；延期超过 15 天，甲方有权单方面解除合同，乙方应退还已收全部款项，并支付合同总金额的 20% 作为赔偿金。</p>
@@ -265,7 +265,7 @@ function buildContractCnHtml(data: ContractCnData): string {
 
 <div class="sign-area">
   <div class="sign-block">
-    <p>甲方：${ENV.companyCnName}</p>
+    <p>甲方：${counterpartyName}</p>
     <div class="sign-line"></div>
     <p>签字：</p>
     <div class="date-line">
@@ -275,7 +275,7 @@ function buildContractCnHtml(data: ContractCnData): string {
     </div>
   </div>
   <div class="sign-block">
-    <p>乙方：${counterpartyName}</p>
+    <p>乙方：${ENV.companyCnName}</p>
     <div class="sign-line"></div>
     <p>签字：</p>
     <div class="date-line">

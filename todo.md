@@ -270,3 +270,19 @@
 ## 新功能（第三十六批）
 
 - [x] 生成单据弹窗扩大：w-[90vw] max-w-5xl max-h-[92vh]，提升阅读和编辑舒适性
+
+## 新功能（第三十七批）
+
+- [x] DocumentDialog.tsx：国内合同甲乙方调换（客户=甲方/采购方，吹彩=乙方/供货方）
+- [x] DocumentDialog.tsx：国内合同去掉交货时间字段
+- [x] DocumentDialog.tsx：「产品明细（请填写单价）」改为「箱子明细（请填写单价）」
+- [x] DocumentDialog.tsx：产品名称改为下拉选择（塑料工具箱 / 其他-手动输入）
+- [x] DocumentDialog.tsx：材质改为下拉选择（PP / ABS）
+- [x] DocumentDialog.tsx：规格改为「型号」，与材质列互换（型号在第2列读取产品名称，材质在第3列）
+- [x] DocumentDialog.tsx：增加「是否开票」选项（勾选框，勾选后合同中注明开票要求）
+- [x] DocumentDialog.tsx：弹窗扩大为 w-[95vw] max-w-6xl
+- [x] generatePdf.ts：合同 PDF 同步调换甲乙方标签
+- [x] generatePdf.ts：合同 PDF 去掉交货时间
+- [x] generatePdf.ts：合同 PDF 列顺序调整（型号在前，材质在后）
+- [x] generatePdf.ts：合同 PDF 增加开票信息展示（尾款条款动态显示）
+- [x] 代码审查和性能优化

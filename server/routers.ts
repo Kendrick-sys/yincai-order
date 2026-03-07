@@ -180,7 +180,7 @@ export const appRouter = router({
     generateContractCn: publicProcedure
       .input(z.object({
         orderId: z.number(),
-        counterpartyName: z.string().min(1, "供货单位不能为空"),
+        counterpartyName: z.string().min(1, "甲方名称不能为空"),
         counterpartyAddress: z.string().optional(),
         lineItems: z.array(z.object({
           modelName: z.string(),
@@ -193,6 +193,7 @@ export const appRouter = router({
         totalAmount: z.number().min(0.01, "总金额必须大于0"),
         depositPct: z.number().min(1).max(99),
         balancePct: z.number().min(1).max(99),
+        needInvoice: z.boolean().optional(),
         orderDate: z.string().optional(),
         deliveryDate: z.string().optional(),
       }))
@@ -204,13 +205,13 @@ export const appRouter = router({
         const pdfBuffer = await generateContractCnPdf({
           docNo,
           orderDate: input.orderDate ?? today,
-          deliveryDate: input.deliveryDate ?? "",
           counterpartyName: input.counterpartyName,
           counterpartyAddress: input.counterpartyAddress,
           lineItems: input.lineItems,
           totalAmount: input.totalAmount,
           depositPct: input.depositPct,
           balancePct: input.balancePct,
+          needInvoice: input.needInvoice ?? false,
         });
 
         // 上传到 S3
@@ -259,7 +260,6 @@ export const appRouter = router({
           pdfBuffer = await generateContractCnPdf({
             docNo: doc.docNo,
             orderDate: new Date(doc.createdAt).toISOString().slice(0, 10),
-            deliveryDate: "",
             counterpartyName: doc.counterpartyName ?? "",
             counterpartyAddress: doc.counterpartyAddress ?? undefined,
             lineItems,

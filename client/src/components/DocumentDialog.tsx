@@ -69,7 +69,166 @@ function buildInitialLineItems(models: OrderModel[]): LineItemInput[] {
   }));
 }
 
-// ─── 子组件：行项目表格 ────────────────────────────────────────────────────────
+// ─── 子组件：国内合同箱子明细表格 ──────────────────────────────────────────────
+
+// 产品名称选项
+const PRODUCT_NAME_OPTIONS = ["塑料工具箱", "其他"];
+// 材质选项
+const MATERIAL_OPTIONS = ["PP", "ABS"];
+
+function DomesticLineItemsTable({
+  items,
+  onChange,
+}: {
+  items: LineItemInput[];
+  onChange: (items: LineItemInput[]) => void;
+}) {
+  // 每行产品名称是否为「其他」（手动输入）
+  const [customProductName, setCustomProductName] = useState<Record<number, boolean>>({});
+
+  const updateItem = (idx: number, field: keyof LineItemInput, value: string | number) => {
+    const newItems = items.map((item, i) => {
+      if (i !== idx) return item;
+      const updated = { ...item, [field]: value };
+      if (field === "unitPrice" || field === "quantity") {
+        updated.amount = parseFloat(String(updated.unitPrice || 0)) * parseFloat(String(updated.quantity || 0));
+        updated.amount = Math.round(updated.amount * 100) / 100;
+      }
+      return updated;
+    });
+    onChange(newItems);
+  };
+
+  const handleProductNameSelect = (idx: number, value: string) => {
+    if (value === "其他") {
+      setCustomProductName(prev => ({ ...prev, [idx]: true }));
+      updateItem(idx, "modelName", "");
+    } else {
+      setCustomProductName(prev => ({ ...prev, [idx]: false }));
+      updateItem(idx, "modelName", value);
+    }
+  };
+
+  const total = items.reduce((sum, item) => sum + (item.amount || 0), 0);
+
+  return (
+    <div className="space-y-2">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-muted/50">
+              <th className="border border-border px-2 py-1.5 text-left font-medium w-32">产品名称</th>
+              <th className="border border-border px-2 py-1.5 text-left font-medium">型号</th>
+              <th className="border border-border px-2 py-1.5 text-left font-medium w-24">材质</th>
+              <th className="border border-border px-2 py-1.5 text-center font-medium w-20">数量（个）</th>
+              <th className="border border-border px-2 py-1.5 text-center font-medium w-28">单价（元）</th>
+              <th className="border border-border px-2 py-1.5 text-center font-medium w-28">金额（元）</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, idx) => (
+              <tr key={idx} className="hover:bg-muted/20">
+                {/* 产品名称：下拉选择，选「其他」时手动输入 */}
+                <td className="border border-border px-1 py-1">
+                  {customProductName[idx] ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={item.modelName}
+                        onChange={e => updateItem(idx, "modelName", e.target.value)}
+                        className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
+                        placeholder="请输入产品名称"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomProductName(prev => ({ ...prev, [idx]: false }));
+                          updateItem(idx, "modelName", "塑料工具箱");
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground px-1 flex-shrink-0"
+                        title="切换回下拉"
+                      >↩</button>
+                    </div>
+                  ) : (
+                    <Select
+                      value={PRODUCT_NAME_OPTIONS.includes(item.modelName) ? item.modelName : (item.modelName ? "其他" : "")}
+                      onValueChange={v => handleProductNameSelect(idx, v)}
+                    >
+                      <SelectTrigger className="h-7 text-xs border-0 bg-transparent focus:ring-0 px-1">
+                        <SelectValue placeholder="选择..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRODUCT_NAME_OPTIONS.map(opt => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </td>
+                {/* 型号：读取订单产品名称（spec 字段存储型号） */}
+                <td className="border border-border px-1 py-1">
+                  <Input
+                    value={item.spec}
+                    onChange={e => updateItem(idx, "spec", e.target.value)}
+                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
+                    placeholder="型号"
+                  />
+                </td>
+                {/* 材质：下拉选择 PP / ABS */}
+                <td className="border border-border px-1 py-1">
+                  <Select
+                    value={MATERIAL_OPTIONS.includes(item.material) ? item.material : (item.material ? "other" : "")}
+                    onValueChange={v => updateItem(idx, "material", v === "other" ? "" : v)}
+                  >
+                    <SelectTrigger className="h-7 text-xs border-0 bg-transparent focus:ring-0 px-1">
+                      <SelectValue placeholder="选择..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MATERIAL_OPTIONS.map(opt => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </td>
+                <td className="border border-border px-1 py-1 text-center">
+                  <Input
+                    type="number"
+                    value={item.quantity || ""}
+                    onChange={e => updateItem(idx, "quantity", parseFloat(e.target.value) || 0)}
+                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
+                    placeholder="0"
+                  />
+                </td>
+                <td className="border border-border px-1 py-1 text-center">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={item.unitPrice || ""}
+                    onChange={e => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
+                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
+                    placeholder="0.00"
+                  />
+                </td>
+                <td className="border border-border px-2 py-1 text-center text-xs font-medium text-muted-foreground">
+                  {item.amount > 0 ? item.amount.toFixed(2) : "—"}
+                </td>
+              </tr>
+            ))}
+            <tr className="bg-muted/30 font-semibold">
+              <td colSpan={5} className="border border-border px-2 py-1.5 text-right text-sm">合计</td>
+              <td className="border border-border px-2 py-1.5 text-center text-sm">
+                ¥{total.toFixed(2)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">* 输入单价后金额自动计算；产品名称选「其他」可手动输入</p>
+    </div>
+  );
+}
+
+// ─── 子组件：PI/CI 行项目表格 ────────────────────────────────────────────────────
 
 function LineItemsTable({
   items,
@@ -370,6 +529,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   // 国内合同专属
   const [counterpartyName, setCounterpartyName] = useState("");
   const [counterpartyAddress, setCounterpartyAddress] = useState("");
+  const [needInvoice, setNeedInvoice] = useState(false);
 
   // PI/CI 专属
   const [buyerName, setBuyerName] = useState(order.customer ?? "");
@@ -484,7 +644,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
     if (activeTab === "contract_cn") {
       if (!counterpartyName.trim()) {
-        toast.error("请填写供货单位（乙方）名称");
+        toast.error("请填写甲方（采购方）公司名称");
         return;
       }
       generateContractMutation.mutate({
@@ -502,6 +662,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         totalAmount,
         depositPct,
         balancePct,
+        needInvoice,
         orderDate: order.orderDate ?? undefined,
         deliveryDate: order.deliveryDate ?? undefined,
       });
@@ -537,7 +698,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="w-[90vw] max-w-5xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-6xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-primary" />
@@ -559,18 +720,32 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
           {/* ─── 国内采购合同 ─── */}
           <TabsContent value="contract_cn" className="space-y-4 mt-4">
+            {/* 甲乙方信息：我方是乙方/供货方，客户是甲方/采购方 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">甲方（采购方）</p>
+                <p className="text-sm font-medium text-foreground">{order.customer || "—"}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">即本订单客户</p>
+              </div>
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <p className="text-xs font-semibold text-primary mb-1">乙方（供货方）</p>
+                <p className="text-sm font-medium text-foreground">吟彩（深圳）实业有限公司</p>
+                <p className="text-xs text-muted-foreground mt-0.5">即我方</p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">供货单位（乙方）<span className="text-destructive ml-1">*</span></Label>
+                <Label className="text-xs">甲方全称（采购方）<span className="text-destructive ml-1">*</span></Label>
                 <Input
                   value={counterpartyName}
                   onChange={e => setCounterpartyName(e.target.value)}
-                  placeholder="请输入供货单位全称"
+                  placeholder="请输入甲方（采购方）公司全称"
                   className="h-8 text-sm"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">供货地点（交货地址）</Label>
+                <Label className="text-xs">交货地址</Label>
                 <Input
                   value={counterpartyAddress}
                   onChange={e => setCounterpartyAddress(e.target.value)}
@@ -580,11 +755,27 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
               </div>
             </div>
 
+            {/* 是否开票 */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <input
+                type="checkbox"
+                id="needInvoice"
+                checked={needInvoice}
+                onChange={e => setNeedInvoice(e.target.checked)}
+                className="w-4 h-4 accent-amber-600"
+              />
+              <label htmlFor="needInvoice" className="text-sm font-medium text-amber-800 cursor-pointer select-none">
+                需要开具增值税发票
+              </label>
+              {needInvoice && (
+                <span className="text-xs text-amber-600 ml-1">（已勾选，合同中将注明开票要求）</span>
+              )}
+            </div>
+
             <Separator />
-            <p className="text-xs font-semibold text-foreground/70">产品明细（请填写单价）</p>
-            <LineItemsTable
+            <p className="text-xs font-semibold text-foreground/70">箱子明细（请填写单价）</p>
+            <DomesticLineItemsTable
               items={lineItems}
-              currency="CNY"
               onChange={setLineItems}
             />
 
