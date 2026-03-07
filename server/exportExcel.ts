@@ -388,6 +388,121 @@ const STATUS_DISPLAY: Record<string, string> = {
 };
 
 /**
+ * 型号数量明细工作表
+ * 列：序号 | 型号名称 | 型号编码 | 总数量 | 出现订单数 | 涉及订单明细（订单描述 + 客户）
+ * 底部合计行：所有型号总数量
+ */
+function buildModelDetailSheet(
+  ws: ExcelJS.Worksheet,
+  sheetTitle: string,
+  allModels: Array<{
+    modelName: string | null;
+    modelCode: string | null;
+    quantity: string | null;
+    orderDescription: string | null;
+    customer: string | null;
+    orderDate: string | null;
+    orderId: number;
+  }>
+) {
+  // 列：序号 | 型号名称 | 型号编码 | 总数量 | 订单数 | 涉及订单
+  const COL_WIDTHS = [6, 24, 18, 12, 10, 60];
+  COL_WIDTHS.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  const totalCols = COL_WIDTHS.length; // 6
+
+  // 第1行：大标题
+  ws.getRow(1).height = 34;
+  mergeSet(ws, 1, 1, 1, totalCols, sheetTitle, COLORS.headerBg, COLORS.headerFg, true, 13);
+
+  // 第2行：列标题
+  ws.getRow(2).height = 22;
+  const headers = ["序号", "型号名称", "型号编码", "总数量", "订单数", "涉及订单明细"];
+  headers.forEach((h, i) => {
+    setCell(ws, 2, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
+  });
+
+  if (allModels.length === 0) {
+    ws.getRow(3).height = 28;
+    mergeSet(ws, 3, 1, 3, totalCols, "（本月暂无型号数据）", COLORS.disabled, COLORS.disabledFg);
+    return;
+  }
+
+  // 按型号名称分组汇总
+  // key: modelName（如果为空则用「未命名型号」）
+  const groupMap = new Map<string, {
+    modelName: string;
+    modelCode: string;
+    totalQty: number;
+    orders: Array<{ orderDescription: string; customer: string; orderDate: string; qty: number }>;
+  }>();
+
+  for (const m of allModels) {
+    const key = (m.modelName?.trim() || "未命名型号");
+    const qty = parseInt(m.quantity ?? "0", 10);
+    const safeQty = isNaN(qty) ? 0 : qty;
+
+    if (!groupMap.has(key)) {
+      groupMap.set(key, {
+        modelName: key,
+        modelCode: m.modelCode?.trim() || "",
+        totalQty: 0,
+        orders: [],
+      });
+    }
+    const entry = groupMap.get(key)!;
+    entry.totalQty += safeQty;
+    // 同一订单内同一型号可能出现多条，合并到同一订单条目
+    const existOrder = entry.orders.find(o => o.orderDescription === (m.orderDescription ?? "") && o.customer === (m.customer ?? ""));
+    if (existOrder) {
+      existOrder.qty += safeQty;
+    } else {
+      entry.orders.push({
+        orderDescription: m.orderDescription ?? "",
+        customer: m.customer ?? "",
+        orderDate: m.orderDate ?? "",
+        qty: safeQty,
+      });
+    }
+  }
+
+  // 按总数量降序排列
+  const groups = Array.from(groupMap.values()).sort((a, b) => b.totalQty - a.totalQty);
+
+  let currentRow = 3;
+  groups.forEach((group, idx) => {
+    ws.getRow(currentRow).height = 32;
+    const rowBg = idx % 2 === 0 ? COLORS.valueBg : "FAFBFC";
+
+    // 涉及订单明细：每行一个订单，格式为 "订单描述（客户） ×数量"
+    const orderDetails = group.orders
+      .sort((a, b) => (a.orderDate > b.orderDate ? 1 : -1))
+      .map(o => `${o.orderDescription || "无描述"}${o.customer ? "（" + o.customer + "）" : ""}${o.qty > 0 ? " ×" + o.qty : ""}`)
+      .join("  |  ");
+
+    setCell(ws, currentRow, 1, String(idx + 1), rowBg, COLORS.valueFg, false, 9, "center");
+    setCell(ws, currentRow, 2, group.modelName, rowBg, COLORS.valueFg, true, 10);
+    setCell(ws, currentRow, 3, group.modelCode, rowBg, "888888", false, 9);
+    setCell(ws, currentRow, 4, group.totalQty > 0 ? String(group.totalQty) : "", rowBg, "1A3C5E", true, 11, "center");
+    setCell(ws, currentRow, 5, String(group.orders.length), rowBg, COLORS.valueFg, false, 9, "center");
+    setCell(ws, currentRow, 6, orderDetails, rowBg, "555555", false, 9);
+
+    currentRow++;
+  });
+
+  // ── 合计行
+  const totalRow = currentRow;
+  ws.getRow(totalRow).height = 26;
+  const grandTotal = groups.reduce((sum, g) => sum + g.totalQty, 0);
+  const totalOrderCount = new Set(allModels.map(m => m.orderId)).size;
+
+  mergeSet(ws, totalRow, 1, totalRow, 2, "合计", "1A3C5E", "FFFFFF", true, 10);
+  setCell(ws, totalRow, 3, `共 ${groups.length} 种型号`, "E8F0F8", "1A3C5E", true, 9, "center");
+  setCell(ws, totalRow, 4, grandTotal > 0 ? `共 ${grandTotal} 件` : "", "E8F0F8", "1A3C5E", true, 10, "center");
+  setCell(ws, totalRow, 5, `共 ${totalOrderCount} 张订单`, "E8F0F8", "1A3C5E", false, 9, "center");
+  setCell(ws, totalRow, 6, "", "E8F0F8", COLORS.valueFg);
+}
+
+/**
  * 在汇总工作表中写入一批订单的汇总行
  * 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 订单号 | 下单日期 | 交货日期 | 制单员 | 销售员 | 状态 | 型号数 | 数量 | 备注
  * 底部增加总计行（总订单数 + 总型号数 + 总件数）
@@ -538,7 +653,17 @@ export async function generateMonthlyOrdersExcel(
     throw new Error(`${year}年${month}月${statusLabel}订单暂无数据`);
   }
 
-  // 加载每个订单的型号数量和总件数
+  // 加载每个订单的型号数量和总件数，同时收集所有型号明细用于第4工作表
+  const allModelDetails: Array<{
+    modelName: string | null;
+    modelCode: string | null;
+    quantity: string | null;
+    orderDescription: string | null;
+    customer: string | null;
+    orderDate: string | null;
+    orderId: number;
+  }> = [];
+
   const ordersWithModelCount = await Promise.all(
     monthOrders.map(async (order) => {
       const models = await db!.select().from(orderModelsTable)
@@ -548,6 +673,18 @@ export async function generateMonthlyOrdersExcel(
         const q = parseInt((m as any).quantity ?? "0", 10);
         return sum + (isNaN(q) ? 0 : q);
       }, 0);
+      // 收集型号明细（用于第4工作表）
+      for (const m of models) {
+        allModelDetails.push({
+          modelName: (m as any).modelName as string | null,
+          modelCode: (m as any).modelCode as string | null,
+          quantity: (m as any).quantity as string | null,
+          orderDescription: order.orderDescription,
+          customer: order.customer,
+          orderDate: order.orderDate,
+          orderId: order.id,
+        });
+      }
       return {
         id: order.id,
         orderDescription: order.orderDescription,
@@ -599,6 +736,14 @@ export async function generateMonthlyOrdersExcel(
     wsOverseas,
     `吟彩 ${monthStr} 国外销售订单${statusSuffix}  共 ${overseasOrders.length} 张`,
     overseasOrders
+  );
+
+  // ── 工作表4：型号数量明细
+  const wsModelDetail = wb.addWorksheet(`型号数量明细${statusSuffix}`);
+  buildModelDetailSheet(
+    wsModelDetail,
+    `吟彩 ${monthStr} 型号数量明细${statusSuffix}`,
+    allModelDetails
   );
 
   const buffer = await wb.xlsx.writeBuffer();
