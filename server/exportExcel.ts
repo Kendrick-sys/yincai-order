@@ -231,16 +231,45 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       COLORS.labelBg, COLORS.labelFg, false, 9);
   }
 
-  // ── 第4行：列标题
-  ws.getRow(4).height = 24;
-  const headers = ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "丝印描述", "上盖内衬", "下盖内衬", "内筱规格", "外筱规格", "备注"];
+  // ── 第4行：阿里巴巴订单标注行
+  ws.getRow(4).height = 20;
+  const isAlibaba: boolean = (order as any).isAlibaba ?? false;
+  const alibabaOrderNo: string = (order as any).alibabaOrderNo ?? "";
+  if (isAlibaba) {
+    const alibabaText = alibabaOrderNo
+      ? `阿里巴巴订单  订单号：${alibabaOrderNo}`
+      : "阿里巴巴订单";
+    // 阿里巴巴订单号占前5列，中5列显示下单日期，后4列显示销售员
+    mergeSet(ws, 4, 1, 4, 5, alibabaText, "FFF0E6", "CC4400", true, 10);
+    mergeSet(ws, 4, 6, 4, 10,
+      `下单日期：${order.orderDate ?? ""}   交货日期：${order.deliveryDate ?? ""}`,
+      COLORS.labelBg, COLORS.labelFg, false, 9);
+    mergeSet(ws, 4, 11, 4, 14,
+      `销售员：${order.salesperson ?? ""}`,
+      COLORS.labelBg, COLORS.labelFg, false, 9);
+  } else {
+    // 非阿里巴巴订单：显示下单日期和销售员
+    mergeSet(ws, 4, 1, 4, 5,
+      `下单日期：${order.orderDate ?? ""}`,
+      COLORS.labelBg, COLORS.labelFg, false, 9);
+    mergeSet(ws, 4, 6, 4, 10,
+      `交货日期：${order.deliveryDate ?? ""}`,
+      COLORS.labelBg, COLORS.labelFg, false, 9);
+    mergeSet(ws, 4, 11, 4, 14,
+      `销售员：${order.salesperson ?? ""}`,
+      COLORS.labelBg, COLORS.labelFg, false, 9);
+  }
+
+  // ── 第5行：列标题
+  ws.getRow(5).height = 24;
+  const headers = ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "丝印描述", "上盖内衬", "下盖内衬", "内筋规格", "外筋规格", "备注"];
   headers.forEach((h, i) => {
-    setCell(ws, 4, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
+    setCell(ws, 5, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
   });
 
   // ── 数据行（每个型号：文字行 + 图片行）
   const models = order.models ?? [];
-  let currentRow = 5;
+  let currentRow = 6;
 
   for (let idx = 0; idx < models.length; idx++) {
     const m = models[idx];
@@ -403,12 +432,13 @@ function buildModelDetailSheet(
     customer: string | null;
     orderDate: string | null;
     orderId: number;
+    customerType: string | null;  // 新增：用于国内/国外分列
   }>
 ) {
-  // 列：序号 | 型号名称 | 型号编码 | 总数量 | 订单数 | 涉及订单
-  const COL_WIDTHS = [6, 24, 18, 12, 10, 60];
+  // 列：序号 | 型号名称 | 型号编码 | 国内数量 | 国外数量 | 总数量 | 订单数 | 涉及订单
+  const COL_WIDTHS = [6, 24, 18, 12, 12, 12, 10, 60];
   COL_WIDTHS.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
-  const totalCols = COL_WIDTHS.length; // 6
+  const totalCols = COL_WIDTHS.length; // 8
 
   // 第1行：大标题
   ws.getRow(1).height = 34;
@@ -416,7 +446,7 @@ function buildModelDetailSheet(
 
   // 第2行：列标题
   ws.getRow(2).height = 22;
-  const headers = ["序号", "型号名称", "型号编码", "总数量", "订单数", "涉及订单明细"];
+  const headers = ["序号", "型号名称", "型号编码", "国内数量", "国外数量", "总数量", "订单数", "涉及订单明细"];
   headers.forEach((h, i) => {
     setCell(ws, 2, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
   });
@@ -427,31 +457,40 @@ function buildModelDetailSheet(
     return;
   }
 
-  // 按型号名称分组汇总
-  // key: modelName（如果为空则用「未命名型号」）
+  // 按型号名称分组汇总，区分国内/国外数量
   const groupMap = new Map<string, {
     modelName: string;
     modelCode: string;
+    domesticQty: number;
+    overseasQty: number;
     totalQty: number;
-    orders: Array<{ orderDescription: string; customer: string; orderDate: string; qty: number }>;
+    orders: Array<{ orderDescription: string; customer: string; orderDate: string; qty: number; isOverseas: boolean }>;
   }>();
 
   for (const m of allModels) {
     const key = (m.modelName?.trim() || "未命名型号");
     const qty = parseInt(m.quantity ?? "0", 10);
     const safeQty = isNaN(qty) ? 0 : qty;
+    const isOverseas = m.customerType === "overseas";
 
     if (!groupMap.has(key)) {
       groupMap.set(key, {
         modelName: key,
         modelCode: m.modelCode?.trim() || "",
+        domesticQty: 0,
+        overseasQty: 0,
         totalQty: 0,
         orders: [],
       });
     }
     const entry = groupMap.get(key)!;
     entry.totalQty += safeQty;
-    // 同一订单内同一型号可能出现多条，合并到同一订单条目
+    if (isOverseas) {
+      entry.overseasQty += safeQty;
+    } else {
+      entry.domesticQty += safeQty;
+    }
+    // 同一订单内同一型号合并
     const existOrder = entry.orders.find(o => o.orderDescription === (m.orderDescription ?? "") && o.customer === (m.customer ?? ""));
     if (existOrder) {
       existOrder.qty += safeQty;
@@ -461,6 +500,7 @@ function buildModelDetailSheet(
         customer: m.customer ?? "",
         orderDate: m.orderDate ?? "",
         qty: safeQty,
+        isOverseas,
       });
     }
   }
@@ -473,18 +513,23 @@ function buildModelDetailSheet(
     ws.getRow(currentRow).height = 32;
     const rowBg = idx % 2 === 0 ? COLORS.valueBg : "FAFBFC";
 
-    // 涉及订单明细：每行一个订单，格式为 "订单描述（客户） ×数量"
+    // 涉及订单明细：每行一个订单，标注国内/国外
     const orderDetails = group.orders
       .sort((a, b) => (a.orderDate > b.orderDate ? 1 : -1))
-      .map(o => `${o.orderDescription || "无描述"}${o.customer ? "（" + o.customer + "）" : ""}${o.qty > 0 ? " ×" + o.qty : ""}`)
+      .map(o => `${o.orderDescription || "无描述"}${o.customer ? "（" + o.customer + "）" : ""}[${o.isOverseas ? "国外" : "国内"}]${o.qty > 0 ? " ×" + o.qty : ""}`)
       .join("  |  ");
 
     setCell(ws, currentRow, 1, String(idx + 1), rowBg, COLORS.valueFg, false, 9, "center");
     setCell(ws, currentRow, 2, group.modelName, rowBg, COLORS.valueFg, true, 10);
     setCell(ws, currentRow, 3, group.modelCode, rowBg, "888888", false, 9);
-    setCell(ws, currentRow, 4, group.totalQty > 0 ? String(group.totalQty) : "", rowBg, "1A3C5E", true, 11, "center");
-    setCell(ws, currentRow, 5, String(group.orders.length), rowBg, COLORS.valueFg, false, 9, "center");
-    setCell(ws, currentRow, 6, orderDetails, rowBg, "555555", false, 9);
+    // 国内数量（浅灰背景）
+    setCell(ws, currentRow, 4, group.domesticQty > 0 ? String(group.domesticQty) : "—", "F5F7FA", "555555", false, 10, "center");
+    // 国外数量（浅蓝背景）
+    setCell(ws, currentRow, 5, group.overseasQty > 0 ? String(group.overseasQty) : "—", "EBF4FF", "1A3C5E", false, 10, "center");
+    // 总数量（加粗蓝色）
+    setCell(ws, currentRow, 6, group.totalQty > 0 ? String(group.totalQty) : "", rowBg, "1A3C5E", true, 11, "center");
+    setCell(ws, currentRow, 7, String(group.orders.length), rowBg, COLORS.valueFg, false, 9, "center");
+    setCell(ws, currentRow, 8, orderDetails, rowBg, "555555", false, 9);
 
     currentRow++;
   });
@@ -492,14 +537,18 @@ function buildModelDetailSheet(
   // ── 合计行
   const totalRow = currentRow;
   ws.getRow(totalRow).height = 26;
+  const grandDomestic = groups.reduce((sum, g) => sum + g.domesticQty, 0);
+  const grandOverseas = groups.reduce((sum, g) => sum + g.overseasQty, 0);
   const grandTotal = groups.reduce((sum, g) => sum + g.totalQty, 0);
   const totalOrderCount = new Set(allModels.map(m => m.orderId)).size;
 
   mergeSet(ws, totalRow, 1, totalRow, 2, "合计", "1A3C5E", "FFFFFF", true, 10);
   setCell(ws, totalRow, 3, `共 ${groups.length} 种型号`, "E8F0F8", "1A3C5E", true, 9, "center");
-  setCell(ws, totalRow, 4, grandTotal > 0 ? `共 ${grandTotal} 件` : "", "E8F0F8", "1A3C5E", true, 10, "center");
-  setCell(ws, totalRow, 5, `共 ${totalOrderCount} 张订单`, "E8F0F8", "1A3C5E", false, 9, "center");
-  setCell(ws, totalRow, 6, "", "E8F0F8", COLORS.valueFg);
+  setCell(ws, totalRow, 4, grandDomestic > 0 ? `国内 ${grandDomestic} 件` : "—", "F0F4F8", "555555", true, 9, "center");
+  setCell(ws, totalRow, 5, grandOverseas > 0 ? `国外 ${grandOverseas} 件` : "—", "D6E8FF", "1A3C5E", true, 9, "center");
+  setCell(ws, totalRow, 6, grandTotal > 0 ? `共 ${grandTotal} 件` : "", "E8F0F8", "1A3C5E", true, 10, "center");
+  setCell(ws, totalRow, 7, `共 ${totalOrderCount} 张订单`, "E8F0F8", "1A3C5E", false, 9, "center");
+  setCell(ws, totalRow, 8, "", "E8F0F8", COLORS.valueFg);
 }
 
 /**
@@ -517,6 +566,8 @@ function buildSummarySheet(
     customer: string | null;
     customerType: string | null;
     customsDeclared: boolean | null;
+    isAlibaba: boolean | null;
+    alibabaOrderNo: string | null;
     orderNo: string | null;
     orderDate: string | null;
     deliveryDate: string | null;
@@ -528,10 +579,10 @@ function buildSummarySheet(
     totalQuantity: number;   // 订单内所有型号的数量之和
   }>
 ) {
-  // 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 订单号 | 下单日期 | 交货日期 | 制单员 | 销售员 | 状态 | 型号数 | 数量 | 备注
-  const COL_WIDTHS = [6, 22, 18, 10, 10, 16, 12, 12, 10, 10, 10, 8, 10, 28];
+  // 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 阿里巴巴 | 订单号 | 下单日期 | 交货日期 | 制单员 | 销售员 | 状态 | 型号数 | 数量 | 备注
+  const COL_WIDTHS = [6, 22, 18, 10, 10, 14, 16, 12, 12, 10, 10, 10, 8, 10, 28];
   COL_WIDTHS.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
-  const totalCols = COL_WIDTHS.length; // 14
+  const totalCols = COL_WIDTHS.length; // 15
 
   // 第1行：大标题
   ws.getRow(1).height = 34;
@@ -539,7 +590,7 @@ function buildSummarySheet(
 
   // 第2行：列标题（不启用 AutoFilter）
   ws.getRow(2).height = 22;
-  const headers = ["序号", "订单描述", "客户", "国内/国外", "是否报关", "订单号", "下单日期", "交货日期", "制单员", "销售员", "状态", "型号数", "数量", "备注"];
+  const headers = ["序号", "订单描述", "客户", "国内/国外", "是否报关", "阿里巴巴", "订单号", "下单日期", "交货日期", "制单员", "销售员", "状态", "型号数", "数量", "备注"];
   headers.forEach((h, i) => {
     setCell(ws, 2, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
   });
@@ -565,12 +616,17 @@ function buildSummarySheet(
     // 国外行用浅蓝背景，国内用默认背景
     const rowActualBg = isOverseas ? (idx % 2 === 0 ? "EBF4FF" : "D6EAFF") : rowBg;
 
+    const alibabaTxt = order.isAlibaba
+      ? (order.alibabaOrderNo ? `阿里巴巴 ${order.alibabaOrderNo}` : "阿里巴巴")
+      : "—";
+
     const values = [
       String(idx + 1),
       order.orderDescription ?? "",
       order.customer ?? "",
       customerTypeTxt,
       customsTxt,
+      alibabaTxt,
       order.orderNo ?? "",
       order.orderDate ?? "",
       order.deliveryDate ?? "",
@@ -583,7 +639,8 @@ function buildSummarySheet(
     ];
 
     values.forEach((val, ci) => {
-      const align: ExcelJS.Alignment["horizontal"] = (ci === 0 || ci === 11 || ci === 12) ? "center" : "left";
+      // ci: 0=序号 1=订单描述 2=客户 3=国内/国外 4=报关 5=阿里巴巴 6=订单号 7=下单 8=交货 9=制单员 10=销售员 11=状态 12=型号数 13=数量 14=备注
+      const align: ExcelJS.Alignment["horizontal"] = (ci === 0 || ci === 12 || ci === 13) ? "center" : "left";
       let cellBg = rowActualBg;
       let cellFg = COLORS.valueFg;
       if (ci === 3) {
@@ -592,6 +649,10 @@ function buildSummarySheet(
       } else if (ci === 4 && isOverseas) {
         cellBg = order.customsDeclared ? "FFF3CD" : "F0F0F0";
         cellFg = order.customsDeclared ? "7B5800" : "555555";
+      } else if (ci === 5 && order.isAlibaba) {
+        // 阿里巴巴订单用橙色标注
+        cellBg = "FFF0E6";
+        cellFg = "CC4400";
       }
       setCell(ws, row, ci + 1, val, cellBg, cellFg, false, 9, align);
     });
@@ -607,17 +668,20 @@ function buildSummarySheet(
   const totalDomestic    = ordersData.length - totalOverseas;
   const totalCustoms     = ordersData.filter(o => o.customerType === "overseas" && o.customsDeclared).length;
 
+  const totalAlibaba = ordersData.filter(o => o.isAlibaba).length;
+
   mergeSet(ws, totalRow, 1, totalRow, 2, "合计", "1A3C5E", "FFFFFF", true, 10);
   setCell(ws, totalRow, 3, `共 ${ordersData.length} 张订单`, "E8F0F8", "1A3C5E", true, 9, "center");
   setCell(ws, totalRow, 4, `国内 ${totalDomestic} / 国外 ${totalOverseas}`, "E8F0F8", "1A3C5E", false, 9, "center");
   setCell(ws, totalRow, 5, totalOverseas > 0 ? `报关 ${totalCustoms} 张` : "—", "E8F0F8", "7B5800", false, 9, "center");
+  setCell(ws, totalRow, 6, totalAlibaba > 0 ? `阿里巴巴 ${totalAlibaba} 张` : "—", "FFF0E6", "CC4400", false, 9, "center");
   // 中间列（订单号~状态）留空
-  for (let c = 6; c <= 11; c++) {
+  for (let c = 7; c <= 12; c++) {
     setCell(ws, totalRow, c, "", "E8F0F8", COLORS.valueFg);
   }
-  setCell(ws, totalRow, 12, `共 ${totalModelCount} 个型号`, "E8F0F8", "1A3C5E", true, 9, "center");
-  setCell(ws, totalRow, 13, totalQty > 0 ? `共 ${totalQty} 件` : "", "E8F0F8", "1A3C5E", true, 9, "center");
-  setCell(ws, totalRow, 14, "", "E8F0F8", COLORS.valueFg);
+  setCell(ws, totalRow, 13, `共 ${totalModelCount} 个型号`, "E8F0F8", "1A3C5E", true, 9, "center");
+  setCell(ws, totalRow, 14, totalQty > 0 ? `共 ${totalQty} 件` : "", "E8F0F8", "1A3C5E", true, 9, "center");
+  setCell(ws, totalRow, 15, "", "E8F0F8", COLORS.valueFg);
 }
 
 /**
@@ -662,6 +726,7 @@ export async function generateMonthlyOrdersExcel(
     customer: string | null;
     orderDate: string | null;
     orderId: number;
+    customerType: string | null;
   }> = [];
 
   const ordersWithModelCount = await Promise.all(
@@ -683,6 +748,7 @@ export async function generateMonthlyOrdersExcel(
           customer: order.customer,
           orderDate: order.orderDate,
           orderId: order.id,
+          customerType: (order as any).customerType as string | null,
         });
       }
       return {
@@ -691,6 +757,8 @@ export async function generateMonthlyOrdersExcel(
         customer: order.customer,
         customerType: (order as any).customerType as string | null,
         customsDeclared: (order as any).customsDeclared as boolean | null,
+        isAlibaba: (order as any).isAlibaba as boolean | null,
+        alibabaOrderNo: (order as any).alibabaOrderNo as string | null,
         orderNo: order.orderNo,
         orderDate: order.orderDate,
         deliveryDate: order.deliveryDate,

@@ -307,6 +307,8 @@ export default function OrderForm() {
     isNewCustomer: false,
     customerType: "domestic" as "domestic" | "overseas",
     customsDeclared: false,
+    isAlibaba: false,
+    alibabaOrderNo: "",
     maker: "", salesperson: "", orderDate: new Date().toISOString().slice(0, 10),
     deliveryDate: "", remarks: "", status: "draft" as const,
     recipientName: "", recipientPhone: "", recipientAddress: "", factoryShipNo: "",
@@ -330,6 +332,8 @@ export default function OrderForm() {
       isNewCustomer: existingOrder.isNewCustomer ?? false,
       customerType: (existingOrder.customerType ?? "domestic") as "domestic" | "overseas",
       customsDeclared: existingOrder.customsDeclared ?? false,
+      isAlibaba: (existingOrder as any).isAlibaba ?? false,
+      alibabaOrderNo: (existingOrder as any).alibabaOrderNo ?? "",
       maker: existingOrder.maker ?? "",
       salesperson: existingOrder.salesperson ?? "",
       orderDate: existingOrder.orderDate ?? "",
@@ -515,7 +519,30 @@ export default function OrderForm() {
                       {header.customsDeclared ? "需要报关 ✓" : "是否报关"}
                     </button>
                   )}
+                  {/* 阿里巴巴订单 */}
+                  <button
+                    type="button"
+                    onClick={() => setHeader(h => ({ ...h, isAlibaba: !h.isAlibaba, alibabaOrderNo: h.isAlibaba ? "" : h.alibabaOrderNo }))}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
+                      ${header.isAlibaba
+                        ? "border-[#FF6A00] bg-orange-50 text-[#FF6A00]"
+                        : "border-border text-muted-foreground hover:border-[#FF6A00]"
+                      }`}
+                  >
+                    {header.isAlibaba ? "阿里巴巴 ✓" : "阿里巴巴"}
+                  </button>
                 </div>
+                {/* 阿里巴巴订单号输入（仅选了阿里巴巴时显示） */}
+                {header.isAlibaba && (
+                  <div className="mt-2">
+                    <Input
+                      placeholder="请输入阿里巴巴订单号"
+                      value={header.alibabaOrderNo}
+                      onChange={e => setHeader(h => ({ ...h, alibabaOrderNo: e.target.value }))}
+                      className="h-9 text-sm border-[#FF6A00]/40 focus:border-[#FF6A00]"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div>

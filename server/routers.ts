@@ -56,6 +56,9 @@ const orderHeaderSchema = z.object({
   // 国内/国外及报关
   customerType:     z.enum(["domestic", "overseas"]).optional(),
   customsDeclared:  z.boolean().optional(),
+  // 阿里巴巴订单
+  isAlibaba:        z.boolean().optional(),
+  alibabaOrderNo:   z.string().optional(),
   // 收件人信息
   recipientName:    z.string().optional(),
   recipientPhone:   z.string().optional(),

@@ -523,6 +523,11 @@ export default function Home() {
                         <p className="font-medium text-gray-800 text-sm leading-tight">
                           {order.orderDescription || "（未填写描述）"}
                         </p>
+                        {(order as any).isAlibaba && (
+                          <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1.5 py-0.5 rounded flex-shrink-0">
+                            阿里巴巴
+                          </span>
+                        )}
                         {order.remarks && (
                           <Tooltip>
                             <TooltipTrigger asChild>

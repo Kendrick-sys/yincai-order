@@ -201,6 +201,20 @@ export default function OrderView() {
                 )}
               </div>
             )}
+            {/* 阿里巴巴订单标注 */}
+            {(order as any).isAlibaba && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400 font-medium tracking-wide">订单渠道</span>
+                <div className="inline-flex items-center gap-2 text-sm font-semibold text-[#CC4400] bg-[#FFF0E6] px-2 py-0.5 rounded-md w-fit">
+                  阿里巴巴订单
+                  {(order as any).alibabaOrderNo && (
+                    <span className="font-normal text-gray-600 ml-1">
+                      订单号：{(order as any).alibabaOrderNo}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
             {order.remarks && <InfoRow label="备注" value={order.remarks} span />}
           </div>
         </div>
