@@ -201,20 +201,27 @@ export default function OrderView() {
                 )}
               </div>
             )}
-            {/* 阿里巴巴订单标注 */}
-            {(order as any).isAlibaba && (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-gray-400 font-medium tracking-wide">订单渠道</span>
-                <div className="inline-flex items-center gap-2 text-sm font-semibold text-[#CC4400] bg-[#FFF0E6] px-2 py-0.5 rounded-md w-fit">
-                  阿里巴巴订单
+            {/* 订单渠道 */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-400 font-medium tracking-wide">订单渠道</span>
+              {(order as any).isAlibaba ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-[#FF6A00] px-2 py-1 rounded-md">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                    </svg>
+                    阿里巴巴订单
+                  </span>
                   {(order as any).alibabaOrderNo && (
-                    <span className="font-normal text-gray-600 ml-1">
-                      订单号：{(order as any).alibabaOrderNo}
+                    <span className="text-sm text-gray-700 font-mono bg-gray-100 px-2 py-0.5 rounded">
+                      {(order as any).alibabaOrderNo}
                     </span>
                   )}
                 </div>
-              </div>
-            )}
+              ) : (
+                <span className="text-sm text-gray-600">普通订单</span>
+              )}
+            </div>
             {order.remarks && <InfoRow label="备注" value={order.remarks} span />}
           </div>
         </div>

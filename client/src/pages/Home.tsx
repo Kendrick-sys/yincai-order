@@ -160,7 +160,8 @@ export default function Home() {
       !search ||
       (o.customer ?? "").includes(search) ||
       (o.orderDescription ?? "").includes(search) ||
-      (o.orderNo ?? "").includes(search)
+      (o.orderNo ?? "").includes(search) ||
+      ((o as any).alibabaOrderNo ?? "").includes(search)
     ),
     [orders, search]
   );
@@ -384,7 +385,7 @@ export default function Home() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3">
           <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <Input
-            placeholder="搜索客户名称、订单描述、订单号..."
+            placeholder="搜索客户名称、订单描述、订单号、阿里巴巴订单号..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="border-0 shadow-none focus-visible:ring-0 p-0 text-sm"
