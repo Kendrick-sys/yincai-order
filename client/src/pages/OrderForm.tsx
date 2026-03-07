@@ -548,13 +548,32 @@ export default function OrderForm() {
                   </span>
                 </div>
               )}
-              {/* 第四行：订单渠道（阿里巴巴 / 1688） */}
+              {/* 第四行：订单渠道（单选：普通 / 阿里巴巴 / 1688） */}
               <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                 <span className="text-xs text-gray-400 w-14 flex-shrink-0">订单渠道</span>
-                {/* 阿里巴巴 */}
+                {/* 普通订单 */}
                 <button
                   type="button"
-                  onClick={() => setHeader(h => ({ ...h, isAlibaba: !h.isAlibaba, alibabaOrderNo: h.isAlibaba ? "" : h.alibabaOrderNo }))}
+                  onClick={() => setHeader(h => ({ ...h, isAlibaba: false, alibabaOrderNo: "", is1688: false, alibaba1688OrderNo: "" }))}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
+                    ${!header.isAlibaba && !header.is1688
+                      ? "border-gray-400 bg-gray-100 text-gray-700"
+                      : "border-border text-muted-foreground hover:border-gray-400"
+                    }`}
+                >
+                  {!header.isAlibaba && !header.is1688 ? "☑ 普通订单" : "☐ 普通订单"}
+                </button>
+                {/* 阿里巴巴（单选：选中时自动取消1688） */}
+                <button
+                  type="button"
+                  onClick={() => setHeader(h => ({
+                    ...h,
+                    isAlibaba: !h.isAlibaba,
+                    alibabaOrderNo: h.isAlibaba ? "" : h.alibabaOrderNo,
+                    // 选中阿里巴巴时自动取消1688
+                    is1688: h.isAlibaba ? h.is1688 : false,
+                    alibaba1688OrderNo: h.isAlibaba ? h.alibaba1688OrderNo : "",
+                  }))}
                   className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
                     ${header.isAlibaba
                       ? "border-[#FF6A00] bg-orange-50 text-[#FF6A00]"
@@ -580,10 +599,17 @@ export default function OrderForm() {
                     )}
                   </div>
                 )}
-                {/* 1688 */}
+                {/* 1688（单选：选中时自动取消阿里巴巴） */}
                 <button
                   type="button"
-                  onClick={() => setHeader(h => ({ ...h, is1688: !h.is1688, alibaba1688OrderNo: h.is1688 ? "" : h.alibaba1688OrderNo }))}
+                  onClick={() => setHeader(h => ({
+                    ...h,
+                    is1688: !h.is1688,
+                    alibaba1688OrderNo: h.is1688 ? "" : h.alibaba1688OrderNo,
+                    // 选中1688时自动取消阿里巴巴
+                    isAlibaba: h.is1688 ? h.isAlibaba : false,
+                    alibabaOrderNo: h.is1688 ? h.alibabaOrderNo : "",
+                  }))}
                   className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
                     ${header.is1688
                       ? "border-[#FF6A00] bg-orange-50 text-[#FF6A00]"
