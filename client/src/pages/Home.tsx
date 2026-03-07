@@ -444,9 +444,16 @@ export default function Home() {
         {/* 订单列表 */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           {/* 表头（含可排序列） */}
-          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
             <span>订单信息</span>
             <span className="text-center">客户</span>
+            <SortableHeader
+              label="下单日期"
+              field="orderDate"
+              sortField={sortField}
+              sortDir={sortDir}
+              onSort={handleSort}
+            />
             <SortableHeader
               label="交货日期"
               field="deliveryDate"
@@ -503,7 +510,7 @@ export default function Home() {
                 const isUrgent  = deliveryDiffDays !== null && deliveryDiffDays >= 0 && deliveryDiffDays <= 7;
 
                 return (
-                  <div key={order.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-4 items-center transition-colors ${
+                  <div key={order.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-4 items-center transition-colors ${
                     isOverdue
                       ? "bg-red-50/60 hover:bg-red-50 border-l-4 border-l-red-400"
                       : isUrgent
@@ -532,12 +539,14 @@ export default function Home() {
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {order.orderNo ? `订单号：${order.orderNo}` : ""}
-                        {order.orderNo && order.orderDate ? "  ·  " : ""}
-                        {order.orderDate ? `下单：${order.orderDate}` : ""}
                       </p>
                     </div>
                     {/* 客户 */}
                     <span className="text-sm text-gray-600 text-center">{order.customer || "—"}</span>
+                    {/* 下单日期 */}
+                    <span className={`text-sm text-center ${
+                      sortField === "orderDate" ? "text-[#1A3C5E] font-medium" : "text-gray-600"
+                    }`}>{order.orderDate || "—"}</span>
                     {/* 交货日期 */}
                     <div className="flex flex-col items-center gap-0.5">
                       <span className={`text-sm text-center ${

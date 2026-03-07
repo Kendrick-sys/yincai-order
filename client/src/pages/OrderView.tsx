@@ -176,6 +176,31 @@ export default function OrderView() {
             <InfoRow label="预计交货" value={order.deliveryDate} />
             <InfoRow label="制单员" value={order.maker} />
             <InfoRow label="销售员" value={order.salesperson} />
+            {/* 客户类型 + 报关状态 */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-400 font-medium tracking-wide">客户类型</span>
+              {(order as any).customerType === "overseas" ? (
+                <span className="text-sm font-semibold text-[#1A3C5E]">「国外客户」</span>
+              ) : (
+                <span className="text-sm text-gray-600">「国内客户」</span>
+              )}
+            </div>
+            {(order as any).customerType === "overseas" && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400 font-medium tracking-wide">报关状态</span>
+                {(order as any).customsDeclared === null ? (
+                  <span className="text-sm text-gray-400 italic">未标注</span>
+                ) : (order as any).customsDeclared ? (
+                  <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md w-fit">
+                    ☑ 需要报关
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md w-fit">
+                    ☐ 无需报关
+                  </span>
+                )}
+              </div>
+            )}
             {order.remarks && <InfoRow label="备注" value={order.remarks} span />}
           </div>
         </div>

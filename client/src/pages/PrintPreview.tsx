@@ -363,6 +363,32 @@ export default function PrintPreview() {
                 <td style={tdLabel}>型号数量</td>
                 <td style={tdValue}>{models.length} 个型号</td>
               </tr>
+              <tr>
+                <td style={tdLabel}>客户类型</td>
+                <td style={tdValue}>
+                  {(order as any).customerType === "overseas" ? (
+                    <span style={{ color: "#1A3C5E", fontWeight: "bold" }}>「国外客户」</span>
+                  ) : (
+                    <span style={{ color: "#555" }}>「国内客户」</span>
+                  )}
+                </td>
+                {(order as any).customerType === "overseas" ? (
+                  <>
+                    <td style={tdLabel}>报关状态</td>
+                    <td style={{
+                      ...tdValue,
+                      backgroundColor: (order as any).customsDeclared ? "#fffbeb" : "#f8f8f8",
+                      fontWeight: "bold",
+                      color: (order as any).customsDeclared ? "#92400e" : "#555",
+                    }} colSpan={3}>
+                      {(order as any).customsDeclared === null ? "报关未标注" :
+                       (order as any).customsDeclared ? "☑ 需要报关" : "☐ 无需报关"}
+                    </td>
+                  </>
+                ) : (
+                  <td style={tdValue} colSpan={4}>国内订单无需报关</td>
+                )}
+              </tr>
               {order.remarks && (
                 <tr>
                   <td style={tdLabel}>备注</td>
