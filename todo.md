@@ -316,3 +316,14 @@
 - [x] localStorage 持久化：关闭弹窗后再打开，恢复上次填写内容（按订单 ID 分别存储）
 - [x] 每个附加模块底部显示小计行（内衬/LOGO/丝印/颜色），主色卡片样式，展开模块时小计大字显示
 - [x] 删除价格汇总中「税前 ¥0.00 → 含税 ¥0.00」的转换显示行（保留最终总价行）
+
+## 新功能（第四十一批）
+
+- [x] 国内合同：弹窗标题旁增加「重置表单」按鈕，清除 localStorage 并恢复初始值
+- [x] 国内合同：内衬材质下拉增加「其他」选项（可手动输入）
+- [x] PI Tab：新增附加明细模块（Liner/Logo/Silk Print/Custom Color/Freight），对应国内合同结构
+- [x] PI Tab：所有标题翻译为标准英文
+- [x] CI Tab：映射 PI 的附加明细模块（CI 通常与 PI 结构一致）
+- [x] generatePdf.ts：PI/CI HTML 模板同步附加明细行
+- [x] routers.ts：generatePiCi tRPC schema 同步 piExtras 字段
+- [x] TypeScript 0 错误，10 个测试全部通过

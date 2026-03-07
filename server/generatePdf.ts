@@ -66,6 +66,39 @@ export interface ContractCnData {
   extras?: DomesticExtras;        // 附加明细（内衬、LOGO、丝印、颜色、运费）
 }
 
+export interface PiCiExtras {
+  hasLiner: boolean;
+  linerMaterial?: string;
+  linerDescription?: string;
+  linerQuantity: number;
+  linerUnitPrice: number;
+  linerAmount: number;
+  hasLinerTemplate: boolean;
+  linerTemplateQuantity: number;
+  linerTemplateUnitPrice: number;
+  linerTemplateAmount: number;
+  hasLogo: boolean;
+  logoMaterial?: string;
+  logoDescription?: string;
+  logoQuantity: number;
+  logoUnitPrice: number;
+  logoAmount: number;
+  hasSilkPrint: boolean;
+  silkPrintDescription?: string;
+  silkPrintQuantity: number;
+  silkPrintUnitPrice: number;
+  silkPrintAmount: number;
+  hasSilkPrintTemplate: boolean;
+  silkPrintTemplateQuantity: number;
+  silkPrintTemplateUnitPrice: number;
+  silkPrintTemplateAmount: number;
+  hasCustomColor: boolean;
+  customColorQuantity: number;
+  customColorUnitPrice: number;
+  customColorAmount: number;
+  shippingFee: number;
+}
+
 export interface PiCiData {
   docType: "pi" | "ci";
   docNo: string;
@@ -81,6 +114,7 @@ export interface PiCiData {
   incoterms?: string;
   portOfLoading?: string;
   bankChoice: "icbc" | "citi";
+  extras?: PiCiExtras;
 }
 
 // ─── 工具函数 ──────────────────────────────────────────────────────────────────
@@ -431,7 +465,8 @@ function buildPiCiHtml(data: PiCiData): string {
     buyerName, buyerAddress,
     lineItems, totalAmount, currency,
     depositPct, balancePct,
-    incoterms, portOfLoading, bankChoice
+    incoterms, portOfLoading, bankChoice,
+    extras
   } = data;
 
   const depositAmount = totalAmount * depositPct / 100;
@@ -454,6 +489,37 @@ function buildPiCiHtml(data: PiCiData): string {
       <td>${item.amount > 0 ? currencySymbol + item.amount.toFixed(2) : ""}</td>
     </tr>
   `).join("");
+
+  // 附加明细行
+  const extraRows: string[] = [];
+  if (extras) {
+    if (extras.hasLiner && extras.linerAmount > 0) {
+      const matLabel = extras.linerMaterial ? ` (${extras.linerMaterial})` : "";
+      const desc = extras.linerDescription ? ` - ${extras.linerDescription}` : "";
+      extraRows.push(`<tr><td colspan="3" style="text-align:left">Liner${matLabel}${desc}</td><td>${extras.linerQuantity}</td><td>${extras.linerUnitPrice > 0 ? currencySymbol + extras.linerUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerAmount.toFixed(2)}</td></tr>`);
+    }
+    if (extras.hasLiner && extras.hasLinerTemplate && extras.linerTemplateAmount > 0) {
+      extraRows.push(`<tr><td colspan="3" style="text-align:left">Liner Mold Fee</td><td>${extras.linerTemplateQuantity}</td><td>${extras.linerTemplateUnitPrice > 0 ? currencySymbol + extras.linerTemplateUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerTemplateAmount.toFixed(2)}</td></tr>`);
+    }
+    if (extras.hasLogo && extras.logoAmount > 0) {
+      const matLabel = extras.logoMaterial ? ` (${extras.logoMaterial})` : "";
+      const desc = extras.logoDescription ? ` - ${extras.logoDescription}` : "";
+      extraRows.push(`<tr><td colspan="3" style="text-align:left">Custom Logo${matLabel}${desc}</td><td>${extras.logoQuantity}</td><td>${extras.logoUnitPrice > 0 ? currencySymbol + extras.logoUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.logoAmount.toFixed(2)}</td></tr>`);
+    }
+    if (extras.hasSilkPrint && extras.silkPrintAmount > 0) {
+      const desc = extras.silkPrintDescription ? ` - ${extras.silkPrintDescription}` : "";
+      extraRows.push(`<tr><td colspan="3" style="text-align:left">Silk Printing${desc}</td><td>${extras.silkPrintQuantity}</td><td>${extras.silkPrintUnitPrice > 0 ? currencySymbol + extras.silkPrintUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.silkPrintAmount.toFixed(2)}</td></tr>`);
+    }
+    if (extras.hasSilkPrint && extras.hasSilkPrintTemplate && extras.silkPrintTemplateAmount > 0) {
+      extraRows.push(`<tr><td colspan="3" style="text-align:left">Silk Print Mold Fee</td><td>${extras.silkPrintTemplateQuantity}</td><td>${extras.silkPrintTemplateUnitPrice > 0 ? currencySymbol + extras.silkPrintTemplateUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.silkPrintTemplateAmount.toFixed(2)}</td></tr>`);
+    }
+    if (extras.hasCustomColor && extras.customColorAmount > 0) {
+      extraRows.push(`<tr><td colspan="3" style="text-align:left">Custom Color Fee</td><td>${extras.customColorQuantity}</td><td>${extras.customColorUnitPrice > 0 ? currencySymbol + extras.customColorUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.customColorAmount.toFixed(2)}</td></tr>`);
+    }
+    if (extras.shippingFee > 0) {
+      extraRows.push(`<tr><td colspan="5" style="text-align:left">Shipping &amp; Freight</td><td>${currencySymbol}${extras.shippingFee.toFixed(2)}</td></tr>`);
+    }
+  }
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -553,6 +619,7 @@ function buildPiCiHtml(data: PiCiData): string {
   </thead>
   <tbody>
     ${tableRows}
+    ${extraRows.join("\n")}
     <tr class="total-row">
       <td colspan="5">TOTAL</td>
       <td>${currencySymbol}${totalAmount.toFixed(2)}</td>
