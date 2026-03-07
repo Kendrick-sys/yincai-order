@@ -31,7 +31,7 @@ const VAT_RATE = 1.13; // 增值税税率 13%
 // 产品名称选项
 const PRODUCT_NAME_OPTIONS = ["塑料工具箱", "其他"];
 // 箱体材质选项
-const BOX_MATERIAL_OPTIONS = ["PP", "ABS"];
+const BOX_MATERIAL_OPTIONS = ["PP", "ABS", "其他"];
 // 内衬材质选项
 const LINER_MATERIAL_OPTIONS = ["PU（普通棉）", "EPE（珍珠棉）", "XPE", "EVA"];
 // LOGO 材质选项
@@ -184,6 +184,8 @@ function DomesticLineItemsTable({
 }) {
   // 每行产品名称是否为「其他」（手动输入）
   const [customProductName, setCustomProductName] = useState<Record<number, boolean>>({});
+  // 每行材质是否为「其他」（手动输入）
+  const [customMaterial, setCustomMaterial] = useState<Record<number, boolean>>({});
 
   const updateItem = (idx: number, field: keyof LineItemInput, value: string | number) => {
     const newItems = items.map((item, i) => {
@@ -206,6 +208,16 @@ function DomesticLineItemsTable({
     } else {
       setCustomProductName(prev => ({ ...prev, [idx]: false }));
       updateItem(idx, "modelName", value);
+    }
+  };
+
+  const handleMaterialSelect = (idx: number, value: string) => {
+    if (value === "其他") {
+      setCustomMaterial(prev => ({ ...prev, [idx]: true }));
+      updateItem(idx, "material", "");
+    } else {
+      setCustomMaterial(prev => ({ ...prev, [idx]: false }));
+      updateItem(idx, "material", value);
     }
   };
 
@@ -274,21 +286,42 @@ function DomesticLineItemsTable({
                     placeholder="型号"
                   />
                 </td>
-                {/* 材质：下拉选择 PP / ABS */}
+                {/* 材质：下拉选择 PP / ABS / 其他（手动输入） */}
                 <td className="border border-border px-1 py-1">
-                  <Select
-                    value={BOX_MATERIAL_OPTIONS.includes(item.material) ? item.material : "PP"}
-                    onValueChange={v => updateItem(idx, "material", v)}
-                  >
-                    <SelectTrigger className="h-7 text-xs border-0 bg-transparent focus:ring-0 px-1">
-                      <SelectValue placeholder="选择..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BOX_MATERIAL_OPTIONS.map(opt => (
-                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {customMaterial[idx] ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={item.material}
+                        onChange={e => updateItem(idx, "material", e.target.value)}
+                        className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
+                        placeholder="请输入材质"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomMaterial(prev => ({ ...prev, [idx]: false }));
+                          updateItem(idx, "material", "PP");
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground px-1 flex-shrink-0"
+                        title="切换回下拉"
+                      >↩</button>
+                    </div>
+                  ) : (
+                    <Select
+                      value={BOX_MATERIAL_OPTIONS.includes(item.material) ? item.material : (item.material ? "其他" : "PP")}
+                      onValueChange={v => handleMaterialSelect(idx, v)}
+                    >
+                      <SelectTrigger className="h-7 text-xs border-0 bg-transparent focus:ring-0 px-1">
+                        <SelectValue placeholder="选择..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BOX_MATERIAL_OPTIONS.map(opt => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </td>
                 <td className="border border-border px-1 py-1 text-center">
                   <Input
@@ -364,62 +397,68 @@ function ExtraFeeRow({
   onMaterialChange?: (v: string) => void;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-      <p className="text-xs font-semibold text-foreground/70">{label}</p>
-      <div className="grid grid-cols-12 gap-2 items-end">
-        {showMaterial && materialOptions && onMaterialChange && (
-          <div className="col-span-3 space-y-1">
-            <Label className="text-xs text-muted-foreground">材质</Label>
-            <Select value={material || ""} onValueChange={onMaterialChange}>
-              <SelectTrigger className="h-7 text-xs">
-                <SelectValue placeholder="选择材质..." />
-              </SelectTrigger>
-              <SelectContent>
-                {materialOptions.map(opt => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        {showDescription && onDescriptionChange !== undefined && (
-          <div className={`${showMaterial ? "col-span-3" : "col-span-4"} space-y-1`}>
-            <Label className="text-xs text-muted-foreground">描述</Label>
+    <div className="rounded-lg border border-border bg-background shadow-sm overflow-hidden">
+      {/* 标题行 */}
+      <div className="px-3 py-2 bg-muted/40 border-b border-border">
+        <p className="text-xs font-semibold text-foreground/80">{label}</p>
+      </div>
+      {/* 字段行 */}
+      <div className="px-3 py-3">
+        <div className="flex flex-wrap gap-3 items-end">
+          {showMaterial && materialOptions && onMaterialChange && (
+            <div className="space-y-1 min-w-[110px]">
+              <Label className="text-xs text-muted-foreground">材质</Label>
+              <Select value={material || ""} onValueChange={onMaterialChange}>
+                <SelectTrigger className="h-8 text-xs w-full">
+                  <SelectValue placeholder="选择材质..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {materialOptions.map(opt => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {showDescription && onDescriptionChange !== undefined && (
+            <div className="space-y-1 flex-1 min-w-[140px]">
+              <Label className="text-xs text-muted-foreground">描述</Label>
+              <Input
+                value={description || ""}
+                onChange={e => onDescriptionChange(e.target.value)}
+                placeholder={descriptionPlaceholder || "可选描述"}
+                className="h-8 text-xs"
+              />
+            </div>
+          )}
+          <div className="space-y-1 w-[90px]">
+            <Label className="text-xs text-muted-foreground">数量（个）</Label>
             <Input
-              value={description || ""}
-              onChange={e => onDescriptionChange(e.target.value)}
-              placeholder={descriptionPlaceholder || "可选描述"}
-              className="h-7 text-xs"
+              type="number"
+              min={0}
+              value={quantity || ""}
+              onChange={e => onQuantityChange(parseFloat(e.target.value) || 0)}
+              className="h-8 text-xs text-center"
+              placeholder="0"
             />
           </div>
-        )}
-        <div className={`${showMaterial && showDescription ? "col-span-2" : showMaterial || showDescription ? "col-span-3" : "col-span-4"} space-y-1`}>
-          <Label className="text-xs text-muted-foreground">数量（个）</Label>
-          <Input
-            type="number"
-            min={0}
-            value={quantity || ""}
-            onChange={e => onQuantityChange(parseFloat(e.target.value) || 0)}
-            className="h-7 text-xs text-center"
-            placeholder="0"
-          />
-        </div>
-        <div className={`${showMaterial && showDescription ? "col-span-2" : showMaterial || showDescription ? "col-span-3" : "col-span-4"} space-y-1`}>
-          <Label className="text-xs text-muted-foreground">单价（元）</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min={0}
-            value={unitPrice || ""}
-            onChange={e => onUnitPriceChange(parseFloat(e.target.value) || 0)}
-            className="h-7 text-xs text-center"
-            placeholder="0.00"
-          />
-        </div>
-        <div className="col-span-2 space-y-1">
-          <Label className="text-xs text-muted-foreground">金额（元）</Label>
-          <div className="h-7 flex items-center justify-center text-xs font-semibold text-foreground bg-background border border-border rounded px-2">
-            {amount > 0 ? `¥${amount.toFixed(2)}` : "—"}
+          <div className="space-y-1 w-[100px]">
+            <Label className="text-xs text-muted-foreground">单价（元）</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min={0}
+              value={unitPrice || ""}
+              onChange={e => onUnitPriceChange(parseFloat(e.target.value) || 0)}
+              className="h-8 text-xs text-center"
+              placeholder="0.00"
+            />
+          </div>
+          <div className="space-y-1 w-[100px]">
+            <Label className="text-xs text-muted-foreground">金额（元）</Label>
+            <div className={`h-8 flex items-center justify-center text-xs font-semibold rounded border px-2 ${amount > 0 ? "bg-primary/5 border-primary/30 text-primary" : "bg-muted/30 border-border text-muted-foreground"}`}>
+              {amount > 0 ? `¥${amount.toFixed(2)}` : "—"}
+            </div>
           </div>
         </div>
       </div>
@@ -1070,7 +1109,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
             {/* 箱子明细 */}
             <Separator />
-            <p className="text-xs font-semibold text-foreground/70">一、箱子明细（请填写单价）</p>
+            <p className="text-xs font-semibold text-foreground/70">一、产品明细（请填写单价）</p>
             <DomesticLineItemsTable items={lineItems} onChange={setLineItems} />
 
             {/* 内衬 */}
@@ -1223,7 +1262,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             {extras.hasCustomColor && (
               <div className="pl-2">
                 <ExtraFeeRow
-                  label="定制颜色费用"
+                  label="定制颜色费"
                   quantity={extras.customColorQuantity}
                   unitPrice={extras.customColorUnitPrice}
                   amount={extras.customColorAmount}
