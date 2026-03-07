@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { generateOrderExcel } from "../exportExcel";
+import { generateCustomersExcel } from "../exportCustomers";
 import { storagePut } from "../storage";
 import { nanoid } from "nanoid";
 
@@ -46,6 +47,19 @@ async function startServer() {
       const buffer = await generateOrderExcel(id);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent('吟彩订单_' + id + '.xlsx')}`);
+      res.send(buffer);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message ?? "导出失败" });
+    }
+  });
+
+  // 客户档案 Excel 导出路由
+  app.get("/api/export/customers", async (_req, res) => {
+    try {
+      const buffer = await generateCustomersExcel();
+      const filename = encodeURIComponent(`吟彩客户档案_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '')}.xlsx`);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${filename}`);
       res.send(buffer);
     } catch (err: any) {
       res.status(500).json({ error: err.message ?? "导出失败" });

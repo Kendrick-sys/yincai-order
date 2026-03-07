@@ -55,3 +55,14 @@
 
 - [x] 修复订单列表表头与数据列对齐错位
 - [x] 全面代码审查和性能优化
+
+## 新功能（第七批）
+
+- [x] 数据库 customers 表增加 country/email 字段
+- [x] 数据库 orders 表增加 isNewCustomer 字段
+- [x] 后端 customerSchema 增加 country/email 必填验证
+- [x] 后端 orderHeaderSchema 增加 isNewCustomer 字段
+- [x] 前端 Customers.tsx：国家（国内/国外）、邮箱必填、一键导出 Excel
+- [x] 前端 OrderForm.tsx：客户必填下拉选择、新老客户选项
+- [x] 后端增加客户 Excel 导出路由 /api/export/customers
+- [x] 代码审查和性能优化

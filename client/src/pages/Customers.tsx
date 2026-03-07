@@ -13,33 +13,46 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home } from "lucide-react";
 import { Link } from "wouter";
+import { Badge } from "@/components/ui/badge";
 
 type CustomerForm = {
   name: string;
   address: string;
+  country: "domestic" | "overseas";
+  email: string;
   contact: string;
   phone: string;
   remarks: string;
 };
 
-const emptyForm: CustomerForm = { name: "", address: "", contact: "", phone: "", remarks: "" };
+const emptyForm: CustomerForm = {
+  name: "", address: "", country: "domestic",
+  email: "", contact: "", phone: "", remarks: "",
+};
 
 export default function Customers() {
   const utils = trpc.useUtils();
   const { data: customers = [] } = trpc.customers.list.useQuery(
     undefined,
-    { staleTime: 60_000 }  // 1分钟内不重新拉取
+    { staleTime: 60_000 }
   );
-  const createMut = trpc.customers.create.useMutation({ onSuccess: () => { utils.customers.list.invalidate(); setDialogOpen(false); toast.success("客户已添加"); } });
-  const updateMut = trpc.customers.update.useMutation({ onSuccess: () => { utils.customers.list.invalidate(); setDialogOpen(false); toast.success("客户已更新"); } });
-  const deleteMut = trpc.customers.delete.useMutation({ onSuccess: () => { utils.customers.list.invalidate(); setDeleteId(null); toast.success("客户已删除"); } });
+  const createMut = trpc.customers.create.useMutation({
+    onSuccess: () => { utils.customers.list.invalidate(); setDialogOpen(false); toast.success("客户已添加"); },
+  });
+  const updateMut = trpc.customers.update.useMutation({
+    onSuccess: () => { utils.customers.list.invalidate(); setDialogOpen(false); toast.success("客户已更新"); },
+  });
+  const deleteMut = trpc.customers.delete.useMutation({
+    onSuccess: () => { utils.customers.list.invalidate(); setDeleteId(null); toast.success("客户已删除"); },
+  });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<CustomerForm>(emptyForm);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const openCreate = () => {
     setEditingId(null);
@@ -49,16 +62,47 @@ export default function Customers() {
 
   const openEdit = (c: any) => {
     setEditingId(c.id);
-    setForm({ name: c.name ?? "", address: c.address ?? c.code ?? "", contact: c.contact ?? "", phone: c.phone ?? "", remarks: c.remarks ?? "" });
+    setForm({
+      name: c.name ?? "",
+      address: c.address ?? c.code ?? "",
+      country: c.country ?? "domestic",
+      email: c.email ?? "",
+      contact: c.contact ?? "",
+      phone: c.phone ?? "",
+      remarks: c.remarks ?? "",
+    });
     setDialogOpen(true);
   };
 
   const handleSave = () => {
     if (!form.name.trim()) { toast.error("客户名称不能为空"); return; }
+    if (!form.contact.trim()) { toast.error("联系人不能为空"); return; }
+    if (!form.phone.trim()) { toast.error("联系电话不能为空"); return; }
+    if (!form.address.trim()) { toast.error("客户地址不能为空"); return; }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      toast.error("邮箱格式不正确"); return;
+    }
+    const payload = { ...form, code: form.address };
     if (editingId !== null) {
-      updateMut.mutate({ id: editingId, data: { ...form, code: form.address } });
+      updateMut.mutate({ id: editingId, data: payload });
     } else {
-      createMut.mutate({ ...form, code: form.address });
+      createMut.mutate(payload);
+    }
+  };
+
+  const handleExport = async () => {
+    if (customers.length === 0) { toast.error("暂无客户数据可导出"); return; }
+    setIsExporting(true);
+    try {
+      const a = document.createElement("a");
+      a.href = "/api/export/customers";
+      a.download = `吟彩客户档案_${new Date().toLocaleDateString("zh-CN").replace(/\//g, "")}.xlsx`;
+      a.click();
+      toast.success("客户档案 Excel 已开始下载");
+    } catch {
+      toast.error("导出失败，请重试");
+    } finally {
+      setTimeout(() => setIsExporting(false), 2000);
     }
   };
 
@@ -86,10 +130,18 @@ export default function Customers() {
             </div>
           </div>
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="w-4 h-4" />
-          新增客户
-        </Button>
+        <div className="flex items-center gap-2">
+          {customers.length > 0 && (
+            <Button variant="outline" onClick={handleExport} disabled={isExporting} className="gap-2">
+              <Download className="w-4 h-4" />
+              {isExporting ? "导出中..." : "导出 Excel"}
+            </Button>
+          )}
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="w-4 h-4" />
+            新增客户
+          </Button>
+        </div>
       </header>
 
       {/* 内容区 */}
@@ -118,17 +170,29 @@ export default function Customers() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-foreground">{c.name}</span>
+                    {/* 国内/国外标签 */}
+                    <Badge variant={c.country === "overseas" ? "default" : "secondary"} className="text-xs gap-1">
+                      {c.country === "overseas"
+                        ? <><Globe className="w-3 h-3" />国外</>
+                        : <><Home className="w-3 h-3" />国内</>
+                      }
+                    </Badge>
                     {(c.address || c.code) && (
-                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{c.address || c.code}</span>
+                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full truncate max-w-[160px]">{c.address || c.code}</span>
                     )}
                   </div>
-                  {(c.contact || c.phone) && (
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {[c.contact, c.phone].filter(Boolean).join(" · ")}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    {(c.contact || c.phone) && (
+                      <p className="text-sm text-muted-foreground">
+                        {[c.contact, c.phone].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                    {c.email && (
+                      <p className="text-xs text-muted-foreground/70">{c.email}</p>
+                    )}
+                  </div>
                   {c.remarks && (
-                    <p className="text-xs text-muted-foreground/70 mt-0.5 truncate">{c.remarks}</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">{c.remarks}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -147,11 +211,12 @@ export default function Customers() {
 
       {/* 新增/编辑对话框 */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingId !== null ? "编辑客户" : "新增客户"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* 客户名称 */}
             <div>
               <Label className="text-sm font-medium">客户名称 <span className="text-destructive">*</span></Label>
               <Input
@@ -161,35 +226,78 @@ export default function Customers() {
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               />
             </div>
+
+            {/* 国家 */}
+            <div>
+              <Label className="text-sm font-medium">国家 <span className="text-destructive">*</span></Label>
+              <div className="flex gap-3 mt-1">
+                {[
+                  { value: "domestic", label: "国内", icon: <Home className="w-3.5 h-3.5" /> },
+                  { value: "overseas", label: "国外", icon: <Globe className="w-3.5 h-3.5" /> },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, country: opt.value as "domestic" | "overseas" }))}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border text-sm font-medium transition-all duration-150
+                      ${form.country === opt.value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                      }`}
+                  >
+                    {opt.icon}
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 客户地址 */}
+            <div>
+              <Label className="text-sm font-medium">客户地址 <span className="text-destructive">*</span></Label>
+              <Input
+                className="mt-1"
+                placeholder="如：广东省广州市天河区"
+                value={form.address}
+                onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+              />
+            </div>
+
+            {/* 联系人 + 联系电话 */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-sm font-medium">客户地址</Label>
+                <Label className="text-sm font-medium">联系人 <span className="text-destructive">*</span></Label>
                 <Input
                   className="mt-1"
-                  placeholder="如：广东省广州市"
-                  value={form.address}
-                  onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label className="text-sm font-medium">联系人</Label>
-                <Input
-                  className="mt-1"
-                  placeholder="可选"
+                  placeholder="如：张三"
                   value={form.contact}
                   onChange={e => setForm(f => ({ ...f, contact: e.target.value }))}
                 />
               </div>
+              <div>
+                <Label className="text-sm font-medium">联系电话 <span className="text-destructive">*</span></Label>
+                <Input
+                  className="mt-1"
+                  placeholder="如：13800138000"
+                  value={form.phone}
+                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                />
+              </div>
             </div>
+
+            {/* 邮箱 */}
             <div>
-              <Label className="text-sm font-medium">联系电话</Label>
+              <Label className="text-sm font-medium">邮箱</Label>
               <Input
                 className="mt-1"
-                placeholder="可选"
-                value={form.phone}
-                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                type="email"
+                placeholder="如：example@company.com（选填）"
+                value={form.email}
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
               />
             </div>
+
+            {/* 备注 */}
             <div>
               <Label className="text-sm font-medium">备注</Label>
               <Textarea

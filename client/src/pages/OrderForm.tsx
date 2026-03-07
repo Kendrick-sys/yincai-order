@@ -303,6 +303,7 @@ export default function OrderForm() {
   // 订单头部
   const [header, setHeader] = useState({
     orderNo: "", orderDescription: "", customer: "",
+    isNewCustomer: false,
     maker: "", salesperson: "", orderDate: new Date().toISOString().slice(0, 10),
     deliveryDate: "", remarks: "", status: "draft" as const,
     recipientName: "", recipientPhone: "", recipientAddress: "", factoryShipNo: "",
@@ -323,6 +324,7 @@ export default function OrderForm() {
       orderNo: existingOrder.orderNo ?? "",
       orderDescription: existingOrder.orderDescription ?? "",
       customer: existingOrder.customer ?? "",
+      isNewCustomer: existingOrder.isNewCustomer ?? false,
       maker: existingOrder.maker ?? "",
       salesperson: existingOrder.salesperson ?? "",
       orderDate: existingOrder.orderDate ?? "",
@@ -372,8 +374,8 @@ export default function OrderForm() {
   });
 
   const handleSave = (status: "draft" | "submitted") => {
-    if (!header.orderDescription && !header.customer) {
-      toast.warning("请至少填写订单描述或客户名称");
+    if (!header.customer) {
+      toast.warning("请选择客户名称");
       return;
     }
     // 序列化图片数组为 JSON 字符串存储
@@ -449,33 +451,52 @@ export default function OrderForm() {
               <Label className="text-xs text-gray-500 mb-1 block">订单描述</Label>
               <Input placeholder="订单描述" value={header.orderDescription} onChange={e => setHeader(h => ({ ...h, orderDescription: e.target.value }))} className="h-9 text-sm" />
             </div>
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">客户名称</Label>
-              <div className="flex gap-2">
+            <div className="col-span-2">
+              <Label className="text-xs text-gray-500 mb-1 block">
+                客户名称 <span className="text-destructive">*</span>
+              </Label>
+              <div className="flex gap-3">
                 <Select
-                  value={isPresetCustomer ? header.customer : ""}
+                  value={header.customer}
                   onValueChange={v => setHeader(h => ({ ...h, customer: v }))}
                 >
-                  <SelectTrigger className="h-9 text-sm w-40 flex-shrink-0">
-                    <SelectValue placeholder="选择客户" />
+                  <SelectTrigger className="h-9 text-sm flex-1">
+                    <SelectValue placeholder="请选择客户（必填）" />
                   </SelectTrigger>
                   <SelectContent>
-                    {customerNames.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">
-                        暂无预设客户，请在客户管理中添加
+                    {customerNames.length === 0 ? (
+                      <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                        暂无预设客户，请先到《客户管理》中添加
                       </div>
+                    ) : (
+                      customerList.map((c: any) => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))
                     )}
-                    {customerList.map((c: any) => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                    ))}
                   </SelectContent>
                 </Select>
-                <Input
-                  placeholder="或手动输入客户名称"
-                  value={header.customer}
-                  onChange={e => setHeader(h => ({ ...h, customer: e.target.value }))}
-                  className="h-9 text-sm flex-1"
-                />
+                {/* 新老客户选项 */}
+                <div className="flex gap-2 flex-shrink-0">
+                  {[
+                    { value: false, label: "老客户" },
+                    { value: true,  label: "新客户" },
+                  ].map(opt => (
+                    <button
+                      key={String(opt.value)}
+                      type="button"
+                      onClick={() => setHeader(h => ({ ...h, isNewCustomer: opt.value }))}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
+                        ${header.isNewCustomer === opt.value
+                          ? opt.value
+                            ? "border-green-500 bg-green-50 text-green-700"
+                            : "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:border-primary/50"
+                        }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <div>

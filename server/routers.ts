@@ -51,6 +51,8 @@ const orderHeaderSchema = z.object({
   orderDate:        z.string().optional(),
   deliveryDate:     z.string().optional(),
   remarks:          z.string().optional(),
+  // 新老客户
+  isNewCustomer:    z.boolean().optional(),
   // 收件人信息
   recipientName:    z.string().optional(),
   recipientPhone:   z.string().optional(),
@@ -61,9 +63,12 @@ const orderHeaderSchema = z.object({
 
 const customerSchema = z.object({
   name:      z.string().min(1, "客户名称不能为空"),
-  code:      z.string().optional(),
-  contact:   z.string().optional(),
-  phone:     z.string().optional(),
+  code:      z.string().optional(),      // 客户地址（兼容旧字段）
+  address:   z.string().optional(),      // 客户地址（新字段）
+  country:   z.enum(["domestic", "overseas"]).default("domestic"),  // 国内/国外
+  email:     z.string().email("邮箱格式不正确").optional().or(z.literal("")),
+  contact:   z.string().min(1, "联系人不能为空"),
+  phone:     z.string().min(1, "联系电话不能为空"),
   remarks:   z.string().optional(),
   sortOrder: z.number().optional(),
 });

@@ -19,7 +19,10 @@ export type InsertUser = typeof users.$inferInsert;
 export const customers = mysqlTable("customers", {
   id: int("id").autoincrement().primaryKey(),
   name:     varchar("name", { length: 128 }).notNull(),           // 客户名称
-  code:     varchar("code", { length: 64 }),                      // 客户编码（可选）
+  code:     varchar("code", { length: 64 }),                      // 客户地址（沿用旧字段名兼容）
+  address:  text("address"),                                      // 客户地址（新字段）
+  country:  mysqlEnum("country", ["domestic", "overseas"]).default("domestic").notNull(), // 国家：国内/国外
+  email:    varchar("email", { length: 320 }),                    // 邮箱
   contact:  varchar("contact", { length: 64 }),                   // 联系人
   phone:    varchar("phone", { length: 32 }),                     // 联系电话
   remarks:  text("remarks"),                                      // 备注
@@ -43,6 +46,8 @@ export const orders = mysqlTable("orders", {
   orderDate:        varchar("orderDate", { length: 20 }),         // 下单日期
   deliveryDate:     varchar("deliveryDate", { length: 20 }),      // 预计交货日期
   remarks:          text("remarks"),                              // 备注
+
+  isNewCustomer: boolean("isNewCustomer").default(false).notNull(), // 新客户/老客户
 
   // 收件人信息
   recipientName:    varchar("recipientName", { length: 64 }),       // 收件人姓名
