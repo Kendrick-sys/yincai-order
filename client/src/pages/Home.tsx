@@ -34,20 +34,42 @@ export default function Home() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
 
-  const { data: orders = [], isLoading, refetch } = trpc.orders.list.useQuery();
+  const utils = trpc.useUtils();
+  const { data: orders = [], isLoading } = trpc.orders.list.useQuery(
+    undefined,
+    { staleTime: 30_000 }  // 30秒内不重新拉取
+  );
 
   const deleteMutation = trpc.orders.delete.useMutation({
-    onSuccess: () => { toast.success("订单已删除"); refetch(); },
-    onError: () => toast.error("删除失败，请重试"),
+    onMutate: async ({ id }) => {
+      await utils.orders.list.cancel();
+      const prev = utils.orders.list.getData();
+      utils.orders.list.setData(undefined, old => old?.filter(o => o.id !== id));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) utils.orders.list.setData(undefined, ctx.prev);
+      toast.error("删除失败，请重试");
+    },
+    onSuccess: () => { toast.success("订单已移入回收站"); utils.orders.list.invalidate(); },
   });
   const updateStatusMutation = trpc.orders.updateStatus.useMutation({
-    onSuccess: () => { toast.success("状态已更新"); refetch(); },
-    onError: () => toast.error("状态更新失败"),
+    onMutate: async ({ id, status }) => {
+      await utils.orders.list.cancel();
+      const prev = utils.orders.list.getData();
+      utils.orders.list.setData(undefined, old => old?.map(o => o.id === id ? { ...o, status } : o));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) utils.orders.list.setData(undefined, ctx.prev);
+      toast.error("状态更新失败");
+    },
+    onSuccess: () => { toast.success("状态已更新"); utils.orders.list.invalidate(); },
   });
   const duplicateMutation = trpc.orders.duplicate.useMutation({
     onSuccess: (data) => {
       toast.success("订单已复制，正在跳转编辑...");
-      refetch();
+      utils.orders.list.invalidate();
       navigate(`/order/${data.id}/edit`);
     },
     onError: () => toast.error("复制失败，请重试"),

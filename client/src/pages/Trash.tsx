@@ -11,12 +11,42 @@ import { Trash2, RotateCcw, ArrowLeft, PackageOpen } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Trash() {
-  const { data: trashed = [], refetch } = trpc.orders.listTrashed.useQuery();
+  const utils = trpc.useUtils();
+  const { data: trashed = [] } = trpc.orders.listTrashed.useQuery(
+    undefined,
+    { staleTime: 30_000 }
+  );
   const restoreMut = trpc.orders.restore.useMutation({
-    onSuccess: () => { refetch(); toast.success("订单已恢复到正常列表"); },
+    onMutate: async ({ id }) => {
+      await utils.orders.listTrashed.cancel();
+      const prev = utils.orders.listTrashed.getData();
+      utils.orders.listTrashed.setData(undefined, old => old?.filter(o => o.id !== id));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) utils.orders.listTrashed.setData(undefined, ctx.prev);
+    },
+    onSuccess: () => {
+      toast.success("订单已恢复到正常列表");
+      utils.orders.listTrashed.invalidate();
+      utils.orders.list.invalidate();
+    },
   });
   const hardDeleteMut = trpc.orders.hardDelete.useMutation({
-    onSuccess: () => { refetch(); setHardDeleteId(null); toast.success("订单已彻底删除"); },
+    onMutate: async ({ id }) => {
+      await utils.orders.listTrashed.cancel();
+      const prev = utils.orders.listTrashed.getData();
+      utils.orders.listTrashed.setData(undefined, old => old?.filter(o => o.id !== id));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) utils.orders.listTrashed.setData(undefined, ctx.prev);
+    },
+    onSuccess: () => {
+      setHardDeleteId(null);
+      toast.success("订单已彻底删除");
+      utils.orders.listTrashed.invalidate();
+    },
   });
 
   const [hardDeleteId, setHardDeleteId] = useState<number | null>(null);

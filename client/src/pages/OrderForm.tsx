@@ -172,7 +172,7 @@ function ModelCard({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="客户提供">客户提供</SelectItem>
-                        <SelectItem value="按实际来料验货">按实际来料验货</SelectItem>
+                        <SelectItem value="外部采购">外部采购</SelectItem>
                         <SelectItem value="工厂自备">工厂自备</SelectItem>
                       </SelectContent>
                     </Select>
@@ -302,6 +302,7 @@ export default function OrderForm() {
     orderNo: "", orderDescription: "", customer: "",
     maker: "", salesperson: "", orderDate: new Date().toISOString().slice(0, 10),
     deliveryDate: "", remarks: "", status: "draft" as const,
+    recipientName: "", recipientPhone: "", recipientAddress: "", factoryShipNo: "",
   });
 
   // 型号列表
@@ -325,6 +326,10 @@ export default function OrderForm() {
       deliveryDate: existingOrder.deliveryDate ?? "",
       remarks: existingOrder.remarks ?? "",
       status: existingOrder.status as any,
+      recipientName: existingOrder.recipientName ?? "",
+      recipientPhone: existingOrder.recipientPhone ?? "",
+      recipientAddress: existingOrder.recipientAddress ?? "",
+      factoryShipNo: existingOrder.factoryShipNo ?? "",
     });
     if (existingOrder.models?.length) {
       setModels(existingOrder.models.map((m: any) => ({
@@ -489,6 +494,33 @@ export default function OrderForm() {
             <div className="col-span-2">
               <Label className="text-xs text-gray-500 mb-1 block">备注</Label>
               <Textarea placeholder="订单整体备注..." value={header.remarks} onChange={e => setHeader(h => ({ ...h, remarks: e.target.value }))} rows={2} className="text-sm resize-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* 收件人信息 */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <h2 className="font-semibold text-gray-800 text-sm mb-4 flex items-center gap-2">
+            <span className="w-1 h-5 bg-[#1A3C5E] rounded-full inline-block" />
+            收件人信息
+            <span className="text-xs text-gray-400 font-normal">（可选）</span>
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">收件人姓名</Label>
+              <Input placeholder="姓名" value={header.recipientName} onChange={e => setHeader(h => ({ ...h, recipientName: e.target.value }))} className="h-9 text-sm" />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">收件人电话</Label>
+              <Input placeholder="手机号码" value={header.recipientPhone} onChange={e => setHeader(h => ({ ...h, recipientPhone: e.target.value }))} className="h-9 text-sm" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-gray-500 mb-1 block">收件地址</Label>
+              <Input placeholder="详细收件地址" value={header.recipientAddress} onChange={e => setHeader(h => ({ ...h, recipientAddress: e.target.value }))} className="h-9 text-sm" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-gray-500 mb-1 block">工厂发货单号</Label>
+              <Input placeholder="工厂发货单号" value={header.factoryShipNo} onChange={e => setHeader(h => ({ ...h, factoryShipNo: e.target.value }))} className="h-9 text-sm" />
             </div>
           </div>
         </div>

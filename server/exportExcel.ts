@@ -20,6 +20,7 @@ const COLORS = {
   disabled:   "F0F0F0",
   disabledFg: "AAAAAA",
   border:     "DDDDDD",
+  imgBg:      "FFFDE7",
 };
 
 function fill(hex: string): ExcelJS.Fill {
@@ -85,6 +86,63 @@ function guessExt(url: string): "jpeg" | "png" | "gif" {
   return "jpeg";
 }
 
+/** 安全解析 JSON 数组字符串 */
+function parseJsonArray(val: string | null | undefined): string[] {
+  if (!val) return [];
+  try {
+    const arr = JSON.parse(val);
+    return Array.isArray(arr) ? arr.filter((v) => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 在指定行、指定列嵌入多张图片（多张图片纵向堆叠，每张占一行）
+ * 返回实际使用的行数
+ */
+async function embedImagesInColumn(
+  wb: ExcelJS.Workbook,
+  ws: ExcelJS.Worksheet,
+  startRow: number,
+  col: number,           // 1-indexed 列号
+  urls: string[],
+  bgHex: string,
+  labelText: string,
+  imgHeightPt = 80       // 每张图片行高（points）
+): Promise<number> {
+  if (urls.length === 0) return 0;
+
+  let rowsUsed = 0;
+  for (const url of urls) {
+    try {
+      const buf = await fetchImageBuffer(url);
+      if (!buf) continue;
+      const ext = guessExt(url);
+      const imgId = wb.addImage({ buffer: buf, extension: ext });
+      const r = startRow + rowsUsed;
+      ws.getRow(r).height = imgHeightPt;
+      // 填充背景
+      const cell = ws.getCell(r, col);
+      cell.fill = fill(bgHex);
+      cell.border = border();
+      cell.alignment = { horizontal: "center", vertical: "bottom", wrapText: true };
+      cell.font = font("888888", false, 7);
+      cell.value = rowsUsed === 0 ? labelText : "";
+      // 嵌入图片（0-indexed）
+      ws.addImage(imgId, {
+        tl: { col: col - 1, row: r - 1 } as any,
+        br: { col: col,     row: r     } as any,
+        editAs: "oneCell",
+      } as any);
+      rowsUsed++;
+    } catch {
+      // 忽略单张图片错误
+    }
+  }
+  return rowsUsed;
+}
+
 /**
  * 生成单张订单的 Excel（吟彩版 + 厂部版两个 sheet）
  */
@@ -110,26 +168,40 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       },
     });
 
-    // 列宽定义（A列标签，B~N数据）
+    // 列宽定义
+    // 吟彩版列：描述项目|型号名称|数量|上盖|下盖|配件|贴纸来源|贴纸描述|丝印描述|上盖内衬|下盖内衬|内箱|外箱|备注
+    // 厂部版列：描述项目|型号名称|数量|上盖|下盖|配件|贴纸来源|贴纸描述|上盖内衬|下盖内衬|内箱|外箱|备注
     const colWidths = isYincai
-      ? [18, 16, 8, 14, 14, 12, 12, 16, 16, 14, 14, 14, 14, 14]
-      : [18, 16, 8, 14, 14, 12, 12, 16, 14, 14, 14, 14, 14];
+      ? [18, 16, 8, 14, 14, 12, 12, 18, 18, 16, 16, 14, 14, 14]
+      : [18, 16, 8, 14, 14, 12, 12, 18, 16, 16, 14, 14, 14];
     colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
     const totalCols = colWidths.length;
 
-    // ── 第1行：大标题（统一标题，不区分版本）─────────────────────────────────
+    // 列索引映射（1-indexed）
+    // 吟彩版: A=1描述项目, B=2型号名称, C=3数量, D=4上盖, E=5下盖, F=6配件
+    //         G=7贴纸来源, H=8贴纸描述, I=9丝印描述, J=10上盖内衬, K=11下盖内衬
+    //         L=12内箱, M=13外箱, N=14备注
+    // 厂部版: A=1描述项目, B=2型号名称, C=3数量, D=4上盖, E=5下盖, F=6配件
+    //         G=7贴纸来源, H=8贴纸描述, I=9上盖内衬, J=10下盖内衬
+    //         K=11内箱, L=12外箱, M=13备注
+    const COL_STICKER_DESC = 8;  // H列：贴纸描述（两版相同）
+    const COL_SILK_DESC    = isYincai ? 9  : -1; // I列（仅吟彩版）
+    const COL_TOP_LINER    = isYincai ? 10 : 9;
+    const COL_BOT_LINER    = isYincai ? 11 : 10;
+
+    // ── 第1行：大标题 ─────────────────────────────────────────────────────────
     ws.getRow(1).height = 36;
     mergeSet(ws, 1, 1, 1, totalCols,
       "吟彩销售订单记录表",
       COLORS.headerBg, COLORS.headerFg, true, 14);
 
-    // ── 第2行：订单基本信息 ────────────────────────────────────────────────────
+    // ── 第2行：订单基本信息 ───────────────────────────────────────────────────
     ws.getRow(2).height = 20;
     const basicInfo = [
       `订单描述：${order.orderDescription ?? ""}`,
       `客户：${order.customer ?? ""}`,
-      `订单号：${order.orderNo ?? ""}`,        // 改为"订单号"
+      `订单号：${order.orderNo ?? ""}`,
       `下单日期：${order.orderDate ?? ""}`,
       `交货日期：${order.deliveryDate ?? ""}`,
       `制单员：${order.maker ?? ""}  销售员：${order.salesperson ?? ""}`,
@@ -146,7 +218,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       mergeSet(ws, 2, c1, 2, c2, infoCells[i], COLORS.labelBg, COLORS.labelFg, false, 9);
     }
 
-    // ── 第3行：列标题 ──────────────────────────────────────────────────────────
+    // ── 第3行：列标题 ─────────────────────────────────────────────────────────
     ws.getRow(3).height = 24;
     const headers = isYincai
       ? ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "丝印描述", "上盖内衬", "下盖内衬", "内箱规格", "外箱规格", "备注"]
@@ -155,7 +227,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       setCell(ws, 3, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
     });
 
-    // ── 数据行（每个型号：文字行 + 图片行）────────────────────────────────────
+    // ── 数据行（每个型号：文字行 + 图片行）───────────────────────────────────
     const models = order.models ?? [];
     let currentRow = 4;
 
@@ -168,7 +240,6 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
 
       // A列：序号
       setCell(ws, dataRow, 1, `型号 ${idx + 1}`, COLORS.sectionBox, COLORS.sectionFg, true, 9, "center");
-
       // B: 型号名称
       setCell(ws, dataRow, 2, m.modelName ?? "", rowBg, COLORS.valueFg);
       // C: 数量
@@ -185,93 +256,85 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       const stickerFg = m.needSticker ? COLORS.valueFg : COLORS.disabledFg;
       setCell(ws, dataRow, 7, m.needSticker ? (m.stickerSource ?? "") : "不需要", stickerBg, stickerFg);
       // H: 贴纸描述
-      setCell(ws, dataRow, 8, m.needSticker ? (m.stickerDesc ?? "") : "—", stickerBg, stickerFg);
+      setCell(ws, dataRow, COL_STICKER_DESC, m.needSticker ? (m.stickerDesc ?? "") : "—", stickerBg, stickerFg);
 
-      let col = 9;
       if (isYincai) {
         // I: 丝印描述
         const silkBg = m.needSilkPrint ? rowBg : COLORS.disabled;
         const silkFg = m.needSilkPrint ? COLORS.valueFg : COLORS.disabledFg;
-        setCell(ws, dataRow, col, m.needSilkPrint ? (m.silkPrintDesc ?? "") : "不需要", silkBg, silkFg);
-        col++;
+        setCell(ws, dataRow, COL_SILK_DESC, m.needSilkPrint ? (m.silkPrintDesc ?? "") : "不需要", silkBg, silkFg);
       }
 
       // 内衬
       const linerBg = m.needLiner ? rowBg : COLORS.disabled;
       const linerFg = m.needLiner ? COLORS.valueFg : COLORS.disabledFg;
-      setCell(ws, dataRow, col, m.needLiner ? (m.topLiner ?? "") : "不需要", linerBg, linerFg); col++;
-      setCell(ws, dataRow, col, m.needLiner ? (m.bottomLiner ?? "") : "—", linerBg, linerFg); col++;
+      setCell(ws, dataRow, COL_TOP_LINER, m.needLiner ? (m.topLiner ?? "") : "不需要", linerBg, linerFg);
+      setCell(ws, dataRow, COL_BOT_LINER, m.needLiner ? (m.bottomLiner ?? "") : "—", linerBg, linerFg);
 
       // 纸箱
+      const cartonColStart = isYincai ? 12 : 11;
       const cartonBg = m.needCarton ? rowBg : COLORS.disabled;
       const cartonFg = m.needCarton ? COLORS.valueFg : COLORS.disabledFg;
-      setCell(ws, dataRow, col, m.needCarton ? (m.innerBox ?? "") : "不需要", cartonBg, cartonFg); col++;
-      setCell(ws, dataRow, col, m.needCarton ? (m.outerBox ?? "") : "—", cartonBg, cartonFg); col++;
+      setCell(ws, dataRow, cartonColStart,     m.needCarton ? (m.innerBox ?? "") : "不需要", cartonBg, cartonFg);
+      setCell(ws, dataRow, cartonColStart + 1, m.needCarton ? (m.outerBox ?? "") : "—", cartonBg, cartonFg);
 
       // 备注
-      setCell(ws, dataRow, col, m.modelRemarks ?? "", rowBg, COLORS.valueFg);
+      setCell(ws, dataRow, totalCols, m.modelRemarks ?? "", rowBg, COLORS.valueFg);
 
       currentRow++;
 
-      // ── 图片行：收集该型号所有图片 URL ──────────────────────────────────────
+      // ── 图片行：按列分别嵌入图片 ────────────────────────────────────────────
       const stickerUrls: string[] = m.needSticker ? parseJsonArray(m.stickerImages) : [];
       const silkUrls: string[]    = (isYincai && m.needSilkPrint) ? parseJsonArray(m.silkPrintImages) : [];
       const linerUrls: string[]   = m.needLiner ? parseJsonArray(m.linerImages) : [];
 
-      const allImageGroups: { label: string; urls: string[] }[] = [];
-      if (stickerUrls.length > 0) allImageGroups.push({ label: "贴纸", urls: stickerUrls });
-      if (silkUrls.length > 0)    allImageGroups.push({ label: "丝印", urls: silkUrls });
-      if (linerUrls.length > 0)   allImageGroups.push({ label: "内衬", urls: linerUrls });
+      const hasImages = stickerUrls.length > 0 || silkUrls.length > 0 || linerUrls.length > 0;
 
-      if (allImageGroups.length > 0) {
-        // 每张图片固定高度 80px（约 60pt），图片行高度 = 组数 * 行高
-        const IMG_ROW_HEIGHT = 65; // 每行图片高度（points）
-        const imgRow = currentRow;
-        ws.getRow(imgRow).height = IMG_ROW_HEIGHT * allImageGroups.length;
+      if (hasImages) {
+        const IMG_HEIGHT_PT = 80; // 每张图片行高（points）
+        const imgStartRow = currentRow;
 
-        // A列标注"附件图片"
-        mergeSet(ws, imgRow, 1, imgRow, 1, "附件图片", COLORS.labelBg, COLORS.labelFg, true, 8);
+        // 先计算各列最多需要多少行（每张图片一行）
+        const maxRows = Math.max(
+          stickerUrls.length,
+          silkUrls.length,
+          linerUrls.length,
+        );
 
-        // 逐组下载并嵌入图片
-        let imgColOffset = 2; // 从B列开始放图片
-        for (const group of allImageGroups) {
-          for (const url of group.urls.slice(0, 6)) { // 最多6张/组
-            try {
-              const buf = await fetchImageBuffer(url);
-              if (!buf) continue;
-              const ext = guessExt(url);
-              const imgId = wb.addImage({ buffer: buf, extension: ext });
-              // 计算列位置（每张图片占1列）
-              const imgCol = imgColOffset - 1; // 0-indexed
-              ws.addImage(imgId, {
-                tl: { col: imgCol, row: imgRow - 1 } as any,
-                br: { col: imgCol + 1, row: imgRow } as any,
-                editAs: "oneCell",
-              } as any);
-              // 给该单元格加标注
-              const labelCell = ws.getCell(imgRow, imgColOffset);
-              labelCell.fill = fill("FFFDE7");
-              labelCell.border = border();
-              labelCell.alignment = { horizontal: "center", vertical: "bottom", wrapText: true };
-              labelCell.font = font("888888", false, 7);
-              labelCell.value = group.label;
-              imgColOffset++;
-              if (imgColOffset > totalCols) break;
-            } catch {
-              // 忽略单张图片错误
-            }
+        // 预设所有图片行的行高，并填充背景
+        for (let r = imgStartRow; r < imgStartRow + maxRows; r++) {
+          ws.getRow(r).height = IMG_HEIGHT_PT;
+          // 填充整行背景
+          for (let c = 1; c <= totalCols; c++) {
+            const cell = ws.getCell(r, c);
+            cell.fill = fill(COLORS.imgBg);
+            cell.border = border();
           }
-          if (imgColOffset > totalCols) break;
         }
 
-        // 填充图片行剩余单元格背景
-        for (let c = imgColOffset; c <= totalCols; c++) {
-          const cell = ws.getCell(imgRow, c);
-          cell.fill = fill("FFFDE7");
-          cell.border = border();
+        // A列标注"附件图片"（跨所有图片行）
+        if (maxRows === 1) {
+          setCell(ws, imgStartRow, 1, "附件图片", COLORS.labelBg, COLORS.labelFg, true, 8, "center");
+        } else {
+          mergeSet(ws, imgStartRow, 1, imgStartRow + maxRows - 1, 1, "附件图片", COLORS.labelBg, COLORS.labelFg, true, 8);
         }
 
-        currentRow++;
+        // 贴纸图片 → 贴纸描述列（H列 = COL_STICKER_DESC）
+        if (stickerUrls.length > 0) {
+          await embedImagesInColumn(wb, ws, imgStartRow, COL_STICKER_DESC, stickerUrls, COLORS.sticker, "贴纸", IMG_HEIGHT_PT);
+        }
+
+        // 丝印图片 → 丝印描述列（I列，仅吟彩版）
+        if (isYincai && silkUrls.length > 0 && COL_SILK_DESC > 0) {
+          await embedImagesInColumn(wb, ws, imgStartRow, COL_SILK_DESC, silkUrls, COLORS.silk, "丝印", IMG_HEIGHT_PT);
+        }
+
+        // 内衬图片 → 上盖内衬列（J/I列）
+        if (linerUrls.length > 0) {
+          await embedImagesInColumn(wb, ws, imgStartRow, COL_TOP_LINER, linerUrls, COLORS.liner, "内衬", IMG_HEIGHT_PT);
+        }
+
+        currentRow += maxRows;
       }
     }
 
@@ -288,8 +351,25 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
     mergeSet(ws, remarkRow, 1, remarkRow, 2, "订单备注", COLORS.labelBg, COLORS.labelFg, true, 9);
     mergeSet(ws, remarkRow, 3, remarkRow, totalCols, order.remarks ?? "", COLORS.valueBg, COLORS.valueFg);
 
+    // ── 收件人信息行 ──────────────────────────────────────────────────────────
+    const recipientRow = remarkRow + 1;
+    ws.getRow(recipientRow).height = 18;
+    const recipientInfo = [
+      order.recipientName    ? `收件人：${order.recipientName}` : "",
+      order.recipientPhone   ? `电话：${order.recipientPhone}` : "",
+      order.recipientAddress ? `地址：${order.recipientAddress}` : "",
+      order.factoryShipNo    ? `工厂发货单号：${order.factoryShipNo}` : "",
+    ].filter(Boolean).join("   ");
+
+    if (recipientInfo) {
+      mergeSet(ws, recipientRow, 1, recipientRow, 2, "收件信息", COLORS.labelBg, COLORS.labelFg, true, 9);
+      mergeSet(ws, recipientRow, 3, recipientRow, totalCols, recipientInfo, COLORS.valueBg, COLORS.valueFg);
+    } else {
+      mergeSet(ws, recipientRow, 1, recipientRow, totalCols, "", COLORS.valueBg, COLORS.valueFg);
+    }
+
     // ── 签名行 ────────────────────────────────────────────────────────────────
-    const signRow = remarkRow + 1;
+    const signRow = recipientRow + 1;
     ws.getRow(signRow).height = 28;
     const depts = ["计划部", "仓库", "质检部", "生产部"];
     const signSpan = Math.floor(totalCols / depts.length);
@@ -306,15 +386,4 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
 
   const buffer = await wb.xlsx.writeBuffer();
   return Buffer.from(buffer);
-}
-
-/** 安全解析 JSON 数组字符串 */
-function parseJsonArray(val: string | null | undefined): string[] {
-  if (!val) return [];
-  try {
-    const arr = JSON.parse(val);
-    return Array.isArray(arr) ? arr.filter((v) => typeof v === "string") : [];
-  } catch {
-    return [];
-  }
 }

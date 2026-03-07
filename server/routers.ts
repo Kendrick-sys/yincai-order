@@ -51,6 +51,11 @@ const orderHeaderSchema = z.object({
   orderDate:        z.string().optional(),
   deliveryDate:     z.string().optional(),
   remarks:          z.string().optional(),
+  // 收件人信息
+  recipientName:    z.string().optional(),
+  recipientPhone:   z.string().optional(),
+  recipientAddress: z.string().optional(),
+  factoryShipNo:    z.string().optional(),
   status:           z.enum(["draft", "submitted", "in_production", "completed", "cancelled"]).optional(),
 });
 

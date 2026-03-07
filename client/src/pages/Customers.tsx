@@ -27,10 +27,14 @@ type CustomerForm = {
 const emptyForm: CustomerForm = { name: "", address: "", contact: "", phone: "", remarks: "" };
 
 export default function Customers() {
-  const { data: customers = [], refetch } = trpc.customers.list.useQuery();
-  const createMut = trpc.customers.create.useMutation({ onSuccess: () => { refetch(); setDialogOpen(false); toast.success("客户已添加"); } });
-  const updateMut = trpc.customers.update.useMutation({ onSuccess: () => { refetch(); setDialogOpen(false); toast.success("客户已更新"); } });
-  const deleteMut = trpc.customers.delete.useMutation({ onSuccess: () => { refetch(); setDeleteId(null); toast.success("客户已删除"); } });
+  const utils = trpc.useUtils();
+  const { data: customers = [] } = trpc.customers.list.useQuery(
+    undefined,
+    { staleTime: 60_000 }  // 1分钟内不重新拉取
+  );
+  const createMut = trpc.customers.create.useMutation({ onSuccess: () => { utils.customers.list.invalidate(); setDialogOpen(false); toast.success("客户已添加"); } });
+  const updateMut = trpc.customers.update.useMutation({ onSuccess: () => { utils.customers.list.invalidate(); setDialogOpen(false); toast.success("客户已更新"); } });
+  const deleteMut = trpc.customers.delete.useMutation({ onSuccess: () => { utils.customers.list.invalidate(); setDeleteId(null); toast.success("客户已删除"); } });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);

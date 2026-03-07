@@ -44,6 +44,12 @@ export const orders = mysqlTable("orders", {
   deliveryDate:     varchar("deliveryDate", { length: 20 }),      // 预计交货日期
   remarks:          text("remarks"),                              // 备注
 
+  // 收件人信息
+  recipientName:    varchar("recipientName", { length: 64 }),       // 收件人姓名
+  recipientPhone:   varchar("recipientPhone", { length: 32 }),      // 收件人电话
+  recipientAddress: text("recipientAddress"),                       // 收件地址
+  factoryShipNo:    varchar("factoryShipNo", { length: 100 }),      // 工厂发货单号
+
   status: mysqlEnum("status", ["draft", "submitted", "in_production", "completed", "cancelled"])
     .default("draft")
     .notNull(),
