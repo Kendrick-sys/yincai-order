@@ -190,7 +190,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
   const customerTypeLabel = isOverseas ? "国外" : "国内";
   const customsDeclared: boolean | null = (order as any).customsDeclared ?? null;
 
-  // 行2：订单描述（列1-5）| 客户（列6-10）| 订单号（列11-14）
+  // 行2：订单描述（兗1-5）| 客户（兗6-10）| 销售员（圕11-14）
   mergeSet(ws, 2, 1, 2, 5,
     `订单描述：${order.orderDescription ?? ""}`,
     COLORS.labelBg, COLORS.labelFg, false, 9);
@@ -199,7 +199,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
     isOverseas ? COLORS.overseas : COLORS.labelBg,
     isOverseas ? "1A3C5E" : COLORS.labelFg, isOverseas, 9);
   mergeSet(ws, 2, 11, 2, 14,
-    `订单号：${order.orderNo ?? ""}`,
+    `销售员：${order.salesperson ?? ""}`,
     COLORS.labelBg, COLORS.labelFg, false, 9);
 
   // 行3：是否报关（国外客户显示报关信息，国内客户显示下单日期+交货日期+制单员）
@@ -216,7 +216,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       `下单日期：${order.orderDate ?? ""}   交货日期：${order.deliveryDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
     mergeSet(ws, 3, 11, 3, 14,
-      `制单员：${order.maker ?? ""}   销售员：${order.salesperson ?? ""}`,
+      `制单员：${order.maker ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
   } else {
     // 国内订单：下单日期占前5列，交货日期占中5列，制单员占后4列
@@ -227,7 +227,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       `交货日期：${order.deliveryDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
     mergeSet(ws, 3, 11, 3, 14,
-      `制单员：${order.maker ?? ""}   销售员：${order.salesperson ?? ""}`,
+      `制单员：${order.maker ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
   }
 
@@ -254,10 +254,10 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       `下单日期：${order.orderDate ?? ""}   交货日期：${order.deliveryDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
     mergeSet(ws, 4, 11, 4, 14,
-      `销售员：${order.salesperson ?? ""}`,
+      `订单号：${order.orderNo ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
   } else {
-    // 普通订单：显示下单日期和销售员
+    // 普通订单：显示下单日期和订单号
     mergeSet(ws, 4, 1, 4, 5,
       `下单日期：${order.orderDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
@@ -265,7 +265,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       `交货日期：${order.deliveryDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
     mergeSet(ws, 4, 11, 4, 14,
-      `销售员：${order.salesperson ?? ""}`,
+      `订单号：${order.orderNo ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
   }
 
