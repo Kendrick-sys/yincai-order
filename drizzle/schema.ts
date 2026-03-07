@@ -48,6 +48,8 @@ export const orders = mysqlTable("orders", {
   remarks:          text("remarks"),                              // 备注
 
   isNewCustomer: boolean("isNewCustomer").default(false).notNull(), // 新客户/老客户
+  customerType:   mysqlEnum("customerType", ["domestic", "overseas"]).default("domestic").notNull(), // 国内/国外
+  customsDeclared: boolean("customsDeclared").default(false).notNull(), // 是否报关（国外客户时有效）
 
   // 收件人信息
   recipientName:    varchar("recipientName", { length: 64 }),       // 收件人姓名

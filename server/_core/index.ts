@@ -7,7 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { generateOrderExcel } from "../exportExcel";
+import { generateOrderExcel, generateMonthlyOrdersExcel } from "../exportExcel";
 import { generateCustomersExcel } from "../exportCustomers";
 import { storagePut } from "../storage";
 import { nanoid } from "nanoid";
@@ -47,6 +47,24 @@ async function startServer() {
       const buffer = await generateOrderExcel(id);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent('吟彩订单_' + id + '.xlsx')}`);
+      res.send(buffer);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message ?? "导出失败" });
+    }
+  });
+
+  // 按年月批量导出订单 Excel 路由
+  app.get("/api/export/orders/monthly", async (req, res) => {
+    try {
+      const year = parseInt(req.query.year as string);
+      const month = parseInt(req.query.month as string);
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        res.status(400).json({ error: "请提供有效的年份和月份" }); return;
+      }
+      const buffer = await generateMonthlyOrdersExcel(year, month);
+      const filename = encodeURIComponent(`吟彩订单_${year}年${month}月.xlsx`);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${filename}`);
       res.send(buffer);
     } catch (err: any) {
       res.status(500).json({ error: err.message ?? "导出失败" });

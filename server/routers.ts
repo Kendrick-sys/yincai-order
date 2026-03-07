@@ -53,6 +53,9 @@ const orderHeaderSchema = z.object({
   remarks:          z.string().optional(),
   // 新老客户
   isNewCustomer:    z.boolean().optional(),
+  // 国内/国外及报关
+  customerType:     z.enum(["domestic", "overseas"]).optional(),
+  customsDeclared:  z.boolean().optional(),
   // 收件人信息
   recipientName:    z.string().optional(),
   recipientPhone:   z.string().optional(),

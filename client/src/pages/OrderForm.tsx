@@ -305,6 +305,8 @@ export default function OrderForm() {
   const [header, setHeader] = useState({
     orderNo: "", orderDescription: "", customer: "",
     isNewCustomer: false,
+    customerType: "domestic" as "domestic" | "overseas",
+    customsDeclared: false,
     maker: "", salesperson: "", orderDate: new Date().toISOString().slice(0, 10),
     deliveryDate: "", remarks: "", status: "draft" as const,
     recipientName: "", recipientPhone: "", recipientAddress: "", factoryShipNo: "",
@@ -326,6 +328,8 @@ export default function OrderForm() {
       orderDescription: existingOrder.orderDescription ?? "",
       customer: existingOrder.customer ?? "",
       isNewCustomer: existingOrder.isNewCustomer ?? false,
+      customerType: (existingOrder.customerType ?? "domestic") as "domestic" | "overseas",
+      customsDeclared: existingOrder.customsDeclared ?? false,
       maker: existingOrder.maker ?? "",
       salesperson: existingOrder.salesperson ?? "",
       orderDate: existingOrder.orderDate ?? "",
@@ -459,8 +463,8 @@ export default function OrderForm() {
                   customers={customerList}
                   className="flex-1"
                 />
-                {/* 新老客户选项 */}
-                <div className="flex gap-2 flex-shrink-0">
+                {/* 新老客户 + 国内/国外 + 报关 */}
+                <div className="flex gap-2 flex-shrink-0 flex-wrap">
                   {[
                     { value: false, label: "老客户" },
                     { value: true,  label: "新客户" },
@@ -480,6 +484,37 @@ export default function OrderForm() {
                       {opt.label}
                     </button>
                   ))}
+                  {/* 国内/国外 */}
+                  {["domestic", "overseas"].map(ct => (
+                    <button
+                      key={ct}
+                      type="button"
+                      onClick={() => setHeader(h => ({ ...h, customerType: ct as "domestic" | "overseas", customsDeclared: false }))}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
+                        ${header.customerType === ct
+                          ? ct === "overseas"
+                            ? "border-blue-500 bg-blue-50 text-blue-700"
+                            : "border-gray-400 bg-gray-100 text-gray-700"
+                          : "border-border text-muted-foreground hover:border-primary/50"
+                        }`}
+                    >
+                      {ct === "domestic" ? "国内" : "国外"}
+                    </button>
+                  ))}
+                  {/* 报关（仅国外时显示） */}
+                  {header.customerType === "overseas" && (
+                    <button
+                      type="button"
+                      onClick={() => setHeader(h => ({ ...h, customsDeclared: !h.customsDeclared }))}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
+                        ${header.customsDeclared
+                          ? "border-orange-500 bg-orange-50 text-orange-700"
+                          : "border-border text-muted-foreground hover:border-orange-400"
+                        }`}
+                    >
+                      {header.customsDeclared ? "需要报关 ✓" : "是否报关"}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

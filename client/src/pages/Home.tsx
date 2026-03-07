@@ -6,7 +6,8 @@ import {
   Plus, Search, FileDown, Pencil, Trash2,
   ClipboardList, Package, CheckCircle2, XCircle,
   Clock, Factory, ChevronRight, Copy, Printer,
-  Users, Trash, Eye, ArrowUpDown, ArrowUp, ArrowDown
+  Users, Trash, Eye, ArrowUpDown, ArrowUp, ArrowDown,
+  CalendarRange, Loader2, X
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useState, useEffect, useMemo } from "react";
@@ -16,6 +17,13 @@ function downloadOrderExcel(orderId: number) {
   const a = document.createElement("a");
   a.href = `/api/export/order/${orderId}`;
   a.download = `吟彩订单_${orderId}.xlsx`;
+  a.click();
+}
+
+function downloadMonthlyExcel(year: number, month: number) {
+  const a = document.createElement("a");
+  a.href = `/api/export/orders/monthly?year=${year}&month=${month}`;
+  a.download = `吟彩订单_${year}年${month}月.xlsx`;
   a.click();
 }
 
@@ -79,6 +87,10 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<StatusKey | "all">("all");
   const [sortField, setSortField] = useState<SortField>(null);
   const [sortDir, setSortDir]     = useState<SortDir>("asc");
+  const [showMonthExport, setShowMonthExport] = useState(false);
+  const [exportYear, setExportYear]   = useState(() => new Date().getFullYear());
+  const [exportMonth, setExportMonth] = useState(() => new Date().getMonth() + 1);
+  const [exporting, setExporting]     = useState(false);
 
   // 读取 URL 参数 ?customer=xxx（从客户管理页跳转过来）
   useEffect(() => {
@@ -222,6 +234,84 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* 按月导出面板 */}
+            <div className="relative">
+              <Button
+                variant="outline" size="sm"
+                className="gap-1.5 text-gray-500 border-gray-200 hover:text-[#1A3C5E] hover:border-[#1A3C5E]/30"
+                onClick={() => setShowMonthExport(v => !v)}
+              >
+                <CalendarRange className="w-3.5 h-3.5" />
+                按月导出
+              </Button>
+              {showMonthExport && (
+                <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-64">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold text-gray-700">选择导出年月</p>
+                    <button onClick={() => setShowMonthExport(false)} className="text-gray-400 hover:text-gray-600">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex gap-2 mb-3">
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-500 mb-1 block">年份</label>
+                      <select
+                        value={exportYear}
+                        onChange={e => setExportYear(Number(e.target.value))}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30"
+                      >
+                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                          <option key={y} value={y}>{y}年</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-500 mb-1 block">月份</label>
+                      <select
+                        value={exportMonth}
+                        onChange={e => setExportMonth(Number(e.target.value))}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                          <option key={m} value={m}>{m}月</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <Button
+                    className="w-full bg-[#1A3C5E] hover:bg-[#15304d] gap-2 text-sm"
+                    disabled={exporting}
+                    onClick={async () => {
+                      setExporting(true);
+                      try {
+                        const res = await fetch(`/api/export/orders/monthly?year=${exportYear}&month=${exportMonth}`);
+                        if (!res.ok) {
+                          const err = await res.json();
+                          toast.error(err.error ?? "导出失败");
+                          return;
+                        }
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `吟彩订单_${exportYear}年${exportMonth}月.xlsx`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success(`${exportYear}年${exportMonth}月订单导出成功`);
+                        setShowMonthExport(false);
+                      } catch {
+                        toast.error("导出失败，请重试");
+                      } finally {
+                        setExporting(false);
+                      }
+                    }}
+                  >
+                    {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                    {exporting ? "导出中..." : `导出 ${exportYear}年${exportMonth}月`}
+                  </Button>
+                </div>
+              )}
+            </div>
             <Link href="/trash">
               <Button variant="outline" size="sm" className="gap-1.5 text-gray-500 border-gray-200 hover:text-red-500 hover:border-red-200">
                 <Trash className="w-3.5 h-3.5" />

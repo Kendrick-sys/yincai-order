@@ -43,6 +43,13 @@
       "when": 1772867577376,
       "tag": "0005_ambitious_stark_industries",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1772871329140,
+      "tag": "0006_demonic_stardust",
+      "breakpoints": true
     }
   ]
 }

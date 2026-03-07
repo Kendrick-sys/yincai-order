@@ -1,5 +1,7 @@
 import ExcelJS from "exceljs";
-import { getOrderById } from "./db";
+import { getOrderById, getDb } from "./db";
+import { orders as ordersTable, orderModels as orderModelsTable } from "../drizzle/schema";
+import { and, isNull, like, eq } from "drizzle-orm";
 import https from "https";
 import http from "http";
 
@@ -191,17 +193,21 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
     const COL_TOP_LINER    = isYincai ? 10 : 9;
     const COL_BOT_LINER    = isYincai ? 11 : 10;
 
-    // ── 第1行：大标题 ─────────────────────────────────────────────────────────
+    // ── 第1行：大标题
     ws.getRow(1).height = 36;
     mergeSet(ws, 1, 1, 1, totalCols,
       "吟彩销售订单记录表",
       COLORS.headerBg, COLORS.headerFg, true, 14);
 
-    // ── 第2行：订单基本信息 ───────────────────────────────────────────────────
+    // ── 第2行：订单基本信息
     ws.getRow(2).height = 20;
+    const customerTypeLabel = order.customerType === "overseas" ? "国外" : "国内";
+    const customsLabel = order.customerType === "overseas"
+      ? ((order as any).customsDeclared ? "「需要报关」" : "「无需报关」")
+      : "";
     const basicInfo = [
       `订单描述：${order.orderDescription ?? ""}`,
-      `客户：${order.customer ?? ""}`,
+      `客户：${order.customer ?? ""}  [${customerTypeLabel}]${customsLabel}`,
       `订单号：${order.orderNo ?? ""}`,
       `下单日期：${order.orderDate ?? ""}`,
       `交货日期：${order.deliveryDate ?? ""}`,
@@ -219,7 +225,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       mergeSet(ws, 2, c1, 2, c2, infoCells[i], COLORS.labelBg, COLORS.labelFg, false, 9);
     }
 
-    // ── 第3行：列标题 ─────────────────────────────────────────────────────────
+    // ── 第3行：列标题
     ws.getRow(3).height = 24;
     const headers = isYincai
       ? ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "丝印描述", "上盖内衬", "下盖内衬", "内箱规格", "外箱规格", "备注"]
@@ -383,6 +389,171 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
     // 打印区域
     ws.pageSetup.printArea = `A1:${String.fromCharCode(64 + totalCols)}${signRow}`;
     ws.pageSetup.firstPageNumber = 1;
+  }
+
+  const buffer = await wb.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+/**
+ * 按年月批量导出该月所有订单 Excel（每个订单一个 Sheet）
+ * @param year  4位年份，如 2026
+ * @param month 1-12月份
+ */
+export async function generateMonthlyOrdersExcel(year: number, month: number): Promise<Buffer> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // orderDate 格式为 "YYYY-MM-DD"，按前缀匹配
+  const prefix = `${year}-${String(month).padStart(2, "0")}`;
+  const monthOrders = await db.select().from(ordersTable)
+    .where(and(
+      isNull(ordersTable.deletedAt),
+      like(ordersTable.orderDate, `${prefix}%`)
+    ))
+    .orderBy(ordersTable.orderDate);
+
+  if (monthOrders.length === 0) {
+    throw new Error(`${year}年${month}月暂无订单`);
+  }
+
+  // 为每个订单加载型号
+  const ordersWithModels = await Promise.all(
+    monthOrders.map(async (order) => {
+      const models = await db!.select().from(orderModelsTable)
+        .where(eq(orderModelsTable.orderId, order.id))
+        .orderBy(orderModelsTable.sortOrder);
+      return { ...order, models };
+    })
+  );
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "吟彩销售订单系统";
+  wb.created = new Date();
+
+  for (const order of ordersWithModels) {
+    for (const version of ["yincai", "factory"] as const) {
+      const isYincai = version === "yincai";
+      // Sheet 名称：订单描述前8字 + 版本
+      const descShort = (order.orderDescription ?? `订单${order.id}`).slice(0, 8);
+      const sheetName = `${descShort}_${isYincai ? "吟" : "厂"}`;
+      const ws = wb.addWorksheet(sheetName, {
+        pageSetup: {
+          paperSize: 9,
+          orientation: "landscape",
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+        },
+      });
+
+      const totalCols = isYincai ? 14 : 13;
+      const colWidths = isYincai
+        ? [14, 14, 8, 14, 14, 12, 12, 20, 20, 20, 20, 16, 16, 16]
+        : [14, 14, 8, 14, 14, 12, 12, 20, 20, 20, 16, 16, 16];
+      colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+
+      const COL_STICKER_DESC = 8;
+      const COL_SILK_DESC    = isYincai ? 9  : -1;
+      const COL_TOP_LINER    = isYincai ? 10 : 9;
+      const COL_BOT_LINER    = isYincai ? 11 : 10;
+
+      // 第1行：大标题
+      ws.getRow(1).height = 36;
+      mergeSet(ws, 1, 1, 1, totalCols,
+        "吟彩销售订单记录表",
+        COLORS.headerBg, COLORS.headerFg, true, 14);
+
+      // 第2行：基本信息
+      ws.getRow(2).height = 20;
+      const customerTypeLabel = order.customerType === "overseas" ? "国外" : "国内";
+      const customsLabel = order.customerType === "overseas"
+        ? ((order as any).customsDeclared ? "「需要报关」" : "「无需报关」")
+        : "";
+      const basicInfo = [
+        `订单描述：${order.orderDescription ?? ""}`,
+        `客户：${order.customer ?? ""}  [${customerTypeLabel}]${customsLabel}`,
+        `订单号：${order.orderNo ?? ""}`,
+        `下单日期：${order.orderDate ?? ""}`,
+        `交货日期：${order.deliveryDate ?? ""}`,
+        `制单员：${order.maker ?? ""}  销售员：${order.salesperson ?? ""}`,
+      ];
+      const infoCells = [
+        basicInfo.slice(0, 2).join("   "),
+        basicInfo.slice(2, 4).join("   "),
+        basicInfo.slice(4).join("   "),
+      ];
+      const infoSpan = Math.floor(totalCols / 3);
+      for (let i = 0; i < 3; i++) {
+        const c1 = i * infoSpan + 1;
+        const c2 = i === 2 ? totalCols : (i + 1) * infoSpan;
+        mergeSet(ws, 2, c1, 2, c2, infoCells[i], COLORS.labelBg, COLORS.labelFg, false, 9);
+      }
+
+      // 第3行：列标题
+      ws.getRow(3).height = 24;
+      const headers = isYincai
+        ? ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "丝印描述", "上盖内衬", "下盖内衬", "内箱规格", "外箱规格", "备注"]
+        : ["描述项目", "型号名称", "数量", "上盖材质", "下盖材质", "配件", "贴纸来源", "贴纸描述", "上盖内衬", "下盖内衬", "内箱规格", "外箱规格", "备注"];
+      headers.forEach((h, i) => {
+        setCell(ws, 3, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
+      });
+
+      // 数据行（复用 addModelRows 逻辑）
+      const models = order.models ?? [];
+      let currentRow = 4;
+      for (let idx = 0; idx < models.length; idx++) {
+        const m = models[idx] as any;
+        const textRow = currentRow;
+        ws.getRow(textRow).height = 60;
+        const rowData = isYincai
+          ? [
+              `第${idx + 1}个型号`,
+              m.modelName ?? "", m.quantity ?? "",
+              m.topCover ?? "", m.bottomCover ?? "", m.accessories ?? "",
+              m.stickerSource ?? "", m.stickerDesc ?? "",
+              m.silkPrintDesc ?? "",
+              m.topLiner ?? "", m.bottomLiner ?? "",
+              m.innerBox ?? "", m.outerBox ?? "", m.modelRemarks ?? "",
+            ]
+          : [
+              `第${idx + 1}个型号`,
+              m.modelName ?? "", m.quantity ?? "",
+              m.topCover ?? "", m.bottomCover ?? "", m.accessories ?? "",
+              m.stickerSource ?? "", m.stickerDesc ?? "",
+              m.topLiner ?? "", m.bottomLiner ?? "",
+              m.innerBox ?? "", m.outerBox ?? "", m.modelRemarks ?? "",
+            ];
+        rowData.forEach((val, ci) => {
+          setCell(ws, textRow, ci + 1, String(val), COLORS.valueBg, COLORS.valueFg, false, 9);
+        });
+        currentRow++;
+      }
+
+      // 收件人行
+      const recipientRow = currentRow;
+      ws.getRow(recipientRow).height = 20;
+      const recipientInfo = [
+        `收件人：${order.recipientName ?? ""}`,
+        `电话：${order.recipientPhone ?? ""}`,
+        `地址：${order.recipientAddress ?? ""}`,
+        `工厂发货单号：${order.factoryShipNo ?? ""}`,
+      ].join("   ");
+      mergeSet(ws, recipientRow, 1, recipientRow, totalCols, recipientInfo, COLORS.labelBg, COLORS.labelFg, false, 9);
+
+      // 签名行
+      const signRow = recipientRow + 1;
+      ws.getRow(signRow).height = 28;
+      const depts = ["计划部", "仓库", "质检部", "生产部"];
+      const signSpan = Math.floor(totalCols / depts.length);
+      depts.forEach((dept, i) => {
+        const c1 = i * signSpan + 1;
+        const c2 = i === depts.length - 1 ? totalCols : (i + 1) * signSpan;
+        mergeSet(ws, signRow, c1, signRow, c2, `${dept}签名：`, COLORS.labelBg, COLORS.labelFg, false, 9);
+      });
+
+      ws.pageSetup.printArea = `A1:${String.fromCharCode(64 + totalCols)}${signRow}`;
+    }
   }
 
   const buffer = await wb.xlsx.writeBuffer();
