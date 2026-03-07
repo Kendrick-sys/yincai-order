@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
+import CustomerCombobox from "@/components/CustomerCombobox";
 import {
   ArrowLeft, Plus, Trash2, Save, ChevronDown, ChevronUp,
   Package, Tag, Printer, Layers, Archive, AlertCircle
@@ -407,10 +408,6 @@ export default function OrderForm() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
-  // 判断客户是否在数据库列表中
-  const customerNames = customerList.map((c: any) => c.name);
-  const isPresetCustomer = customerNames.includes(header.customer);
-
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
       {/* 顶部导航 */}
@@ -456,25 +453,12 @@ export default function OrderForm() {
                 客户名称 <span className="text-destructive">*</span>
               </Label>
               <div className="flex gap-3">
-                <Select
+                <CustomerCombobox
                   value={header.customer}
-                  onValueChange={v => setHeader(h => ({ ...h, customer: v }))}
-                >
-                  <SelectTrigger className="h-9 text-sm flex-1">
-                    <SelectValue placeholder="请选择客户（必填）" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customerNames.length === 0 ? (
-                      <div className="px-3 py-4 text-xs text-muted-foreground text-center">
-                        暂无预设客户，请先到《客户管理》中添加
-                      </div>
-                    ) : (
-                      customerList.map((c: any) => (
-                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                  onChange={v => setHeader(h => ({ ...h, customer: v }))}
+                  customers={customerList}
+                  className="flex-1"
+                />
                 {/* 新老客户选项 */}
                 <div className="flex gap-2 flex-shrink-0">
                   {[

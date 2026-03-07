@@ -6,10 +6,10 @@ import {
   Plus, Search, FileDown, Pencil, Trash2,
   ClipboardList, Package, CheckCircle2, XCircle,
   Clock, Factory, ChevronRight, Copy, Printer,
-  Users, Trash, Eye
+  Users, Trash, Eye, ArrowUpDown, ArrowUp, ArrowDown
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 
 function downloadOrderExcel(orderId: number) {
@@ -21,37 +21,70 @@ function downloadOrderExcel(orderId: number) {
 
 // 状态配置
 const STATUS_CONFIG = {
-  draft:         { label: "草稿",   color: "bg-slate-100 text-slate-600 border-slate-200",   icon: Clock,         dot: "bg-slate-400" },
-  submitted:     { label: "已提交", color: "bg-amber-100 text-amber-700 border-amber-200",   icon: ClipboardList, dot: "bg-amber-400" },
-  in_production: { label: "生产中", color: "bg-orange-100 text-orange-700 border-orange-200", icon: Factory,       dot: "bg-orange-400" },
-  completed:     { label: "已完成", color: "bg-green-100 text-green-700 border-green-200",   icon: CheckCircle2,  dot: "bg-green-500" },
-  cancelled:     { label: "已取消", color: "bg-red-100 text-red-600 border-red-200",         icon: XCircle,       dot: "bg-red-400" },
+  draft:         { label: "草稿",   color: "bg-slate-100 text-slate-600 border-slate-200",    icon: Clock,         dot: "bg-slate-400",  order: 0 },
+  submitted:     { label: "已提交", color: "bg-amber-100 text-amber-700 border-amber-200",    icon: ClipboardList, dot: "bg-amber-400",  order: 1 },
+  in_production: { label: "生产中", color: "bg-orange-100 text-orange-700 border-orange-200", icon: Factory,       dot: "bg-orange-400", order: 2 },
+  completed:     { label: "已完成", color: "bg-green-100 text-green-700 border-green-200",    icon: CheckCircle2,  dot: "bg-green-500",  order: 3 },
+  cancelled:     { label: "已取消", color: "bg-red-100 text-red-600 border-red-200",          icon: XCircle,       dot: "bg-red-400",    order: 4 },
 } as const;
 
 type StatusKey = keyof typeof STATUS_CONFIG;
 
-// 状态筛选 Tab 定义（不含「已取消」，作为次要状态）
+// 排序字段类型
+type SortField = "deliveryDate" | "orderDate" | "status" | null;
+type SortDir   = "asc" | "desc";
+
+// 状态筛选 Tab
 const STATUS_TABS: Array<{ key: StatusKey | "all"; label: string }> = [
-  { key: "all",          label: "全部" },
-  { key: "draft",        label: "草稿" },
-  { key: "submitted",    label: "已提交" },
-  { key: "in_production",label: "生产中" },
-  { key: "completed",    label: "已完成" },
-  { key: "cancelled",    label: "已取消" },
+  { key: "all",           label: "全部" },
+  { key: "draft",         label: "草稿" },
+  { key: "submitted",     label: "已提交" },
+  { key: "in_production", label: "生产中" },
+  { key: "completed",     label: "已完成" },
+  { key: "cancelled",     label: "已取消" },
 ];
+
+// 可排序表头组件
+function SortableHeader({
+  label, field, sortField, sortDir, onSort,
+  className = "",
+}: {
+  label: string;
+  field: SortField;
+  sortField: SortField;
+  sortDir: SortDir;
+  onSort: (f: SortField) => void;
+  className?: string;
+}) {
+  const active = sortField === field;
+  return (
+    <button
+      onClick={() => onSort(field)}
+      className={`flex items-center justify-center gap-1 group select-none ${className}`}
+    >
+      <span className={active ? "text-[#1A3C5E]" : ""}>{label}</span>
+      {active
+        ? sortDir === "asc"
+          ? <ArrowUp className="w-3 h-3 text-[#1A3C5E]" />
+          : <ArrowDown className="w-3 h-3 text-[#1A3C5E]" />
+        : <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-40 transition-opacity" />
+      }
+    </button>
+  );
+}
 
 export default function Home() {
   const [, navigate] = useLocation();
-  const [search, setSearch] = useState("");
+  const [search, setSearch]       = useState("");
   const [activeTab, setActiveTab] = useState<StatusKey | "all">("all");
+  const [sortField, setSortField] = useState<SortField>(null);
+  const [sortDir, setSortDir]     = useState<SortDir>("asc");
 
   // 读取 URL 参数 ?customer=xxx（从客户管理页跳转过来）
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const customerParam = params.get("customer");
-    if (customerParam) {
-      setSearch(customerParam);
-    }
+    if (customerParam) setSearch(customerParam);
   }, []);
 
   const utils = trpc.useUtils();
@@ -73,6 +106,7 @@ export default function Home() {
     },
     onSuccess: () => { toast.success("订单已移入回收站"); utils.orders.list.invalidate(); },
   });
+
   const updateStatusMutation = trpc.orders.updateStatus.useMutation({
     onMutate: async ({ id, status }) => {
       await utils.orders.list.cancel();
@@ -86,6 +120,7 @@ export default function Home() {
     },
     onSuccess: () => { toast.success("状态已更新"); utils.orders.list.invalidate(); },
   });
+
   const duplicateMutation = trpc.orders.duplicate.useMutation({
     onSuccess: (data) => {
       toast.success("订单已复制，正在跳转编辑...");
@@ -95,16 +130,56 @@ export default function Home() {
     onError: () => toast.error("复制失败，请重试"),
   });
 
-  // 先按搜索词过滤，再按 Tab 状态过滤
-  const searchFiltered = orders.filter(o =>
-    !search ||
-    (o.customer ?? "").includes(search) ||
-    (o.orderDescription ?? "").includes(search) ||
-    (o.orderNo ?? "").includes(search)
+  // 处理排序点击：同字段切换方向，不同字段重置为升序
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  // 搜索过滤
+  const searchFiltered = useMemo(() =>
+    orders.filter(o =>
+      !search ||
+      (o.customer ?? "").includes(search) ||
+      (o.orderDescription ?? "").includes(search) ||
+      (o.orderNo ?? "").includes(search)
+    ),
+    [orders, search]
   );
-  const filtered = activeTab === "all"
-    ? searchFiltered
-    : searchFiltered.filter(o => o.status === activeTab);
+
+  // Tab 过滤
+  const tabFiltered = useMemo(() =>
+    activeTab === "all"
+      ? searchFiltered
+      : searchFiltered.filter(o => o.status === activeTab),
+    [searchFiltered, activeTab]
+  );
+
+  // 排序
+  const filtered = useMemo(() => {
+    if (!sortField) return tabFiltered;
+    return [...tabFiltered].sort((a, b) => {
+      let av: string | number = "";
+      let bv: string | number = "";
+      if (sortField === "deliveryDate") {
+        av = a.deliveryDate ?? "";
+        bv = b.deliveryDate ?? "";
+      } else if (sortField === "orderDate") {
+        av = a.orderDate ?? "";
+        bv = b.orderDate ?? "";
+      } else if (sortField === "status") {
+        av = STATUS_CONFIG[a.status as StatusKey]?.order ?? 99;
+        bv = STATUS_CONFIG[b.status as StatusKey]?.order ?? 99;
+      }
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [tabFiltered, sortField, sortDir]);
 
   // 统计（基于搜索结果，不受 Tab 影响）
   const stats = Object.entries(STATUS_CONFIG).map(([key, cfg]) => ({
@@ -233,17 +308,44 @@ export default function Home() {
               </button>
             );
           })}
+          {/* 排序提示 */}
+          {sortField && (
+            <div className="ml-auto flex items-center gap-1.5 text-xs text-[#1A3C5E]">
+              <span>
+                按{sortField === "deliveryDate" ? "交货日期" : sortField === "orderDate" ? "下单日期" : "状态"}
+                {sortDir === "asc" ? "升序" : "降序"}
+              </span>
+              <button
+                onClick={() => { setSortField(null); setSortDir("asc"); }}
+                className="text-gray-400 hover:text-gray-600 underline"
+              >
+                清除
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 订单列表 */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {/* 表头 */}
+          {/* 表头（含可排序列） */}
           <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
             <span>订单信息</span>
             <span className="text-center">客户</span>
-            <span className="text-center">交货日期</span>
+            <SortableHeader
+              label="交货日期"
+              field="deliveryDate"
+              sortField={sortField}
+              sortDir={sortDir}
+              onSort={handleSort}
+            />
             <span className="text-center">制单员</span>
-            <span className="text-center">状态</span>
+            <SortableHeader
+              label="状态"
+              field="status"
+              sortField={sortField}
+              sortDir={sortDir}
+              onSort={handleSort}
+            />
             <span className="text-center">操作</span>
           </div>
 
@@ -253,7 +355,11 @@ export default function Home() {
             <div className="py-16 text-center">
               <Package className="w-12 h-12 text-gray-200 mx-auto mb-3" />
               <p className="text-gray-400 text-sm">
-                {search ? `没有找到「${search}」的相关订单` : activeTab !== "all" ? `暂无「${STATUS_CONFIG[activeTab as StatusKey]?.label}」状态的订单` : "暂无订单，点击「新建订单」开始"}
+                {search
+                  ? `没有找到「${search}」的相关订单`
+                  : activeTab !== "all"
+                    ? `暂无「${STATUS_CONFIG[activeTab as StatusKey]?.label}」状态的订单`
+                    : "暂无订单，点击「新建订单」开始"}
               </p>
               {(search || activeTab !== "all") && (
                 <button
@@ -285,7 +391,9 @@ export default function Home() {
                     {/* 客户 */}
                     <span className="text-sm text-gray-600 text-center">{order.customer || "—"}</span>
                     {/* 交货日期 */}
-                    <span className="text-sm text-gray-600 text-center">{order.deliveryDate || "—"}</span>
+                    <span className={`text-sm text-center ${sortField === "deliveryDate" ? "text-[#1A3C5E] font-medium" : "text-gray-600"}`}>
+                      {order.deliveryDate || "—"}
+                    </span>
                     {/* 制单员 */}
                     <span className="text-sm text-gray-600 text-center">{order.maker || "—"}</span>
                     {/* 状态 */}
