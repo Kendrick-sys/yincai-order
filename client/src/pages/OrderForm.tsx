@@ -387,6 +387,10 @@ export default function OrderForm() {
       toast.warning("请选择客户名称");
       return;
     }
+    if (header.isAlibaba && !header.alibabaOrderNo?.trim()) {
+      toast.warning("阿里巴巴订单号不能为空");
+      return;
+    }
     // 序列化图片数组为 JSON 字符串存储
     const modelsPayload = models.map(({ _expanded, stickerImages, silkPrintImages, linerImages, ...m }) => ({
       ...m,
@@ -551,12 +555,21 @@ export default function OrderForm() {
                   {header.isAlibaba ? "☑ 阿里巴巴订单" : "☐ 阿里巴巴订单"}
                 </button>
                 {header.isAlibaba && (
-                  <Input
-                    placeholder="请输入阿里巴巴订单号"
-                    value={header.alibabaOrderNo}
-                    onChange={e => setHeader(h => ({ ...h, alibabaOrderNo: e.target.value }))}
-                    className="h-8 text-sm border-[#FF6A00]/40 focus:border-[#FF6A00] flex-1 max-w-xs"
-                  />
+                  <div className="flex items-center gap-1 flex-1 max-w-xs">
+                    <Input
+                      placeholder="请输入阿里巴巴订单号"
+                      value={header.alibabaOrderNo}
+                      onChange={e => setHeader(h => ({ ...h, alibabaOrderNo: e.target.value }))}
+                      className={`h-8 text-sm flex-1 ${
+                        !header.alibabaOrderNo?.trim()
+                          ? "border-red-400 focus:border-red-500 bg-red-50/30"
+                          : "border-[#FF6A00]/40 focus:border-[#FF6A00]"
+                      }`}
+                    />
+                    {!header.alibabaOrderNo?.trim() && (
+                      <span className="text-red-500 text-xs whitespace-nowrap">必填</span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

@@ -65,6 +65,15 @@ const orderHeaderSchema = z.object({
   recipientAddress: z.string().optional(),
   factoryShipNo:    z.string().optional(),
   status:           z.enum(["draft", "submitted", "in_production", "completed", "cancelled"]).optional(),
+}).superRefine((data, ctx) => {
+  // 阿里巴巴订单时，订单号必填
+  if (data.isAlibaba && !data.alibabaOrderNo?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "阿里巴巴订单号不能为空",
+      path: ["alibabaOrderNo"],
+    });
+  }
 });
 
 const customerSchema = z.object({

@@ -528,6 +528,14 @@ export default function Home() {
                             阿里巴巴
                           </span>
                         )}
+                        {(order as any).customerType === "overseas" && (order as any).customsDeclared && (
+                          <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-orange-500 px-1.5 py-0.5 rounded flex-shrink-0">
+                            <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                            </svg>
+                            报关
+                          </span>
+                        )}
                         {order.remarks && (
                           <Tooltip>
                             <TooltipTrigger asChild>
