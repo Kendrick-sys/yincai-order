@@ -338,3 +338,14 @@
 - [x] generatePdf.ts：PI/CI HTML 模板同步 Buyer 信息区块、运输天数、产品名称、运费拆分（纯英文）
 - [x] routers.ts：PI/CI tRPC schema 同步所有新字段
 - [x] TypeScript 0 错误，测试全部通过，数学算法验证
+
+## 新功能（第四十三批）
+
+- [x] 数据库：customers 表新增 attn / company / tel / email 字段并推送迁移
+- [x] 客户管理页面：增删改 UI 支持联系人/公司/电话/邮箱四个新字段
+- [x] tRPC：customers 相关 procedure 同步新字段（createCustomer / updateCustomer / listCustomers）
+- [x] DocumentDialog：打开 PI Tab 时自动从客户信息填入 Buyer 字段
+- [x] DocumentDialog：CI 从 PI 加载时同步 buyerAttn / buyerCompany / buyerTel / buyerEmail
+- [x] 订单详情页：已有 DocumentHistory 组件，确认已完整实现
+- [x] tRPC：已有 documents.listByOrder procedure
+- [x] TypeScript 0 错误，测试全部通过

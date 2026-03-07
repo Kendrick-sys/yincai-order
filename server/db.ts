@@ -103,6 +103,8 @@ export async function listCustomersWithStats() {
       country: customers.country,
       address: customers.address,
       code: customers.code,
+      company: customers.company,
+      attn: customers.attn,
       contact: customers.contact,
       phone: customers.phone,
       email: customers.email,

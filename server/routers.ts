@@ -109,6 +109,8 @@ const customerSchema = z.object({
   code:      z.string().optional(),      // 客户地址（兼容旧字段）
   address:   z.string().optional(),      // 客户地址（新字段）
   country:   z.enum(["domestic", "overseas"]).default("domestic"),  // 国内/国外
+  company:   z.string().optional(),      // 公司名（英文，用于 PI/CI）
+  attn:      z.string().optional(),      // 联系人（Attn，英文，用于 PI/CI）
   email:     z.string().email("邮箱格式不正确").optional().or(z.literal("")),
   contact:   z.string().min(1, "联系人不能为空"),
   phone:     z.string().min(1, "联系电话不能为空"),
@@ -439,6 +441,11 @@ export const appRouter = router({
           docNo,
           counterpartyName: input.buyerName,
           counterpartyAddress: input.buyerAddress,
+          buyerAttn: input.buyerAttn,
+          buyerCompany: input.buyerCompany,
+          buyerTel: input.buyerTel,
+          buyerEmail: input.buyerEmail,
+          transitDays: input.transitDays,
           lineItems: JSON.stringify(input.lineItems),
           totalAmount: String(input.totalAmount),
           currency: input.currency,

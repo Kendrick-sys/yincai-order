@@ -22,8 +22,10 @@ export const customers = mysqlTable("customers", {
   code:     varchar("code", { length: 64 }),                      // 客户地址（沿用旧字段名兼容）
   address:  text("address"),                                      // 客户地址（新字段）
   country:  mysqlEnum("country", ["domestic", "overseas"]).default("domestic").notNull(), // 国家：国内/国外
+  company:  varchar("company", { length: 256 }),                  // 公司名（英文，用于 PI/CI）
+  attn:     varchar("attn", { length: 128 }),                     // 联系人（Attn，英文，用于 PI/CI）
   email:    varchar("email", { length: 320 }),                    // 邮箱
-  contact:  varchar("contact", { length: 64 }),                   // 联系人
+  contact:  varchar("contact", { length: 64 }),                   // 联系人（中文）
   phone:    varchar("phone", { length: 32 }),                     // 联系电话
   remarks:  text("remarks"),                                      // 备注
   sortOrder: int("sortOrder").default(0).notNull(),               // 排序
@@ -146,6 +148,13 @@ export const documents = mysqlTable("documents", {
   // 乙方/买方信息（供货单位/客户）
   counterpartyName:    varchar("counterpartyName", { length: 256 }), // 供货单位/客户名称
   counterpartyAddress: text("counterpartyAddress"),                  // 地址
+
+  // PI/CI Buyer 详细信息（用于 CI 从 PI 加载时同步）
+  buyerAttn:    varchar("buyerAttn", { length: 128 }),               // Attn
+  buyerCompany: varchar("buyerCompany", { length: 256 }),            // Company name
+  buyerTel:     varchar("buyerTel", { length: 64 }),                 // Tel
+  buyerEmail:   varchar("buyerEmail", { length: 320 }),              // Email
+  transitDays:  varchar("transitDays", { length: 64 }),              // 预计运输天数
 
   // 产品明细（JSON数组）
   // 格式：[{ modelName, material, spec, quantity, unitPrice, amount }]

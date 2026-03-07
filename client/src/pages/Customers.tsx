@@ -21,6 +21,8 @@ type CustomerForm = {
   name: string;
   address: string;
   country: "domestic" | "overseas";
+  company: string;   // 公司名（英文，用于 PI/CI）
+  attn: string;      // 联系人（Attn，英文，用于 PI/CI）
   email: string;
   contact: string;
   phone: string;
@@ -29,6 +31,7 @@ type CustomerForm = {
 
 const emptyForm: CustomerForm = {
   name: "", address: "", country: "domestic",
+  company: "", attn: "",
   email: "", contact: "", phone: "", remarks: "",
 };
 
@@ -67,6 +70,8 @@ export default function Customers() {
       name: c.name ?? "",
       address: c.address ?? c.code ?? "",
       country: c.country ?? "domestic",
+      company: c.company ?? "",
+      attn: c.attn ?? "",
       email: c.email ?? "",
       contact: c.contact ?? "",
       phone: c.phone ?? "",
@@ -332,6 +337,35 @@ export default function Customers() {
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
               />
             </div>
+
+            {/* PI/CI 英文信息（仅国外客户显示） */}
+            {form.country === "overseas" && (
+              <>
+                <div className="border-t border-border pt-3">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">PI/CI 英文信息（用于生成单据）</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm font-medium">Attn（英文联系人）</Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="如：Jad A. EL Eid"
+                      value={form.attn}
+                      onChange={e => setForm(f => ({ ...f, attn: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Company Name（公司名）</Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="如：Schemes L.L.C"
+                      value={form.company}
+                      onChange={e => setForm(f => ({ ...f, company: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* 备注 */}
             <div>

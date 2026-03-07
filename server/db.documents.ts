@@ -81,6 +81,11 @@ export async function createDocument(data: {
   docNo: string;
   counterpartyName?: string;
   counterpartyAddress?: string;
+  buyerAttn?: string;
+  buyerCompany?: string;
+  buyerTel?: string;
+  buyerEmail?: string;
+  transitDays?: string;
   lineItems: string;       // JSON string
   totalAmount: string;
   currency: string;

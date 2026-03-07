@@ -990,6 +990,12 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     { enabled: open && activeTab === "ci" }
   );
 
+  // 查询客户列表（用于自动填入 Buyer 信息）
+  const { data: customerList } = trpc.customers.list.useQuery(
+    undefined,
+    { enabled: open, staleTime: 60_000 }
+  );
+
   // ── localStorage 持久化 key（按订单 ID 区分）──────────────────────────────────
   const storageKey = `yincai_contract_cn_${order.id}`;
   const piStorageKey = `yincai_pi_${order.id}`;
@@ -1001,6 +1007,21 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     setBuyerName(order.customer ?? "");
     setActiveTab(defaultTab);
     setSelectedPiId("");
+
+    // 自动从客户列表填入 Buyer 英文信息（仅当 localStorage 无缓存时）
+    const piSavedCheck = localStorage.getItem(`yincai_pi_${order.id}`);
+    if (!piSavedCheck && order.customer) {
+      const matchedCustomer = customerList?.find(
+        (c: any) => c.name === order.customer
+      );
+      if (matchedCustomer) {
+        if (matchedCustomer.attn) setBuyerAttn(matchedCustomer.attn);
+        if (matchedCustomer.company) setBuyerCompany(matchedCustomer.company);
+        if (matchedCustomer.phone) setBuyerTel(matchedCustomer.phone);
+        if (matchedCustomer.email) setBuyerEmail(matchedCustomer.email);
+        if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
+      }
+    }
 
     // 尝试从 localStorage 恢复国内合同内容
     try {
@@ -1225,6 +1246,12 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
     if (pi.counterpartyName) setBuyerName(pi.counterpartyName);
     if (pi.counterpartyAddress) setBuyerAddress(pi.counterpartyAddress);
+    // 同步 Buyer 英文联系信息
+    if (pi.buyerAttn) setBuyerAttn(pi.buyerAttn);
+    if (pi.buyerCompany) setBuyerCompany(pi.buyerCompany);
+    if (pi.buyerTel) setBuyerTel(pi.buyerTel);
+    if (pi.buyerEmail) setBuyerEmail(pi.buyerEmail);
+    if (pi.transitDays) setTransitDays(pi.transitDays);
     if (pi.currency && (pi.currency === "USD" || pi.currency === "EUR")) {
       setCurrency(pi.currency as "USD" | "EUR");
     }

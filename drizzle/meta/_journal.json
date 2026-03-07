@@ -99,6 +99,20 @@
       "when": 1772888450075,
       "tag": "0013_chemical_mauler",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1772899163455,
+      "tag": "0014_regular_madripoor",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "5",
+      "when": 1772899352742,
+      "tag": "0015_glorious_grim_reaper",
+      "breakpoints": true
     }
   ]
 }
