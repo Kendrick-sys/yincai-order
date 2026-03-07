@@ -20,6 +20,39 @@ export interface LineItem {
   amount: number;
 }
 
+export interface DomesticExtras {
+  hasLiner: boolean;
+  linerMaterial?: string;
+  linerDescription?: string;
+  linerQuantity: number;
+  linerUnitPrice: number;
+  linerAmount: number;
+  hasLinerTemplate: boolean;
+  linerTemplateQuantity: number;
+  linerTemplateUnitPrice: number;
+  linerTemplateAmount: number;
+  hasLogo: boolean;
+  logoMaterial?: string;
+  logoDescription?: string;
+  logoQuantity: number;
+  logoUnitPrice: number;
+  logoAmount: number;
+  hasSilkPrint: boolean;
+  silkPrintDescription?: string;
+  silkPrintQuantity: number;
+  silkPrintUnitPrice: number;
+  silkPrintAmount: number;
+  hasSilkPrintTemplate: boolean;
+  silkPrintTemplateQuantity: number;
+  silkPrintTemplateUnitPrice: number;
+  silkPrintTemplateAmount: number;
+  hasCustomColor: boolean;
+  customColorQuantity: number;
+  customColorUnitPrice: number;
+  customColorAmount: number;
+  shippingFee: number;
+}
+
 export interface ContractCnData {
   docNo: string;
   orderDate: string;
@@ -30,6 +63,7 @@ export interface ContractCnData {
   depositPct: number;
   balancePct: number;
   needInvoice?: boolean;          // 是否需要开票
+  extras?: DomesticExtras;        // 附加明细（内衬、LOGO、丝印、颜色、运费）
 }
 
 export interface PiCiData {
@@ -126,9 +160,9 @@ function formatAmount(amount: number, currency = "CNY"): string {
 // ─── HTML 模板：国内采购合同 ────────────────────────────────────────────────────
 
 function buildContractCnHtml(data: ContractCnData): string {
-  const { docNo, orderDate, counterpartyName, counterpartyAddress, lineItems, totalAmount, depositPct, balancePct, needInvoice } = data;
-  const depositAmount = totalAmount * depositPct / 100;
-  const balanceAmount = totalAmount * balancePct / 100;
+  const { docNo, orderDate, counterpartyName, counterpartyAddress, lineItems, totalAmount, depositPct, balancePct, needInvoice, extras } = data;
+  const depositAmount = Math.round(totalAmount * depositPct) / 100;
+  const balanceAmount = Math.round(totalAmount * balancePct) / 100;
   const totalChinese = numberToChinese(totalAmount);
 
   // 列顺序：产品名称 | 型号 | 材质 | 数量 | 单价 | 金额
@@ -142,6 +176,104 @@ function buildContractCnHtml(data: ContractCnData): string {
       <td>${item.amount > 0 ? formatAmount(item.amount) : ""}</td>
     </tr>
   `).join("");
+
+  // 附加明细行（内衬、LOGO、丝印、定制颜色、运费）
+  const extraRows: string[] = [];
+  if (extras) {
+    if (extras.hasLiner) {
+      const linerLabel = extras.linerMaterial
+        ? `内衬（${extras.linerMaterial}${extras.linerDescription ? "，" + extras.linerDescription : ""}）`
+        : `内衬${extras.linerDescription ? "（" + extras.linerDescription + "）" : ""}`;
+      extraRows.push(`
+        <tr>
+          <td>${linerLabel}</td>
+          <td>—</td>
+          <td>${extras.linerMaterial || ""}</td>
+          <td>${extras.linerQuantity || ""}</td>
+          <td>${extras.linerUnitPrice > 0 ? formatAmount(extras.linerUnitPrice) : ""}</td>
+          <td>${extras.linerAmount > 0 ? formatAmount(extras.linerAmount) : ""}</td>
+        </tr>
+      `);
+      if (extras.hasLinerTemplate) {
+        extraRows.push(`
+          <tr>
+            <td>内衬定制模板费</td>
+            <td>—</td>
+            <td>—</td>
+            <td>${extras.linerTemplateQuantity || ""}</td>
+            <td>${extras.linerTemplateUnitPrice > 0 ? formatAmount(extras.linerTemplateUnitPrice) : ""}</td>
+            <td>${extras.linerTemplateAmount > 0 ? formatAmount(extras.linerTemplateAmount) : ""}</td>
+          </tr>
+        `);
+      }
+    }
+    if (extras.hasLogo) {
+      const logoLabel = extras.logoMaterial
+        ? `定制LOGO（${extras.logoMaterial}${extras.logoDescription ? "，" + extras.logoDescription : ""}）`
+        : `定制LOGO${extras.logoDescription ? "（" + extras.logoDescription + "）" : ""}`;
+      extraRows.push(`
+        <tr>
+          <td>${logoLabel}</td>
+          <td>—</td>
+          <td>${extras.logoMaterial || ""}</td>
+          <td>${extras.logoQuantity || ""}</td>
+          <td>${extras.logoUnitPrice > 0 ? formatAmount(extras.logoUnitPrice) : ""}</td>
+          <td>${extras.logoAmount > 0 ? formatAmount(extras.logoAmount) : ""}</td>
+        </tr>
+      `);
+    }
+    if (extras.hasSilkPrint) {
+      const silkLabel = extras.silkPrintDescription
+        ? `定制丝印（${extras.silkPrintDescription}）`
+        : "定制丝印";
+      extraRows.push(`
+        <tr>
+          <td>${silkLabel}</td>
+          <td>—</td>
+          <td>—</td>
+          <td>${extras.silkPrintQuantity || ""}</td>
+          <td>${extras.silkPrintUnitPrice > 0 ? formatAmount(extras.silkPrintUnitPrice) : ""}</td>
+          <td>${extras.silkPrintAmount > 0 ? formatAmount(extras.silkPrintAmount) : ""}</td>
+        </tr>
+      `);
+      if (extras.hasSilkPrintTemplate) {
+        extraRows.push(`
+          <tr>
+            <td>丝印定制模板费</td>
+            <td>—</td>
+            <td>—</td>
+            <td>${extras.silkPrintTemplateQuantity || ""}</td>
+            <td>${extras.silkPrintTemplateUnitPrice > 0 ? formatAmount(extras.silkPrintTemplateUnitPrice) : ""}</td>
+            <td>${extras.silkPrintTemplateAmount > 0 ? formatAmount(extras.silkPrintTemplateAmount) : ""}</td>
+          </tr>
+        `);
+      }
+    }
+    if (extras.hasCustomColor) {
+      extraRows.push(`
+        <tr>
+          <td>定制颜色费用</td>
+          <td>—</td>
+          <td>—</td>
+          <td>${extras.customColorQuantity || ""}</td>
+          <td>${extras.customColorUnitPrice > 0 ? formatAmount(extras.customColorUnitPrice) : ""}</td>
+          <td>${extras.customColorAmount > 0 ? formatAmount(extras.customColorAmount) : ""}</td>
+        </tr>
+      `);
+    }
+    if (extras.shippingFee > 0) {
+      extraRows.push(`
+        <tr>
+          <td>物流运费</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>${formatAmount(extras.shippingFee)}</td>
+        </tr>
+      `);
+    }
+  }
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -221,8 +353,9 @@ function buildContractCnHtml(data: ContractCnData): string {
   </thead>
   <tbody>
     ${tableRows}
+    ${extraRows.join("")}
     <tr class="total-row">
-      <td colspan="3">总计</td>
+      <td colspan="3">合同总金额${needInvoice ? "（含增值税）" : ""}</td>
       <td colspan="2">${totalChinese}</td>
       <td>${formatAmount(totalAmount)}</td>
     </tr>

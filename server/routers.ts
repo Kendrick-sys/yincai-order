@@ -196,6 +196,38 @@ export const appRouter = router({
         needInvoice: z.boolean().optional(),
         orderDate: z.string().optional(),
         deliveryDate: z.string().optional(),
+        extras: z.object({
+          hasLiner: z.boolean(),
+          linerMaterial: z.string().optional(),
+          linerDescription: z.string().optional(),
+          linerQuantity: z.number(),
+          linerUnitPrice: z.number(),
+          linerAmount: z.number(),
+          hasLinerTemplate: z.boolean(),
+          linerTemplateQuantity: z.number(),
+          linerTemplateUnitPrice: z.number(),
+          linerTemplateAmount: z.number(),
+          hasLogo: z.boolean(),
+          logoMaterial: z.string().optional(),
+          logoDescription: z.string().optional(),
+          logoQuantity: z.number(),
+          logoUnitPrice: z.number(),
+          logoAmount: z.number(),
+          hasSilkPrint: z.boolean(),
+          silkPrintDescription: z.string().optional(),
+          silkPrintQuantity: z.number(),
+          silkPrintUnitPrice: z.number(),
+          silkPrintAmount: z.number(),
+          hasSilkPrintTemplate: z.boolean(),
+          silkPrintTemplateQuantity: z.number(),
+          silkPrintTemplateUnitPrice: z.number(),
+          silkPrintTemplateAmount: z.number(),
+          hasCustomColor: z.boolean(),
+          customColorQuantity: z.number(),
+          customColorUnitPrice: z.number(),
+          customColorAmount: z.number(),
+          shippingFee: z.number(),
+        }).optional(),
       }))
       .mutation(async ({ input }) => {
         const docNo = await generateDocNo("contract_cn");
@@ -212,6 +244,7 @@ export const appRouter = router({
           depositPct: input.depositPct,
           balancePct: input.balancePct,
           needInvoice: input.needInvoice ?? false,
+          extras: input.extras,
         });
 
         // 上传到 S3
