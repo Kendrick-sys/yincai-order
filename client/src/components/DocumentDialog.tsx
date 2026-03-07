@@ -380,6 +380,8 @@ function ExtraFeeRow({
   material,
   materialOptions,
   onMaterialChange,
+  subtotal,
+  subtotalLabel,
 }: {
   label: string;
   quantity: number;
@@ -395,6 +397,10 @@ function ExtraFeeRow({
   material?: string;
   materialOptions?: string[];
   onMaterialChange?: (v: string) => void;
+  /** 小计金额（展示在卡片底部） */
+  subtotal?: number;
+  /** 小计标签，默认为「小计」 */
+  subtotalLabel?: string;
 }) {
   return (
     <div className="rounded-lg border border-border bg-background shadow-sm overflow-hidden">
@@ -462,6 +468,13 @@ function ExtraFeeRow({
           </div>
         </div>
       </div>
+      {/* 小计行：当小计金额 > 0 时展示 */}
+      {subtotal !== undefined && subtotal > 0 && (
+        <div className="flex items-center justify-between px-3 py-2 bg-primary/5 border-t border-primary/20">
+          <span className="text-xs text-primary/70 font-medium">{subtotalLabel ?? "小计"}</span>
+          <span className="text-sm font-bold text-primary">¥{subtotal.toFixed(2)}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -790,17 +803,60 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     { enabled: open && activeTab === "ci" }
   );
 
-  // 初始化行项目
+  // ── localStorage 持久化 key（按订单 ID 区分）──────────────────────────────────
+  const storageKey = `yincai_contract_cn_${order.id}`;
+
+  // 初始化行项目（优先从 localStorage 恢复，否则从订单数据初始化）
   useEffect(() => {
-    if (open) {
-      setLineItems(buildInitialLineItems(order.models ?? []));
-      setBuyerName(order.customer ?? "");
-      setActiveTab(defaultTab);
-      setSelectedPiId("");
-      setExtras(defaultExtras());
-      setNeedInvoice(false);
+    if (!open) return;
+
+    setBuyerName(order.customer ?? "");
+    setActiveTab(defaultTab);
+    setSelectedPiId("");
+
+    // 尝试从 localStorage 恢复上次填写内容
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.lineItems) setLineItems(parsed.lineItems);
+        if (parsed.counterpartyName !== undefined) setCounterpartyName(parsed.counterpartyName);
+        if (parsed.counterpartyAddress !== undefined) setCounterpartyAddress(parsed.counterpartyAddress);
+        if (parsed.needInvoice !== undefined) setNeedInvoice(parsed.needInvoice);
+        if (parsed.extras) setExtras({ ...defaultExtras(), ...parsed.extras });
+        if (parsed.depositPct) setDepositPct(parsed.depositPct);
+        if (parsed.balancePct) setBalancePct(parsed.balancePct);
+        return; // 已恢复，跳过默认初始化
+      }
+    } catch {
+      // localStorage 数据损坏，忽略
     }
+
+    // 无缓存时使用订单数据初始化
+    setLineItems(buildInitialLineItems(order.models ?? []));
+    setExtras(defaultExtras());
+    setNeedInvoice(false);
+    setCounterpartyName("");
+    setCounterpartyAddress("");
   }, [open, order]);
+
+  // 每次国内合同字段变化时，自动保存到 localStorage
+  useEffect(() => {
+    if (!open) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({
+        lineItems,
+        counterpartyName,
+        counterpartyAddress,
+        needInvoice,
+        extras,
+        depositPct,
+        balancePct,
+      }));
+    } catch {
+      // 存储失败（如隐私模式），静默忽略
+    }
+  }, [open, lineItems, counterpartyName, counterpartyAddress, needInvoice, extras, depositPct, balancePct]);
 
   // 切换到 CI Tab 时重置 PI 选择
   useEffect(() => {
@@ -1100,11 +1156,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
               <label htmlFor="needInvoice" className="text-sm font-medium text-amber-800 cursor-pointer select-none">
                 需要开具增值税发票（含税价 × 1.13）
               </label>
-              {needInvoice && (
-                <span className="text-xs text-amber-600 ml-1">
-                  税前 ¥{subtotalBeforeTax.toFixed(2)} → 含税 ¥{finalTotalAmount.toFixed(2)}
-                </span>
-              )}
+
             </div>
 
             {/* 箱子明细 */}
@@ -1141,6 +1193,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                   amount={extras.linerAmount}
                   onQuantityChange={qty => updateExtraWithCalc("linerQuantity", "linerUnitPrice", "linerAmount", qty, extras.linerUnitPrice)}
                   onUnitPriceChange={price => updateExtraWithCalc("linerQuantity", "linerUnitPrice", "linerAmount", extras.linerQuantity, price)}
+                  subtotal={!extras.hasLinerTemplate ? extras.linerAmount : undefined}
+                  subtotalLabel="内衬小计"
                 />
                 <div className="flex items-center gap-3">
                   <Switch
@@ -1160,6 +1214,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                     amount={extras.linerTemplateAmount}
                     onQuantityChange={qty => updateExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", qty, extras.linerTemplateUnitPrice)}
                     onUnitPriceChange={price => updateExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", extras.linerTemplateQuantity, price)}
+                    subtotal={linerTotal}
+                    subtotalLabel="内衬合计（含模板费）"
                   />
                 )}
               </div>
@@ -1194,6 +1250,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                   amount={extras.logoAmount}
                   onQuantityChange={qty => updateExtraWithCalc("logoQuantity", "logoUnitPrice", "logoAmount", qty, extras.logoUnitPrice)}
                   onUnitPriceChange={price => updateExtraWithCalc("logoQuantity", "logoUnitPrice", "logoAmount", extras.logoQuantity, price)}
+                  subtotal={extras.logoAmount}
+                  subtotalLabel="LOGO 小计"
                 />
               </div>
             )}
@@ -1223,6 +1281,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                   amount={extras.silkPrintAmount}
                   onQuantityChange={qty => updateExtraWithCalc("silkPrintQuantity", "silkPrintUnitPrice", "silkPrintAmount", qty, extras.silkPrintUnitPrice)}
                   onUnitPriceChange={price => updateExtraWithCalc("silkPrintQuantity", "silkPrintUnitPrice", "silkPrintAmount", extras.silkPrintQuantity, price)}
+                  subtotal={!extras.hasSilkPrintTemplate ? extras.silkPrintAmount : undefined}
+                  subtotalLabel="丝印小计"
                 />
                 <div className="flex items-center gap-3">
                   <Switch
@@ -1242,6 +1302,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                     amount={extras.silkPrintTemplateAmount}
                     onQuantityChange={qty => updateExtraWithCalc("silkPrintTemplateQuantity", "silkPrintTemplateUnitPrice", "silkPrintTemplateAmount", qty, extras.silkPrintTemplateUnitPrice)}
                     onUnitPriceChange={price => updateExtraWithCalc("silkPrintTemplateQuantity", "silkPrintTemplateUnitPrice", "silkPrintTemplateAmount", extras.silkPrintTemplateQuantity, price)}
+                    subtotal={silkPrintTotal}
+                    subtotalLabel="丝印合计（含模板费）"
                   />
                 )}
               </div>
@@ -1268,6 +1330,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                   amount={extras.customColorAmount}
                   onQuantityChange={qty => updateExtraWithCalc("customColorQuantity", "customColorUnitPrice", "customColorAmount", qty, extras.customColorUnitPrice)}
                   onUnitPriceChange={price => updateExtraWithCalc("customColorQuantity", "customColorUnitPrice", "customColorAmount", extras.customColorQuantity, price)}
+                  subtotal={extras.customColorAmount}
+                  subtotalLabel="定制颜色小计"
                 />
               </div>
             )}
@@ -1334,16 +1398,6 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">物流运费</span>
                     <span>¥{shippingTotal.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t border-border pt-1 mt-1">
-                  <span className="text-muted-foreground">税前合计</span>
-                  <span className="font-medium">¥{subtotalBeforeTax.toFixed(2)}</span>
-                </div>
-                {needInvoice && (
-                  <div className="flex justify-between text-amber-700">
-                    <span>增值税（×1.13）</span>
-                    <span>¥{round2(subtotalBeforeTax * (VAT_RATE - 1)).toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t-2 border-primary/30 pt-2 mt-1">
