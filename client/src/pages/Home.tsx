@@ -7,7 +7,7 @@ import {
   ClipboardList, Package, CheckCircle2, XCircle,
   Clock, Factory, ChevronRight, Copy, Printer,
   Users, Trash, Eye, ArrowUpDown, ArrowUp, ArrowDown,
-  CalendarRange, Loader2, X
+  CalendarRange, Loader2, X, AlertTriangle
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useState, useEffect, useMemo } from "react";
@@ -91,6 +91,7 @@ export default function Home() {
   const [exportYear, setExportYear]   = useState(() => new Date().getFullYear());
   const [exportMonth, setExportMonth] = useState(() => new Date().getMonth() + 1);
   const [exporting, setExporting]     = useState(false);
+  const [exportStatus, setExportStatus] = useState<string>("");
 
   // 读取 URL 参数 ?customer=xxx（从客户管理页跳转过来）
   useEffect(() => {
@@ -278,13 +279,29 @@ export default function Home() {
                       </select>
                     </div>
                   </div>
+                  <div className="mb-3">
+                    <label className="text-xs text-gray-500 mb-1 block">订单状态</label>
+                    <select
+                      value={exportStatus}
+                      onChange={e => setExportStatus(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30"
+                    >
+                      <option value="">全部状态</option>
+                      <option value="draft">草稿</option>
+                      <option value="submitted">已提交</option>
+                      <option value="in_production">生产中</option>
+                      <option value="completed">已完成</option>
+                      <option value="cancelled">已取消</option>
+                    </select>
+                  </div>
                   <Button
                     className="w-full bg-[#1A3C5E] hover:bg-[#15304d] gap-2 text-sm"
                     disabled={exporting}
                     onClick={async () => {
                       setExporting(true);
                       try {
-                        const res = await fetch(`/api/export/orders/monthly?year=${exportYear}&month=${exportMonth}`);
+                        const statusParam = exportStatus ? `&status=${exportStatus}` : "";
+                        const res = await fetch(`/api/export/orders/monthly?year=${exportYear}&month=${exportMonth}${statusParam}`);
                         if (!res.ok) {
                           const err = await res.json();
                           toast.error(err.error ?? "导出失败");
@@ -294,10 +311,16 @@ export default function Home() {
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement("a");
                         a.href = url;
-                        a.download = `吟彩订单_${exportYear}年${exportMonth}月.xlsx`;
+                        const statusNames: Record<string, string> = {
+                          draft: "草稿", submitted: "已提交",
+                          in_production: "生产中", completed: "已完成", cancelled: "已取消"
+                        };
+                        const statusSuffix = exportStatus ? `_${statusNames[exportStatus] ?? exportStatus}` : "";
+                        a.download = `吟彩订单_${exportYear}年${exportMonth}月${statusSuffix}.xlsx`;
                         a.click();
                         URL.revokeObjectURL(url);
-                        toast.success(`${exportYear}年${exportMonth}月订单导出成功`);
+                        const statusLabel = exportStatus ? statusNames[exportStatus] ?? exportStatus : "全部";
+                        toast.success(`${exportYear}年${exportMonth}月「${statusLabel}」订单导出成功`);
                         setShowMonthExport(false);
                       } catch {
                         toast.error("导出失败，请重试");
@@ -307,7 +330,9 @@ export default function Home() {
                     }}
                   >
                     {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-                    {exporting ? "导出中..." : `导出 ${exportYear}年${exportMonth}月`}
+                    {exporting ? "导出中..." : `导出 ${exportYear}年${exportMonth}月${
+                      exportStatus ? `·${{ draft: "草稿", submitted: "已提交", in_production: "生产中", completed: "已完成", cancelled: "已取消" }[exportStatus] ?? exportStatus}` : ""
+                    }`}
                   </Button>
                 </div>
               )}
@@ -465,8 +490,25 @@ export default function Home() {
               {filtered.map(order => {
                 const statusCfg = STATUS_CONFIG[order.status as StatusKey] ?? STATUS_CONFIG.draft;
                 const next = nextStatus[order.status as StatusKey];
+
+                // 交货日期预警：生产中且交货日期≤7天
+                const deliveryDiffDays = (() => {
+                  if (order.status !== "in_production" || !order.deliveryDate) return null;
+                  const today = new Date(); today.setHours(0, 0, 0, 0);
+                  const delivery = new Date(order.deliveryDate); delivery.setHours(0, 0, 0, 0);
+                  return Math.ceil((delivery.getTime() - today.getTime()) / 86400000);
+                })();
+                const isOverdue = deliveryDiffDays !== null && deliveryDiffDays < 0;
+                const isUrgent  = deliveryDiffDays !== null && deliveryDiffDays >= 0 && deliveryDiffDays <= 7;
+
                 return (
-                  <div key={order.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-4 items-center hover:bg-gray-50/50 transition-colors">
+                  <div key={order.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-4 items-center transition-colors ${
+                    isOverdue
+                      ? "bg-red-50/60 hover:bg-red-50 border-l-4 border-l-red-400"
+                      : isUrgent
+                        ? "bg-orange-50/60 hover:bg-orange-50 border-l-4 border-l-orange-400"
+                        : "hover:bg-gray-50/50"
+                  }`}>
                     {/* 订单信息 */}
                     <div>
                       <p className="font-medium text-gray-800 text-sm leading-tight">
@@ -481,9 +523,27 @@ export default function Home() {
                     {/* 客户 */}
                     <span className="text-sm text-gray-600 text-center">{order.customer || "—"}</span>
                     {/* 交货日期 */}
-                    <span className={`text-sm text-center ${sortField === "deliveryDate" ? "text-[#1A3C5E] font-medium" : "text-gray-600"}`}>
-                      {order.deliveryDate || "—"}
-                    </span>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className={`text-sm text-center ${
+                        isOverdue ? "text-red-600 font-semibold" :
+                        isUrgent ? "text-orange-600 font-semibold" :
+                        sortField === "deliveryDate" ? "text-[#1A3C5E] font-medium" : "text-gray-600"
+                      }`}>
+                        {order.deliveryDate || "—"}
+                      </span>
+                      {isOverdue && (
+                        <span className="text-xs text-red-500 flex items-center gap-0.5">
+                          <AlertTriangle className="w-3 h-3" />
+                          已超期
+                        </span>
+                      )}
+                      {!isOverdue && isUrgent && (
+                        <span className="text-xs text-orange-500 flex items-center gap-0.5">
+                          <AlertTriangle className="w-3 h-3" />
+                          还剩{deliveryDiffDays}天
+                        </span>
+                      )}
+                    </div>
                     {/* 制单员 */}
                     <span className="text-sm text-gray-600 text-center">{order.maker || "—"}</span>
                     {/* 状态 */}

@@ -58,11 +58,17 @@ async function startServer() {
     try {
       const year = parseInt(req.query.year as string);
       const month = parseInt(req.query.month as string);
+      const status = (req.query.status as string) || undefined;
       if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
         res.status(400).json({ error: "请提供有效的年份和月份" }); return;
       }
-      const buffer = await generateMonthlyOrdersExcel(year, month);
-      const filename = encodeURIComponent(`吟彩订单_${year}年${month}月.xlsx`);
+      const validStatuses = ["draft", "submitted", "in_production", "completed", "cancelled"];
+      if (status && !validStatuses.includes(status)) {
+        res.status(400).json({ error: "无效的订单状态" }); return;
+      }
+      const buffer = await generateMonthlyOrdersExcel(year, month, status as any);
+      const statusSuffix = status ? `_${{ draft: "草稿", submitted: "已提交", in_production: "生产中", completed: "已完成", cancelled: "已取消" }[status] ?? status}` : "";
+      const filename = encodeURIComponent(`吟彩订单_${year}年${month}月${statusSuffix}.xlsx`);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${filename}`);
       res.send(buffer);

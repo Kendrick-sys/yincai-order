@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import { getOrderById, getDb } from "./db";
 import { orders as ordersTable, orderModels as orderModelsTable } from "../drizzle/schema";
-import { and, isNull, like, eq } from "drizzle-orm";
+import { and, isNull, like, eq, sql } from "drizzle-orm";
 import https from "https";
 import http from "http";
 
@@ -397,24 +397,40 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
 
 /**
  * 按年月批量导出该月所有订单 Excel（每个订单一个 Sheet）
- * @param year  4位年份，如 2026
- * @param month 1-12月份
+ * @param year   4位年份，如 2026
+ * @param month  1-12月份
+ * @param status 可选状态筛选，不传则导出全部
  */
-export async function generateMonthlyOrdersExcel(year: number, month: number): Promise<Buffer> {
+type OrderStatus = "draft" | "submitted" | "in_production" | "completed" | "cancelled";
+
+export async function generateMonthlyOrdersExcel(
+  year: number,
+  month: number,
+  status?: OrderStatus
+): Promise<Buffer> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
   // orderDate 格式为 "YYYY-MM-DD"，按前缀匹配
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
+
+  const conditions = [
+    isNull(ordersTable.deletedAt),
+    like(ordersTable.orderDate, `${prefix}%`),
+    ...(status ? [eq(ordersTable.status, status)] : []),
+  ];
+
   const monthOrders = await db.select().from(ordersTable)
-    .where(and(
-      isNull(ordersTable.deletedAt),
-      like(ordersTable.orderDate, `${prefix}%`)
-    ))
+    .where(and(...conditions))
     .orderBy(ordersTable.orderDate);
 
+  const statusLabel = status ? `「${{
+    draft: "草稿", submitted: "已提交",
+    in_production: "生产中", completed: "已完成", cancelled: "已取消"
+  }[status] ?? status}」` : "全部";
+
   if (monthOrders.length === 0) {
-    throw new Error(`${year}年${month}月暂无订单`);
+    throw new Error(`${year}年${month}月${statusLabel}订单暂无数据`);
   }
 
   // 为每个订单加载型号
