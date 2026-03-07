@@ -7,7 +7,7 @@ import {
   createOrder, updateOrder, listOrders, getOrderById,
   softDeleteOrder, restoreOrder, hardDeleteOrder, listTrashedOrders,
   updateOrderStatus,
-  listCustomers, createCustomer, updateCustomer, deleteCustomer,
+  listCustomers, listCustomersWithStats, createCustomer, updateCustomer, deleteCustomer,
 } from "./db";
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ export const appRouter = router({
 
   // ─── 客户管理 ───────────────────────────────────────────────────────────────
   customers: router({
-    list: publicProcedure.query(async () => listCustomers()),
+    list: publicProcedure.query(async () => listCustomersWithStats()),
 
     create: publicProcedure
       .input(customerSchema)

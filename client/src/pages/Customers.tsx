@@ -194,6 +194,21 @@ export default function Customers() {
                   {c.remarks && (
                     <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">{c.remarks}</p>
                   )}
+                  {/* 订单统计 */}
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <span className="inline-flex items-center gap-1 text-xs text-primary font-medium">
+                      <span className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold">{Number(c.orderCount) || 0}</span>
+                      历史订单
+                    </span>
+                    {c.lastOrderDate && (
+                      <span className="text-xs text-muted-foreground">
+                        最近下单：{c.lastOrderDate}
+                      </span>
+                    )}
+                    {!c.lastOrderDate && Number(c.orderCount) === 0 && (
+                      <span className="text-xs text-muted-foreground/50">暂无订单记录</span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(c)} className="h-8 w-8 p-0">

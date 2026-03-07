@@ -1,4 +1,4 @@
-import { desc, eq, isNull, isNotNull } from "drizzle-orm";
+import { desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -88,6 +88,36 @@ export async function deleteCustomer(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.delete(customers).where(eq(customers.id, id));
+}
+
+/** 获取客户列表（含订单统计：数量 + 最近下单日期） */
+export async function listCustomersWithStats() {
+  const db = await getDb();
+  if (!db) return [];
+
+  // 左连接 orders 表，按客户名称分组统计
+  const result = await db
+    .select({
+      id: customers.id,
+      name: customers.name,
+      country: customers.country,
+      address: customers.address,
+      code: customers.code,
+      contact: customers.contact,
+      phone: customers.phone,
+      email: customers.email,
+      remarks: customers.remarks,
+      sortOrder: customers.sortOrder,
+      createdAt: customers.createdAt,
+      orderCount: sql<number>`COUNT(CASE WHEN ${orders.deletedAt} IS NULL THEN 1 END)`,
+      lastOrderDate: sql<string | null>`MAX(CASE WHEN ${orders.deletedAt} IS NULL THEN ${orders.orderDate} END)`,
+    })
+    .from(customers)
+    .leftJoin(orders, eq(orders.customer, customers.name))
+    .groupBy(customers.id)
+    .orderBy(customers.sortOrder, customers.createdAt);
+
+  return result;
 }
 
 // ─── 订单相关 ─────────────────────────────────────────────────────────────────

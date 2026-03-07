@@ -66,3 +66,10 @@
 - [x] 前端 OrderForm.tsx：客户必填下拉选择、新老客户选项
 - [x] 后端增加客户 Excel 导出路由 /api/export/customers
 - [x] 代码审查和性能优化
+
+## 新功能（第八批）
+
+- [x] 后端 db.ts 增加客户订单统计查询（历史订单数、最近下单日期）
+- [x] 后端 routers.ts customers.list 返回统计字段
+- [x] 前端 Customers.tsx 展示订单数量和最近下单日期
+- [x] 全面代码审查和性能优化
