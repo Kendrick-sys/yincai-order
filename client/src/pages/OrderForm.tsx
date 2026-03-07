@@ -311,6 +311,8 @@ export default function OrderForm() {
     alibabaOrderNo: "",
     is1688: false,
     alibaba1688OrderNo: "",
+    isAmazon: false,
+    amazonOrderNo: "",
     maker: "", salesperson: "", orderDate: new Date().toISOString().slice(0, 10),
     deliveryDate: "", remarks: "", status: "draft" as const,
     recipientName: "", recipientPhone: "", recipientAddress: "", factoryShipNo: "",
@@ -338,6 +340,8 @@ export default function OrderForm() {
       alibabaOrderNo: (existingOrder as any).alibabaOrderNo ?? "",
       is1688: (existingOrder as any).is1688 ?? false,
       alibaba1688OrderNo: (existingOrder as any).alibaba1688OrderNo ?? "",
+      isAmazon: (existingOrder as any).isAmazon ?? false,
+      amazonOrderNo: (existingOrder as any).amazonOrderNo ?? "",
       maker: existingOrder.maker ?? "",
       salesperson: existingOrder.salesperson ?? "",
       orderDate: existingOrder.orderDate ?? "",
@@ -397,6 +401,10 @@ export default function OrderForm() {
     }
     if (header.is1688 && !header.alibaba1688OrderNo?.trim()) {
       toast.warning("1688订单号不能为空");
+      return;
+    }
+    if (header.isAmazon && !header.amazonOrderNo?.trim()) {
+      toast.warning("亚马逊订单号不能为空");
       return;
     }
     // 序列化图片数组为 JSON 字符串存储
@@ -548,31 +556,32 @@ export default function OrderForm() {
                   </span>
                 </div>
               )}
-              {/* 第四行：订单渠道（单选：普通 / 阿里巴巴 / 1688） */}
+              {/* 第四行：订单渠道（单选：普通 / 阿里巴巴橙 / 1688紫 / 亚马逊蓝） */}
               <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                 <span className="text-xs text-gray-400 w-14 flex-shrink-0">订单渠道</span>
+
                 {/* 普通订单 */}
                 <button
                   type="button"
-                  onClick={() => setHeader(h => ({ ...h, isAlibaba: false, alibabaOrderNo: "", is1688: false, alibaba1688OrderNo: "" }))}
+                  onClick={() => setHeader(h => ({ ...h, isAlibaba: false, alibabaOrderNo: "", is1688: false, alibaba1688OrderNo: "", isAmazon: false, amazonOrderNo: "" }))}
                   className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
-                    ${!header.isAlibaba && !header.is1688
+                    ${!header.isAlibaba && !header.is1688 && !header.isAmazon
                       ? "border-gray-400 bg-gray-100 text-gray-700"
                       : "border-border text-muted-foreground hover:border-gray-400"
                     }`}
                 >
-                  {!header.isAlibaba && !header.is1688 ? "☑ 普通订单" : "☐ 普通订单"}
+                  {!header.isAlibaba && !header.is1688 && !header.isAmazon ? "☑ 普通订单" : "☐ 普通订单"}
                 </button>
-                {/* 阿里巴巴（单选：选中时自动取消1688） */}
+
+                {/* 阿里巴巴（橙色） */}
                 <button
                   type="button"
                   onClick={() => setHeader(h => ({
                     ...h,
                     isAlibaba: !h.isAlibaba,
                     alibabaOrderNo: h.isAlibaba ? "" : h.alibabaOrderNo,
-                    // 选中阿里巴巴时自动取消1688
-                    is1688: h.isAlibaba ? h.is1688 : false,
-                    alibaba1688OrderNo: h.isAlibaba ? h.alibaba1688OrderNo : "",
+                    is1688: false, alibaba1688OrderNo: "",
+                    isAmazon: false, amazonOrderNo: "",
                   }))}
                   className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
                     ${header.isAlibaba
@@ -599,21 +608,21 @@ export default function OrderForm() {
                     )}
                   </div>
                 )}
-                {/* 1688（单选：选中时自动取消阿里巴巴） */}
+
+                {/* 1688（紫色） */}
                 <button
                   type="button"
                   onClick={() => setHeader(h => ({
                     ...h,
                     is1688: !h.is1688,
                     alibaba1688OrderNo: h.is1688 ? "" : h.alibaba1688OrderNo,
-                    // 选中1688时自动取消阿里巴巴
-                    isAlibaba: h.is1688 ? h.isAlibaba : false,
-                    alibabaOrderNo: h.is1688 ? h.alibabaOrderNo : "",
+                    isAlibaba: false, alibabaOrderNo: "",
+                    isAmazon: false, amazonOrderNo: "",
                   }))}
                   className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
                     ${header.is1688
-                      ? "border-[#FF6A00] bg-orange-50 text-[#FF6A00]"
-                      : "border-border text-muted-foreground hover:border-[#FF6A00]"
+                      ? "border-[#7C3AED] bg-purple-50 text-[#7C3AED]"
+                      : "border-border text-muted-foreground hover:border-[#7C3AED]"
                     }`}
                 >
                   {header.is1688 ? "☑ 1688订单" : "☐ 1688订单"}
@@ -627,10 +636,46 @@ export default function OrderForm() {
                       className={`h-8 text-sm flex-1 ${
                         !header.alibaba1688OrderNo?.trim()
                           ? "border-red-400 focus:border-red-500 bg-red-50/30"
-                          : "border-[#FF6A00]/40 focus:border-[#FF6A00]"
+                          : "border-[#7C3AED]/40 focus:border-[#7C3AED]"
                       }`}
                     />
                     {!header.alibaba1688OrderNo?.trim() && (
+                      <span className="text-red-500 text-xs whitespace-nowrap">必填</span>
+                    )}
+                  </div>
+                )}
+
+                {/* 亚马逊（蓝色） */}
+                <button
+                  type="button"
+                  onClick={() => setHeader(h => ({
+                    ...h,
+                    isAmazon: !h.isAmazon,
+                    amazonOrderNo: h.isAmazon ? "" : h.amazonOrderNo,
+                    isAlibaba: false, alibabaOrderNo: "",
+                    is1688: false, alibaba1688OrderNo: "",
+                  }))}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
+                    ${header.isAmazon
+                      ? "border-[#1D6FA4] bg-blue-50 text-[#1D6FA4]"
+                      : "border-border text-muted-foreground hover:border-[#1D6FA4]"
+                    }`}
+                >
+                  {header.isAmazon ? "☑ 亚马逊" : "☐ 亚马逊"}
+                </button>
+                {header.isAmazon && (
+                  <div className="flex items-center gap-1 flex-1 max-w-xs">
+                    <Input
+                      placeholder="请输入亚马逊订单号"
+                      value={header.amazonOrderNo}
+                      onChange={e => setHeader(h => ({ ...h, amazonOrderNo: e.target.value }))}
+                      className={`h-8 text-sm flex-1 ${
+                        !header.amazonOrderNo?.trim()
+                          ? "border-red-400 focus:border-red-500 bg-red-50/30"
+                          : "border-[#1D6FA4]/40 focus:border-[#1D6FA4]"
+                      }`}
+                    />
+                    {!header.amazonOrderNo?.trim() && (
                       <span className="text-red-500 text-xs whitespace-nowrap">必填</span>
                     )}
                   </div>

@@ -231,19 +231,25 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       COLORS.labelBg, COLORS.labelFg, false, 9);
   }
 
-  // ── 第4行：订单渠道标注行（阿里巴巴 / 1688）
+  // ── 第4行：订单渠道标注行（阿里巴巴 / 1688 / 亚马逊）
   ws.getRow(4).height = 20;
   const isAlibaba: boolean = (order as any).isAlibaba ?? false;
   const alibabaOrderNo: string = (order as any).alibabaOrderNo ?? "";
   const is1688: boolean = (order as any).is1688 ?? false;
   const alibaba1688OrderNo: string = (order as any).alibaba1688OrderNo ?? "";
-  if (isAlibaba || is1688) {
+  const isAmazon: boolean = (order as any).isAmazon ?? false;
+  const amazonOrderNo: string = (order as any).amazonOrderNo ?? "";
+  if (isAlibaba || is1688 || isAmazon) {
     // 构建渠道标注文本
     const channelParts: string[] = [];
     if (isAlibaba) channelParts.push(alibabaOrderNo ? `阿里巴巴订单：${alibabaOrderNo}` : "阿里巴巴订单");
     if (is1688) channelParts.push(alibaba1688OrderNo ? `1688订单：${alibaba1688OrderNo}` : "1688订单");
+    if (isAmazon) channelParts.push(amazonOrderNo ? `亚马逊订单：${amazonOrderNo}` : "亚马逊订单");
     const channelText = channelParts.join("  、  ");
-    mergeSet(ws, 4, 1, 4, 5, channelText, "FFF0E6", "CC4400", true, 10);
+    // 根据渠道选择颜色：阿里巴巴=橙色, 1688=紫色, 亚马逊=蓝色
+    const channelBg = isAlibaba ? "FFF0E6" : is1688 ? "F5F3FF" : "EFF6FF";
+    const channelFg = isAlibaba ? "CC4400" : is1688 ? "6D28D9" : "1D6FA4";
+    mergeSet(ws, 4, 1, 4, 5, channelText, channelBg, channelFg, true, 10);
     mergeSet(ws, 4, 6, 4, 10,
       `下单日期：${order.orderDate ?? ""}   交货日期：${order.deliveryDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
@@ -573,6 +579,8 @@ function buildSummarySheet(
     alibabaOrderNo: string | null;
     is1688: boolean | null;
     alibaba1688OrderNo: string | null;
+    isAmazon: boolean | null;
+    amazonOrderNo: string | null;
     orderNo: string | null;
     orderDate: string | null;
     deliveryDate: string | null;
@@ -624,6 +632,7 @@ function buildSummarySheet(
     const channelParts: string[] = [];
     if (order.isAlibaba) channelParts.push(order.alibabaOrderNo ? `阿里巴巴 ${order.alibabaOrderNo}` : "阿里巴巴");
     if (order.is1688) channelParts.push(order.alibaba1688OrderNo ? `1688 ${order.alibaba1688OrderNo}` : "1688");
+    if (order.isAmazon) channelParts.push(order.amazonOrderNo ? `亚马逊 ${order.amazonOrderNo}` : "亚马逊");
     const channelTxt = channelParts.length > 0 ? channelParts.join(" / ") : "—";
 
     const values = [
@@ -655,10 +664,11 @@ function buildSummarySheet(
       } else if (ci === 4 && isOverseas) {
         cellBg = order.customsDeclared ? "FFF3CD" : "F0F0F0";
         cellFg = order.customsDeclared ? "7B5800" : "555555";
-      } else if (ci === 5 && (order.isAlibaba || order.is1688)) {
-        // 阿里巴巴或 1688 订单用橙色标注
-        cellBg = "FFF0E6";
-        cellFg = "CC4400";
+      } else if (ci === 5 && (order.isAlibaba || order.is1688 || order.isAmazon)) {
+        // 渠道订单按渠道颜色标注
+        if (order.isAlibaba) { cellBg = "FFF0E6"; cellFg = "CC4400"; }
+        else if (order.is1688) { cellBg = "F5F3FF"; cellFg = "6D28D9"; }
+        else if (order.isAmazon) { cellBg = "EFF6FF"; cellFg = "1D6FA4"; }
       }
       setCell(ws, row, ci + 1, val, cellBg, cellFg, false, 9, align);
     });
@@ -676,16 +686,21 @@ function buildSummarySheet(
 
   const totalAlibaba = ordersData.filter(o => o.isAlibaba).length;
   const total1688 = ordersData.filter(o => o.is1688).length;
+  const totalAmazon = ordersData.filter(o => o.isAmazon).length;
   const channelSummaryParts: string[] = [];
   if (totalAlibaba > 0) channelSummaryParts.push(`阿里巴巴 ${totalAlibaba} 张`);
   if (total1688 > 0) channelSummaryParts.push(`1688 ${total1688} 张`);
+  if (totalAmazon > 0) channelSummaryParts.push(`亚马逊 ${totalAmazon} 张`);
   const channelSummaryTxt = channelSummaryParts.length > 0 ? channelSummaryParts.join(" / ") : "—";
+  // 渠道合计单元格颜色：多渠道用橙色，单一渠道用对应颜色
+  const channelCellBg = channelSummaryParts.length === 0 ? "E8F0F8" : totalAlibaba > 0 && total1688 === 0 && totalAmazon === 0 ? "FFF0E6" : total1688 > 0 && totalAlibaba === 0 && totalAmazon === 0 ? "F5F3FF" : totalAmazon > 0 && totalAlibaba === 0 && total1688 === 0 ? "EFF6FF" : "FFF0E6";
+  const channelCellFg = channelSummaryParts.length === 0 ? COLORS.valueFg : totalAlibaba > 0 && total1688 === 0 && totalAmazon === 0 ? "CC4400" : total1688 > 0 && totalAlibaba === 0 && totalAmazon === 0 ? "6D28D9" : totalAmazon > 0 && totalAlibaba === 0 && total1688 === 0 ? "1D6FA4" : "CC4400";
 
   mergeSet(ws, totalRow, 1, totalRow, 2, "合计", "1A3C5E", "FFFFFF", true, 10);
   setCell(ws, totalRow, 3, `共 ${ordersData.length} 张订单`, "E8F0F8", "1A3C5E", true, 9, "center");
   setCell(ws, totalRow, 4, `国内 ${totalDomestic} / 国外 ${totalOverseas}`, "E8F0F8", "1A3C5E", false, 9, "center");
   setCell(ws, totalRow, 5, totalOverseas > 0 ? `报关 ${totalCustoms} 张` : "—", "E8F0F8", "7B5800", false, 9, "center");
-  setCell(ws, totalRow, 6, channelSummaryTxt, channelSummaryParts.length > 0 ? "FFF0E6" : "E8F0F8", channelSummaryParts.length > 0 ? "CC4400" : COLORS.valueFg, false, 9, "center");
+  setCell(ws, totalRow, 6, channelSummaryTxt, channelCellBg, channelCellFg, false, 9, "center");
   // 中间列（订单号~状态）留空
   for (let c = 7; c <= 12; c++) {
     setCell(ws, totalRow, c, "", "E8F0F8", COLORS.valueFg);
@@ -772,6 +787,8 @@ export async function generateMonthlyOrdersExcel(
         alibabaOrderNo: (order as any).alibabaOrderNo as string | null,
         is1688: (order as any).is1688 as boolean | null,
         alibaba1688OrderNo: (order as any).alibaba1688OrderNo as string | null,
+        isAmazon: (order as any).isAmazon as boolean | null,
+        amazonOrderNo: (order as any).amazonOrderNo as string | null,
         orderNo: order.orderNo,
         orderDate: order.orderDate,
         deliveryDate: order.deliveryDate,
@@ -823,8 +840,35 @@ export async function generateMonthlyOrdersExcel(
   const wsModelDetail = wb.addWorksheet(`型号数量明细${statusSuffix}`);
   buildModelDetailSheet(
     wsModelDetail,
-    `吟彩 ${monthStr} 型号数量明细${statusSuffix}`,
+    `吹彩 ${monthStr} 型号数量明细${statusSuffix}`,
     allModelDetails
+  );
+
+  // ── 工作表5：阿里巴巴订单汇总
+  const alibabaOrders = ordersWithModelCount.filter(o => o.isAlibaba);
+  const wsAlibaba = wb.addWorksheet(`阿里巴巴${statusSuffix}`);
+  buildSummarySheet(
+    wsAlibaba,
+    `吹彩 ${monthStr} 阿里巴巴订单汇总${statusSuffix}  共 ${alibabaOrders.length} 张`,
+    alibabaOrders
+  );
+
+  // ── 工作表6：1688订单汇总
+  const orders1688 = ordersWithModelCount.filter(o => o.is1688);
+  const ws1688 = wb.addWorksheet(`1688${statusSuffix}`);
+  buildSummarySheet(
+    ws1688,
+    `吹彩 ${monthStr} 1688订单汇总${statusSuffix}  共 ${orders1688.length} 张`,
+    orders1688
+  );
+
+  // ── 工作表7：亚马逊订单汇总
+  const amazonOrders = ordersWithModelCount.filter(o => o.isAmazon);
+  const wsAmazon = wb.addWorksheet(`亚马逊${statusSuffix}`);
+  buildSummarySheet(
+    wsAmazon,
+    `吹彩 ${monthStr} 亚马逊订单汇总${statusSuffix}  共 ${amazonOrders.length} 张`,
+    amazonOrders
   );
 
   const buffer = await wb.xlsx.writeBuffer();

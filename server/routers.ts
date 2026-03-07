@@ -62,6 +62,9 @@ const orderHeaderSchema = z.object({
   // 1688订单
   is1688:           z.boolean().optional(),
   alibaba1688OrderNo: z.string().optional(),
+  // 亚马逊订单
+  isAmazon:         z.boolean().optional(),
+  amazonOrderNo:    z.string().optional(),
   // 收件人信息
   recipientName:    z.string().optional(),
   recipientPhone:   z.string().optional(),
@@ -83,6 +86,14 @@ const orderHeaderSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "1688订单号不能为空",
       path: ["alibaba1688OrderNo"],
+    });
+  }
+  // 亚马逊订单时，订单号必填
+  if (data.isAmazon && !data.amazonOrderNo?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "亚马逊订单号不能为空",
+      path: ["amazonOrderNo"],
     });
   }
 });

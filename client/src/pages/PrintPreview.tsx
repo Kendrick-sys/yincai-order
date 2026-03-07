@@ -398,7 +398,7 @@ export default function PrintPreview() {
               <tr>
                 <td style={tdLabel}>订单渠道</td>
                 <td style={{ ...tdValue, borderRight: "1px solid #ccc" }} colSpan={5}>
-                  {((order as any).isAlibaba || (order as any).is1688) ? (
+                  {((order as any).isAlibaba || (order as any).is1688 || (order as any).isAmazon) ? (
                     <span style={{ display: "inline-flex", flexDirection: "column", gap: 4 }}>
                       {(order as any).isAlibaba && (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -438,7 +438,7 @@ export default function PrintPreview() {
                             display: "inline-flex",
                             alignItems: "center",
                             gap: 4,
-                            backgroundColor: "#FF6A00",
+                            backgroundColor: "#7C3AED",
                             color: "#fff",
                             fontWeight: 700,
                             fontSize: 11,
@@ -460,6 +460,38 @@ export default function PrintPreview() {
                               printColorAdjust: "exact" as any,
                             }}>
                               {(order as any).alibaba1688OrderNo}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {(order as any).isAmazon && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            backgroundColor: "#1D6FA4",
+                            color: "#fff",
+                            fontWeight: 700,
+                            fontSize: 11,
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            WebkitPrintColorAdjust: "exact" as any,
+                            printColorAdjust: "exact" as any,
+                          }}>
+                            亚马逊订单
+                          </span>
+                          {(order as any).amazonOrderNo && (
+                            <span style={{
+                              fontSize: 12,
+                              color: "#333",
+                              backgroundColor: "#f3f4f6",
+                              padding: "1px 6px",
+                              borderRadius: 3,
+                              WebkitPrintColorAdjust: "exact" as any,
+                              printColorAdjust: "exact" as any,
+                            }}>
+                              {(order as any).amazonOrderNo}
                             </span>
                           )}
                         </span>

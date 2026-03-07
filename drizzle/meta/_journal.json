@@ -64,6 +64,13 @@
       "when": 1772878296248,
       "tag": "0008_high_the_santerians",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1772879138764,
+      "tag": "0009_tough_cloak",
+      "breakpoints": true
     }
   ]
 }

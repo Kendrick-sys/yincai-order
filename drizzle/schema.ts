@@ -59,6 +59,10 @@ export const orders = mysqlTable("orders", {
   is1688:          boolean("is1688").default(false).notNull(),           // 是否为1688订单
   alibaba1688OrderNo: varchar("alibaba1688OrderNo", { length: 128 }),   // 1688订单号
 
+  // 亚马逊订单
+  isAmazon:        boolean("isAmazon").default(false).notNull(),         // 是否为亚马逊订单
+  amazonOrderNo:   varchar("amazonOrderNo", { length: 128 }),            // 亚马逊订单号
+
   // 收件人信息
   recipientName:    varchar("recipientName", { length: 64 }),       // 收件人姓名
   recipientPhone:   varchar("recipientPhone", { length: 32 }),      // 收件人电话

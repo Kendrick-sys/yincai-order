@@ -84,10 +84,11 @@ function SortableHeader({
 
 export default function Home() {
   const [, navigate] = useLocation();
-  const [search, setSearch]       = useState("");
-  const [activeTab, setActiveTab] = useState<StatusKey | "all">("all");
-  const [sortField, setSortField] = useState<SortField>(null);
-  const [sortDir, setSortDir]     = useState<SortDir>("asc");
+  const [search, setSearch]         = useState("");
+  const [activeTab, setActiveTab]   = useState<StatusKey | "all">("all");
+  const [channelFilter, setChannelFilter] = useState<"all" | "alibaba" | "1688" | "amazon">("all");
+  const [sortField, setSortField]   = useState<SortField>(null);
+  const [sortDir, setSortDir]       = useState<SortDir>("asc");
   const [showMonthExport, setShowMonthExport] = useState(false);
   const [exportYear, setExportYear]   = useState(() => new Date().getFullYear());
   const [exportMonth, setExportMonth] = useState(() => new Date().getMonth() + 1);
@@ -162,17 +163,27 @@ export default function Home() {
       (o.orderDescription ?? "").includes(search) ||
       (o.orderNo ?? "").includes(search) ||
       ((o as any).alibabaOrderNo ?? "").includes(search) ||
-      ((o as any).alibaba1688OrderNo ?? "").includes(search)
+      ((o as any).alibaba1688OrderNo ?? "").includes(search) ||
+      ((o as any).amazonOrderNo ?? "").includes(search)
     ),
     [orders, search]
   );
 
+  // 渠道过滤
+  const channelFiltered = useMemo(() => {
+    if (channelFilter === "all") return searchFiltered;
+    if (channelFilter === "alibaba") return searchFiltered.filter(o => (o as any).isAlibaba);
+    if (channelFilter === "1688")    return searchFiltered.filter(o => (o as any).is1688);
+    if (channelFilter === "amazon")  return searchFiltered.filter(o => (o as any).isAmazon);
+    return searchFiltered;
+  }, [searchFiltered, channelFilter]);
+
   // Tab 过滤
   const tabFiltered = useMemo(() =>
     activeTab === "all"
-      ? searchFiltered
-      : searchFiltered.filter(o => o.status === activeTab),
-    [searchFiltered, activeTab]
+      ? channelFiltered
+      : channelFiltered.filter(o => o.status === activeTab),
+    [channelFiltered, activeTab]
   );
 
   // 排序
@@ -386,7 +397,7 @@ export default function Home() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3">
           <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <Input
-            placeholder="搜索客户名称、订单描述、订单号、阿里巴巴/1688订单号..."
+            placeholder="搜索客户名称、订单描述、订单号、阿里巴巴/1688/亚马逊订单号..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="border-0 shadow-none focus-visible:ring-0 p-0 text-sm"
@@ -398,12 +409,12 @@ export default function Home() {
           )}
         </div>
 
-        {/* 状态筛选 Tab */}
+        {/* 状态筛选 Tab + 渠道筛选 */}
         <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
           {STATUS_TABS.map(tab => {
             const count = tab.key === "all"
-              ? searchFiltered.length
-              : searchFiltered.filter(o => o.status === tab.key).length;
+              ? channelFiltered.length
+              : channelFiltered.filter(o => o.status === tab.key).length;
             return (
               <button
                 key={tab.key}
@@ -426,9 +437,26 @@ export default function Home() {
               </button>
             );
           })}
+          {/* 渠道筛选下拉 */}
+          <div className="ml-auto flex items-center gap-1.5">
+            <select
+              value={channelFilter}
+              onChange={e => setChannelFilter(e.target.value as typeof channelFilter)}
+              className={`text-xs border rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30 transition-colors ${
+                channelFilter !== "all"
+                  ? "border-[#1A3C5E] text-[#1A3C5E] bg-[#1A3C5E]/5 font-medium"
+                  : "border-gray-200 text-gray-500 bg-white"
+              }`}
+            >
+              <option value="all">全部渠道</option>
+              <option value="alibaba">阿里巴巴</option>
+              <option value="1688">1688</option>
+              <option value="amazon">亚马逊</option>
+            </select>
+          </div>
           {/* 排序提示 */}
           {sortField && (
-            <div className="ml-auto flex items-center gap-1.5 text-xs text-[#1A3C5E]">
+            <div className="flex items-center gap-1.5 text-xs text-[#1A3C5E]">
               <span>
                 按{sortField === "deliveryDate" ? "交货日期" : sortField === "orderDate" ? "下单日期" : "状态"}
                 {sortDir === "asc" ? "升序" : "降序"}
@@ -531,8 +559,13 @@ export default function Home() {
                           </span>
                         )}
                         {(order as any).is1688 && (
-                          <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1.5 py-0.5 rounded flex-shrink-0">
+                          <span className="text-xs font-medium text-[#6D28D9] bg-[#F5F3FF] px-1.5 py-0.5 rounded flex-shrink-0">
                             1688
+                          </span>
+                        )}
+                        {(order as any).isAmazon && (
+                          <span className="text-xs font-medium text-[#1D6FA4] bg-[#EFF6FF] px-1.5 py-0.5 rounded flex-shrink-0">
+                            亚马逊
                           </span>
                         )}
                         {(order as any).customerType === "overseas" && (order as any).customsDeclared && (
