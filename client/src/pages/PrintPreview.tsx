@@ -254,7 +254,10 @@ export default function PrintPreview() {
   const params = useParams<{ id: string }>();
   const orderId = parseInt(params.id);
 
-  const { data: order, isLoading } = trpc.orders.get.useQuery({ id: orderId });
+  const { data: order, isLoading } = trpc.orders.get.useQuery(
+    { id: orderId },
+    { staleTime: 30_000 }  // 30秒内不重新拉取，与 OrderView 共享缓存
+  );
 
   const handlePrint = () => {
     let styleEl = document.getElementById("print-preview-style");

@@ -176,7 +176,7 @@ export default function Home() {
         {/* 订单列表 */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           {/* 表头 */}
-          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
             <span>订单信息</span>
             <span className="text-center">客户</span>
             <span className="text-center">交货日期</span>
@@ -198,7 +198,7 @@ export default function Home() {
                 const statusCfg = STATUS_CONFIG[order.status as StatusKey] ?? STATUS_CONFIG.draft;
                 const next = nextStatus[order.status as StatusKey];
                 return (
-                  <div key={order.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-4 px-6 py-4 items-center hover:bg-gray-50/50 transition-colors">
+                  <div key={order.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-4 items-center hover:bg-gray-50/50 transition-colors">
                     {/* 订单信息 */}
                     <div>
                       <p className="font-medium text-gray-800 text-sm leading-tight">

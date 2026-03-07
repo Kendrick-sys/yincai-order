@@ -62,7 +62,10 @@ export default function OrderView() {
   const params = useParams<{ id: string }>();
   const orderId = parseInt(params.id);
 
-  const { data: order, isLoading } = trpc.orders.get.useQuery({ id: orderId });
+  const { data: order, isLoading } = trpc.orders.get.useQuery(
+    { id: orderId },
+    { staleTime: 30_000 }  // 30秒内不重新拉取，与 PrintPreview 共享缓存
+  );
 
   if (isLoading) {
     return (

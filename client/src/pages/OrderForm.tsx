@@ -294,8 +294,11 @@ export default function OrderForm() {
   const isEdit = !!params.id;
   const orderId = params.id ? parseInt(params.id) : undefined;
 
-  // 从数据库读取客户列表
-  const { data: customerList = [] } = trpc.customers.list.useQuery();
+  // 从数据库读取客户列表（60秒内不重新拉取，与 Customers 页面共享缓存）
+  const { data: customerList = [] } = trpc.customers.list.useQuery(
+    undefined,
+    { staleTime: 60_000 }
+  );
 
   // 订单头部
   const [header, setHeader] = useState({
