@@ -3,7 +3,20 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, FileDown } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 
-// 状态标签
+// ── 工具函数 ──────────────────────────────────────────────────────────────────
+
+/** 将图片字段（可能是 JSON 字符串或数组）安全解析为 string[] */
+function parseImages(raw: unknown): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw as string[];
+  try {
+    const parsed = JSON.parse(raw as string);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 const STATUS_LABEL: Record<string, string> = {
   draft: "草稿",
   submitted: "已提交",
@@ -12,6 +25,17 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "已取消",
 };
 
+function statusColor(status: string): string {
+  const map: Record<string, string> = {
+    draft: "#64748b",
+    submitted: "#d97706",
+    in_production: "#ea580c",
+    completed: "#16a34a",
+    cancelled: "#dc2626",
+  };
+  return map[status] ?? "#111";
+}
+
 function downloadOrderExcel(orderId: number) {
   const a = document.createElement("a");
   a.href = `/api/export/order/${orderId}`;
@@ -19,7 +43,7 @@ function downloadOrderExcel(orderId: number) {
   a.click();
 }
 
-// 打印样式（注入到 <head>）
+// 打印样式
 const PRINT_STYLE = `
 @media print {
   body * { visibility: hidden !important; }
@@ -36,6 +60,194 @@ const PRINT_STYLE = `
   }
 }
 `;
+
+// ── 样式常量 ──────────────────────────────────────────────────────────────────
+
+const tdLabel: React.CSSProperties = {
+  backgroundColor: "#f0f4f8",
+  fontWeight: "bold",
+  padding: "5px 8px",
+  border: "1px solid #ccc",
+  whiteSpace: "nowrap",
+  width: "70px",
+  color: "#1A3C5E",
+};
+
+const tdValue: React.CSSProperties = {
+  padding: "5px 8px",
+  border: "1px solid #ccc",
+  minWidth: "100px",
+};
+
+const tdLabel2: React.CSSProperties = {
+  backgroundColor: "#f8fafc",
+  fontWeight: "bold",
+  padding: "5px 8px",
+  border: "1px solid #e2e8f0",
+  whiteSpace: "nowrap",
+  width: "70px",
+  color: "#334155",
+  fontSize: "10px",
+};
+
+const tdValue2: React.CSSProperties = {
+  padding: "5px 8px",
+  border: "1px solid #e2e8f0",
+  fontSize: "10px",
+  verticalAlign: "top",
+};
+
+const imgStyle: React.CSSProperties = {
+  width: "120px",
+  height: "90px",
+  objectFit: "contain",
+  border: "1px solid #eee",
+  borderRadius: "3px",
+  backgroundColor: "#fafafa",
+};
+
+const imgRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "6px",
+  marginTop: "6px",
+};
+
+// ── 子组件 ────────────────────────────────────────────────────────────────────
+
+function ModelRow({ m, i }: { m: any; i: number }) {
+  const stickerImgs = parseImages(m.stickerImages);
+  const silkImgs = parseImages(m.silkPrintImages);
+  const linerImgs = parseImages(m.linerImages);
+
+  return (
+    <div style={{ marginBottom: "16px", border: "1px solid #ddd", borderRadius: "4px", overflow: "hidden" }}>
+      {/* 型号标题行 */}
+      <div style={{ backgroundColor: "#1A3C5E", color: "white", padding: "6px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontWeight: "bold", fontSize: "12px" }}>
+          {m.modelName || `型号 ${i + 1}`}
+          {m.modelCode && <span style={{ fontSize: "10px", marginLeft: "8px", opacity: 0.8 }}>({m.modelCode})</span>}
+        </span>
+        <span style={{ fontSize: "11px" }}>数量：{m.quantity || "—"}</span>
+      </div>
+
+      {/* 型号明细表 */}
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
+        <tbody>
+          {/* 箱体 */}
+          <tr>
+            <td style={tdLabel2}>上盖材质</td>
+            <td style={tdValue2}>{m.topCover || "—"}</td>
+            <td style={tdLabel2}>下盖材质</td>
+            <td style={tdValue2}>{m.bottomCover || "—"}</td>
+            <td style={tdLabel2}>配件</td>
+            <td style={tdValue2}>{m.accessories || "—"}</td>
+          </tr>
+
+          {/* 贴纸 */}
+          <tr>
+            <td style={tdLabel2}>贴纸描述</td>
+            <td style={{ ...tdValue2 }} colSpan={5}>
+              {m.needSticker ? (
+                <div>
+                  {m.stickerSource && (
+                    <span style={{ color: "#1A3C5E", fontWeight: "bold", marginRight: "6px" }}>
+                      [{m.stickerSource}]
+                    </span>
+                  )}
+                  <span>{m.stickerDesc || "—"}</span>
+                  {stickerImgs.length > 0 && (
+                    <div style={imgRowStyle}>
+                      {stickerImgs.map((url, idx) => (
+                        <img key={idx} src={url} alt={`贴纸图${idx + 1}`} style={imgStyle} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span style={{ color: "#aaa", fontStyle: "italic" }}>不需要</span>
+              )}
+            </td>
+          </tr>
+
+          {/* 丝印 */}
+          <tr>
+            <td style={tdLabel2}>丝印描述</td>
+            <td style={{ ...tdValue2 }} colSpan={5}>
+              {m.needSilkPrint ? (
+                <div>
+                  <span>{m.silkPrintDesc || "—"}</span>
+                  {silkImgs.length > 0 && (
+                    <div style={imgRowStyle}>
+                      {silkImgs.map((url, idx) => (
+                        <img key={idx} src={url} alt={`丝印图${idx + 1}`} style={imgStyle} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span style={{ color: "#aaa", fontStyle: "italic" }}>不需要</span>
+              )}
+            </td>
+          </tr>
+
+          {/* 内衬 */}
+          <tr>
+            <td style={tdLabel2}>内衬描述</td>
+            <td style={{ ...tdValue2 }} colSpan={5}>
+              {m.needLiner ? (
+                <div>
+                  {(m.topLiner || m.bottomLiner) && (
+                    <div style={{ marginBottom: "4px" }}>
+                      {m.topLiner && <span>上盖：{m.topLiner}</span>}
+                      {m.topLiner && m.bottomLiner && (
+                        <span style={{ margin: "0 8px", color: "#ccc" }}>|</span>
+                      )}
+                      {m.bottomLiner && <span>下盖：{m.bottomLiner}</span>}
+                    </div>
+                  )}
+                  {linerImgs.length > 0 && (
+                    <div style={imgRowStyle}>
+                      {linerImgs.map((url, idx) => (
+                        <img key={idx} src={url} alt={`内衬图${idx + 1}`} style={imgStyle} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span style={{ color: "#aaa", fontStyle: "italic" }}>不需要</span>
+              )}
+            </td>
+          </tr>
+
+          {/* 纸箱 */}
+          {m.needCarton && (
+            <tr>
+              <td style={tdLabel2}>纸箱规格</td>
+              <td style={{ ...tdValue2 }} colSpan={5}>
+                {m.innerBox && <span>内箱：{m.innerBox}</span>}
+                {m.innerBox && m.outerBox && (
+                  <span style={{ margin: "0 8px", color: "#ccc" }}>|</span>
+                )}
+                {m.outerBox && <span>外箱：{m.outerBox}</span>}
+              </td>
+            </tr>
+          )}
+
+          {/* 型号备注 */}
+          {m.modelRemarks && (
+            <tr>
+              <td style={tdLabel2}>型号备注</td>
+              <td style={{ ...tdValue2 }} colSpan={5}>{m.modelRemarks}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── 主组件 ────────────────────────────────────────────────────────────────────
 
 export default function PrintPreview() {
   const [, navigate] = useLocation();
@@ -75,7 +287,7 @@ export default function PrintPreview() {
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
-      {/* 顶部操作栏（打印时隐藏） */}
+      {/* 顶部操作栏 */}
       <header className="no-print bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -104,13 +316,12 @@ export default function PrintPreview() {
 
       {/* 预览区域 */}
       <div className="max-w-4xl mx-auto px-6 py-6">
-        {/* A4 纸张模拟 */}
         <div
           id="print-area"
           className="bg-white shadow-lg mx-auto"
           style={{ width: "794px", minHeight: "1123px", padding: "28px 32px", fontFamily: "'Noto Sans SC', '微软雅黑', sans-serif", fontSize: "11px", color: "#111" }}
         >
-          {/* ── 标题 ── */}
+          {/* 标题 */}
           <div style={{ textAlign: "center", marginBottom: "16px" }}>
             <h1 style={{ fontSize: "18px", fontWeight: "bold", fontFamily: "'Noto Serif SC', serif", letterSpacing: "4px", margin: 0 }}>
               吟彩销售订单记录表
@@ -118,7 +329,7 @@ export default function PrintPreview() {
             <p style={{ fontSize: "10px", color: "#666", marginTop: "4px" }}>YINCAI SALES ORDER RECORD</p>
           </div>
 
-          {/* ── 订单头部信息 ── */}
+          {/* 订单头部信息 */}
           <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "12px", fontSize: "11px" }}>
             <tbody>
               <tr>
@@ -155,7 +366,6 @@ export default function PrintPreview() {
                   <td style={{ ...tdValue, borderRight: "1px solid #ccc" }} colSpan={5}>{order.remarks}</td>
                 </tr>
               )}
-              {/* 收件人信息 */}
               {(order.recipientName || order.recipientPhone || order.recipientAddress || order.factoryShipNo) && (
                 <>
                   <tr>
@@ -163,7 +373,7 @@ export default function PrintPreview() {
                     <td style={tdValue}>{order.recipientName || "—"}</td>
                     <td style={tdLabel}>收件电话</td>
                     <td style={tdValue}>{order.recipientPhone || "—"}</td>
-                    <td style={tdLabel}>工厂发货单号</td>
+                    <td style={tdLabel}>发货单号</td>
                     <td style={tdValue}>{order.factoryShipNo || "—"}</td>
                   </tr>
                   <tr>
@@ -175,121 +385,12 @@ export default function PrintPreview() {
             </tbody>
           </table>
 
-          {/* ── 型号明细 ── */}
+          {/* 型号明细 */}
           {models.map((m: any, i: number) => (
-            <div key={i} style={{ marginBottom: "16px", border: "1px solid #ddd", borderRadius: "4px", overflow: "hidden" }}>
-              {/* 型号标题行 */}
-              <div style={{ backgroundColor: "#1A3C5E", color: "white", padding: "6px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: "bold", fontSize: "12px" }}>
-                  {m.modelName || `型号 ${i + 1}`}
-                  {m.modelCode && <span style={{ fontSize: "10px", marginLeft: "8px", opacity: 0.8 }}>({m.modelCode})</span>}
-                </span>
-                <span style={{ fontSize: "11px" }}>数量：{m.quantity || "—"}</span>
-              </div>
-
-              {/* 型号基本信息 */}
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
-                <tbody>
-                  <tr>
-                    <td style={tdLabel2}>上盖材质</td>
-                    <td style={tdValue2}>{m.topCover || "—"}</td>
-                    <td style={tdLabel2}>下盖材质</td>
-                    <td style={tdValue2}>{m.bottomCover || "—"}</td>
-                    <td style={tdLabel2}>配件</td>
-                    <td style={tdValue2}>{m.accessories || "—"}</td>
-                  </tr>
-
-                  {/* 贴纸描述 + 图片 */}
-                  <tr>
-                    <td style={tdLabel2}>贴纸描述</td>
-                    <td style={{ ...tdValue2 }} colSpan={5}>
-                      {m.needSticker ? (
-                        <div>
-                          {m.stickerSource && <span style={{ color: "#1A3C5E", fontWeight: "bold", marginRight: "6px" }}>[{m.stickerSource}]</span>}
-                          <span>{m.stickerDesc || "—"}</span>
-                          {m.stickerImages && m.stickerImages.length > 0 && (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" }}>
-                              {m.stickerImages.map((url: string, idx: number) => (
-                                <img key={idx} src={url} alt={`贴纸图${idx + 1}`}
-                                  style={{ width: "120px", height: "90px", objectFit: "contain", border: "1px solid #eee", borderRadius: "3px", backgroundColor: "#fafafa" }} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : <span style={{ color: "#aaa", fontStyle: "italic" }}>不需要</span>}
-                    </td>
-                  </tr>
-
-                  {/* 丝印描述 + 图片 */}
-                  <tr>
-                    <td style={tdLabel2}>丝印描述</td>
-                    <td style={{ ...tdValue2 }} colSpan={5}>
-                      {m.needSilkPrint ? (
-                        <div>
-                          <span>{m.silkPrintDesc || "—"}</span>
-                          {m.silkPrintImages && m.silkPrintImages.length > 0 && (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" }}>
-                              {m.silkPrintImages.map((url: string, idx: number) => (
-                                <img key={idx} src={url} alt={`丝印图${idx + 1}`}
-                                  style={{ width: "120px", height: "90px", objectFit: "contain", border: "1px solid #eee", borderRadius: "3px", backgroundColor: "#fafafa" }} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : <span style={{ color: "#aaa", fontStyle: "italic" }}>不需要</span>}
-                    </td>
-                  </tr>
-
-                  {/* 内衬描述 + 图片 */}
-                  <tr>
-                    <td style={tdLabel2}>内衬描述</td>
-                    <td style={{ ...tdValue2 }} colSpan={5}>
-                      {m.needLiner ? (
-                        <div>
-                          {(m.topLiner || m.bottomLiner) && (
-                            <div style={{ marginBottom: "4px" }}>
-                              {m.topLiner && <span>上盖：{m.topLiner}</span>}
-                              {m.topLiner && m.bottomLiner && <span style={{ margin: "0 8px", color: "#ccc" }}>|</span>}
-                              {m.bottomLiner && <span>下盖：{m.bottomLiner}</span>}
-                            </div>
-                          )}
-                          {m.linerImages && m.linerImages.length > 0 && (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" }}>
-                              {m.linerImages.map((url: string, idx: number) => (
-                                <img key={idx} src={url} alt={`内衬图${idx + 1}`}
-                                  style={{ width: "120px", height: "90px", objectFit: "contain", border: "1px solid #eee", borderRadius: "3px", backgroundColor: "#fafafa" }} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : <span style={{ color: "#aaa", fontStyle: "italic" }}>不需要</span>}
-                    </td>
-                  </tr>
-
-                  {/* 纸箱 */}
-                  {m.needCarton && (
-                    <tr>
-                      <td style={tdLabel2}>纸箱规格</td>
-                      <td style={{ ...tdValue2 }} colSpan={5}>
-                        {m.innerBox && <span>内箱：{m.innerBox}</span>}
-                        {m.innerBox && m.outerBox && <span style={{ margin: "0 8px", color: "#ccc" }}>|</span>}
-                        {m.outerBox && <span>外箱：{m.outerBox}</span>}
-                      </td>
-                    </tr>
-                  )}
-
-                  {m.modelRemarks && (
-                    <tr>
-                      <td style={tdLabel2}>型号备注</td>
-                      <td style={{ ...tdValue2 }} colSpan={5}>{m.modelRemarks}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <ModelRow key={i} m={m} i={i} />
           ))}
 
-          {/* ── 签名区域 ── */}
+          {/* 签名区域 */}
           <div style={{ marginTop: "24px", borderTop: "1px solid #ddd", paddingTop: "12px" }}>
             <p style={{ fontSize: "10px", color: "#666", marginBottom: "10px", fontWeight: "bold" }}>各部门签名确认</p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px" }}>
@@ -302,64 +403,17 @@ export default function PrintPreview() {
             </div>
           </div>
 
-          {/* ── 页脚 ── */}
+          {/* 页脚 */}
           <div style={{ marginTop: "16px", borderTop: "1px solid #eee", paddingTop: "8px", display: "flex", justifyContent: "space-between", color: "#aaa", fontSize: "9px" }}>
             <span>吟彩销售订单系统 · 打印时间：{new Date().toLocaleString("zh-CN")}</span>
             <span>订单编号：#{orderId}</span>
           </div>
         </div>
 
-        {/* 提示文字 */}
         <div className="no-print text-center mt-4 text-xs text-gray-400">
           以上为打印预览效果，点击右上角「打印」按钮输出 A4 纸张
         </div>
       </div>
     </div>
   );
-}
-
-// ── 样式常量 ──────────────────────────────────────────────────────────────────
-const tdLabel: React.CSSProperties = {
-  backgroundColor: "#f0f4f8",
-  fontWeight: "bold",
-  padding: "5px 8px",
-  border: "1px solid #ccc",
-  whiteSpace: "nowrap",
-  width: "70px",
-  color: "#1A3C5E",
-};
-
-const tdValue: React.CSSProperties = {
-  padding: "5px 8px",
-  border: "1px solid #ccc",
-  minWidth: "100px",
-};
-
-const tdLabel2: React.CSSProperties = {
-  backgroundColor: "#f8fafc",
-  fontWeight: "bold",
-  padding: "5px 8px",
-  border: "1px solid #e2e8f0",
-  whiteSpace: "nowrap",
-  width: "70px",
-  color: "#334155",
-  fontSize: "10px",
-};
-
-const tdValue2: React.CSSProperties = {
-  padding: "5px 8px",
-  border: "1px solid #e2e8f0",
-  fontSize: "10px",
-  verticalAlign: "top",
-};
-
-function statusColor(status: string): string {
-  const map: Record<string, string> = {
-    draft: "#64748b",
-    submitted: "#d97706",
-    in_production: "#ea580c",
-    completed: "#16a34a",
-    cancelled: "#dc2626",
-  };
-  return map[status] ?? "#111";
 }

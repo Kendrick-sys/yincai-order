@@ -46,3 +46,7 @@
 - [x] PDF 打印「金蝶订单号」→「订单号」
 - [x] PDF 打印嵌入贴纸/丝印/内衬图片
 - [x] 新增订单只读预览页面 OrderView.tsx
+
+## Bug 修复
+
+- [x] PrintPreview/OrderView 图片字段 JSON 解析错误（stickerImages.map is not a function）
