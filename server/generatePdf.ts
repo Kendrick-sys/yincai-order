@@ -373,14 +373,7 @@ function buildContractCnHtml(data: ContractCnData): string {
   }
   .header { display: flex; align-items: flex-start; margin-bottom: 20px; }
   .logo-area { flex: 0 0 auto; }
-  .logo-text {
-    font-size: 28px;
-    font-weight: 900;
-    letter-spacing: -1px;
-    line-height: 1;
-    color: #1a1a1a;
-  }
-  .logo-text span { color: #e53e3e; display: block; }
+  .logo-img { height: 60px; width: auto; }
   .title-area { flex: 1; text-align: center; }
   h1 { font-size: 26px; font-weight: 700; letter-spacing: 6px; margin-top: 8px; }
   .meta-row { display: flex; justify-content: space-between; margin: 16px 0 8px; font-size: 12px; }
@@ -408,7 +401,7 @@ function buildContractCnHtml(data: ContractCnData): string {
 
 <div class="header">
   <div class="logo-area">
-    <div class="logo-text">INCHOI<span>CASES</span></div>
+    <img class="logo-img" src="https://d2xsxph8kpxj0f.cloudfront.net/310519663275986025/MnhiE9LdbgqX24MUwA2SN8/inchoilogo2_4a83c5e6.png" alt="INCHOI CASES" />
   </div>
   <div class="title-area"><h1>采购合同</h1></div>
 </div>
@@ -588,14 +581,7 @@ function buildPiCiHtml(data: PiCiData): string {
     line-height: 1.6;
   }
   .header { display: flex; align-items: flex-start; margin-bottom: 16px; }
-  .logo-text {
-    font-size: 26px;
-    font-weight: 900;
-    letter-spacing: -1px;
-    line-height: 1;
-    color: #1a1a1a;
-  }
-  .logo-text span { color: #e53e3e; display: block; }
+  .logo-img { height: 55px; width: auto; }
   .title-area { flex: 1; text-align: center; }
   h1 { font-size: 22px; font-weight: 700; letter-spacing: 3px; margin-top: 6px; }
   .doc-no { font-size: 13px; font-weight: 600; margin-top: 4px; }
@@ -627,7 +613,7 @@ function buildPiCiHtml(data: PiCiData): string {
 
 <div class="header">
   <div>
-    <div class="logo-text">INCHOI<span>CASES</span></div>
+    <img class="logo-img" src="https://d2xsxph8kpxj0f.cloudfront.net/310519663275986025/MnhiE9LdbgqX24MUwA2SN8/inchoilogo2_4a83c5e6.png" alt="INCHOI CASES" />
   </div>
   <div class="title-area">
     <h1>${docTitle}</h1>
@@ -644,13 +630,12 @@ function buildPiCiHtml(data: PiCiData): string {
     <p>Email: ${ENV.companyContactEmail}</p>
   </div>
   <div class="info-block">
-    <h3>TO (Buyer)</h3>
-    <p><strong>${buyerName}</strong></p>
-    ${buyerAttn ? `<p>Attn: ${buyerAttn}</p>` : ""}
-    ${buyerCompany ? `<p>Company: ${buyerCompany}</p>` : ""}
-    ${buyerAddress ? `<p>Add: ${buyerAddress}</p>` : ""}
+    <h3>Buyer</h3>
+    ${buyerCompany ? `<p><strong>${buyerCompany}</strong></p>` : (buyerName ? `<p><strong>${buyerName}</strong></p>` : "")}
+    ${buyerAddress ? `<p>${buyerAddress}</p>` : ""}
     ${buyerTel ? `<p>Tel: ${buyerTel}</p>` : ""}
     ${buyerEmail ? `<p>Email: ${buyerEmail}</p>` : ""}
+    ${buyerAttn ? `<p>Attn: ${buyerAttn}</p>` : ""}
   </div>
   <div class="info-block">
     <h3>Invoice Date</h3>

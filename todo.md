@@ -364,3 +364,12 @@
 - [x] DocumentDialog.tsx：Logo 材质下拉全部改为英文（滴胶→Epoxy Resin，鄧射→Laser Engraving，金属拉丝→Metal Brushed）
 - [x] generatePdf.ts：Lining → Foam，映射表同步更新新选项値
 - [x] TypeScript 0 错误，测试全部通过
+
+## 新功能（第四十六批）
+
+- [x] 上传 INCHOI CASES logo 到 CDN
+- [x] generatePdf.ts：国内合同模板加 logo（左上角）、标题居中
+- [x] generatePdf.ts：PI/CI 模板加 logo（左上角）、标题居中
+- [x] generatePdf.ts：PI/CI BUYER 区块格式修正（公司名→地址→Tel→Email→Attn，去掉 Company: 前缀，去掉 Add: 前缀）
+- [x] generatePdf.ts：PI/CI 标题从 TO (BUYER) 改为 BUYER
+- [x] TypeScript 0 错误，测试全部通过
