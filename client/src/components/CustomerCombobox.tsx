@@ -4,7 +4,7 @@
  * 支持键盘导航，客户多时可快速搜索定位。
  */
 import { useState } from "react";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover, PopoverContent, PopoverTrigger,
@@ -18,7 +18,7 @@ interface Customer {
   id: number;
   name: string;
   country?: string | null;
-  contact?: string | null;
+  email?: string | null;
 }
 
 interface CustomerComboboxProps {
@@ -68,13 +68,9 @@ export default function CustomerCombobox({
         align="start"
       >
         <Command>
-          <div className="flex items-center border-b px-3">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <CommandInput
-              placeholder="搜索客户名称..."
-              className="h-9 border-0 focus:ring-0 shadow-none"
-            />
-          </div>
+          <CommandInput
+            placeholder="搜索客户名称..."
+          />
           <CommandList>
             {customers.length === 0 ? (
               <CommandEmpty>
@@ -108,8 +104,8 @@ export default function CustomerCombobox({
                       />
                       <div className="flex-1 min-w-0">
                         <span className="font-medium text-sm">{c.name}</span>
-                        {c.contact && (
-                          <span className="ml-2 text-xs text-muted-foreground">{c.contact}</span>
+                        {c.email && (
+                          <span className="ml-2 text-xs text-muted-foreground">{c.email}</span>
                         )}
                       </div>
                       {c.country && (

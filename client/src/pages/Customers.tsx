@@ -79,7 +79,10 @@ export default function Customers() {
     if (!form.name.trim()) { toast.error("客户名称不能为空"); return; }
     if (!form.contact.trim()) { toast.error("联系人不能为空"); return; }
     if (!form.phone.trim()) { toast.error("联系电话不能为空"); return; }
-    if (!form.address.trim()) { toast.error("客户地址不能为空"); return; }
+    // 国外客户：地址必填；国内客户：地址选填
+    if (form.country === "overseas" && !form.address.trim()) {
+      toast.error("国外客户必须填写国家地址"); return;
+    }
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       toast.error("邮箱格式不正确"); return;
     }
@@ -272,15 +275,28 @@ export default function Customers() {
               </div>
             </div>
 
-            {/* 客户地址 */}
+            {/* 客户地址（国外必填，国内选填） */}
             <div>
-              <Label className="text-sm font-medium">客户地址 <span className="text-destructive">*</span></Label>
+              <Label className="text-sm font-medium">
+                客户地址
+                {form.country === "overseas"
+                  ? <span className="text-destructive ml-1">*</span>
+                  : <span className="text-muted-foreground ml-1 text-xs font-normal">（选填）</span>
+                }
+              </Label>
               <Input
                 className="mt-1"
-                placeholder="如：广东省广州市天河区"
+                placeholder={
+                  form.country === "overseas"
+                    ? "如：123 Main St, New York, NY 10001, USA"
+                    : "如：广东省广州市天河区（选填）"
+                }
                 value={form.address}
                 onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
               />
+              {form.country === "overseas" && !form.address.trim() && (
+                <p className="text-xs text-amber-600 mt-1">国外客户需填写国家地址</p>
+              )}
             </div>
 
             {/* 联系人 + 联系电话 */}

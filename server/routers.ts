@@ -71,6 +71,15 @@ const customerSchema = z.object({
   phone:     z.string().min(1, "联系电话不能为空"),
   remarks:   z.string().optional(),
   sortOrder: z.number().optional(),
+}).superRefine((data, ctx) => {
+  // 国外客户地址必填
+  if (data.country === "overseas" && !data.address?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "国外客户必须填写国家地址",
+      path: ["address"],
+    });
+  }
 });
 
 // ─── Router ───────────────────────────────────────────────────────────────────
