@@ -592,7 +592,7 @@ function buildSummarySheet(
     totalQuantity: number;   // 订单内所有型号的数量之和
   }>
 ) {
-  // 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 订单渠道 | 订单号 | 下单日期 | 交货日期 | 制单员 | 销售员 | 状态 | 型号数 | 数量 | 备注
+  // 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 订单渠道 | 订单号 | 下单日期 | 交货日期 | 销售员 | 制单员 | 状态 | 型号数 | 数量 | 备注
   const COL_WIDTHS = [6, 22, 18, 10, 10, 18, 16, 12, 12, 10, 10, 10, 8, 10, 28];
   COL_WIDTHS.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   const totalCols = COL_WIDTHS.length; // 15
@@ -603,7 +603,7 @@ function buildSummarySheet(
 
   // 第2行：列标题（不启用 AutoFilter）
   ws.getRow(2).height = 22;
-  const headers = ["序号", "订单描述", "客户", "国内/国外", "是否报关", "订单渠道", "订单号", "下单日期", "交货日期", "制单员", "销售员", "状态", "型号数", "数量", "备注"];
+  const headers = ["序号", "订单描述", "客户", "国内/国外", "是否报关", "订单渠道", "订单号", "下单日期", "交货日期", "销售员", "制单员", "状态", "型号数", "数量", "备注"];
   headers.forEach((h, i) => {
     setCell(ws, 2, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
   });
@@ -645,8 +645,8 @@ function buildSummarySheet(
       order.orderNo ?? "",
       order.orderDate ?? "",
       order.deliveryDate ?? "",
-      order.maker ?? "",
       order.salesperson ?? "",
+      order.maker ?? "",
       statusTxt,
       String(order.modelCount),
       order.totalQuantity > 0 ? String(order.totalQuantity) : "",
@@ -654,7 +654,7 @@ function buildSummarySheet(
     ];
 
     values.forEach((val, ci) => {
-      // ci: 0=序号 1=订单描述 2=客户 3=国内/国外 4=报关 5=阿里巴巴 6=订单号 7=下单 8=交货 9=制单员 10=销售员 11=状态 12=型号数 13=数量 14=备注
+      // ci: 0=序号 1=订单描述 2=客户 3=国内/国外 4=报关 5=订单渠道 6=订单号 7=下单 8=交货 9=销售员 10=制单员 11=状态 12=型号数 13=数量 14=备注
       const align: ExcelJS.Alignment["horizontal"] = (ci === 0 || ci === 12 || ci === 13) ? "center" : "left";
       let cellBg = rowActualBg;
       let cellFg = COLORS.valueFg;

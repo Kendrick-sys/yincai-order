@@ -362,10 +362,10 @@ export default function PrintPreview() {
                 <td style={tdValue}>{order.deliveryDate || "—"}</td>
               </tr>
               <tr>
-                <td style={tdLabel}>制单员</td>
-                <td style={tdValue}>{order.maker || "—"}</td>
                 <td style={tdLabel}>销售员</td>
                 <td style={tdValue}>{order.salesperson || "—"}</td>
+                <td style={tdLabel}>制单员</td>
+                <td style={tdValue}>{order.maker || "—"}</td>
                 <td style={tdLabel}>型号数量</td>
                 <td style={tdValue}>{models.length} 个型号</td>
               </tr>
