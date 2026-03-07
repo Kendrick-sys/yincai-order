@@ -8,6 +8,8 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { generateOrderExcel } from "../exportExcel";
+import { storagePut } from "../storage";
+import { nanoid } from "nanoid";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -47,6 +49,21 @@ async function startServer() {
       res.send(buffer);
     } catch (err: any) {
       res.status(500).json({ error: err.message ?? "导出失败" });
+    }
+  });
+
+  // 图片上传路由（base64 → S3）
+  app.post("/api/upload/image", async (req, res) => {
+    try {
+      const { base64, mimeType, category } = req.body as { base64: string; mimeType: string; category?: string };
+      if (!base64 || !mimeType) { res.status(400).json({ error: "缺少 base64 或 mimeType" }); return; }
+      const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+      const key = `order-images/${category ?? "misc"}/${nanoid()}.${ext}`;
+      const buffer = Buffer.from(base64, "base64");
+      const { url } = await storagePut(key, buffer, mimeType);
+      res.json({ url });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message ?? "上传失败" });
     }
   });
 

@@ -23,7 +23,7 @@ describe("orders router", () => {
     expect(result).toBeNull();
   });
 
-  it("create and delete an order", async () => {
+  it("create, soft-delete, restore, and hard-delete an order", async () => {
     const caller = appRouter.createCaller(createCtx());
 
     // 创建订单
@@ -58,9 +58,23 @@ describe("orders router", () => {
     const updated = await caller.orders.get({ id });
     expect(updated?.status).toBe("submitted");
 
-    // 删除
+    // 软删除（移入回收站）- 正常列表中不可见
     await caller.orders.delete({ id });
-    const deleted = await caller.orders.get({ id });
-    expect(deleted).toBeNull();
+    const normalList = await caller.orders.list();
+    expect(normalList.find((o: any) => o.id === id)).toBeUndefined();
+
+    // 回收站列表中可见
+    const trashedList = await caller.orders.listTrashed();
+    expect(trashedList.find((o: any) => o.id === id)).toBeDefined();
+
+    // 恢复订单
+    await caller.orders.restore({ id });
+    const restoredList = await caller.orders.list();
+    expect(restoredList.find((o: any) => o.id === id)).toBeDefined();
+
+    // 彻底删除
+    await caller.orders.hardDelete({ id });
+    const finalOrder = await caller.orders.get({ id });
+    expect(finalOrder).toBeNull();
   });
 });

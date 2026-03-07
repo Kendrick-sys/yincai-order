@@ -15,24 +15,41 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// ─── 销售订单主表（一张订单对应多个型号） ──────────────────────────────────────
+// ─── 客户表 ────────────────────────────────────────────────────────────────────
+export const customers = mysqlTable("customers", {
+  id: int("id").autoincrement().primaryKey(),
+  name:     varchar("name", { length: 128 }).notNull(),           // 客户名称
+  code:     varchar("code", { length: 64 }),                      // 客户编码（可选）
+  contact:  varchar("contact", { length: 64 }),                   // 联系人
+  phone:    varchar("phone", { length: 32 }),                     // 联系电话
+  remarks:  text("remarks"),                                      // 备注
+  sortOrder: int("sortOrder").default(0).notNull(),               // 排序
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = typeof customers.$inferInsert;
+
+// ─── 销售订单主表 ───────────────────────────────────────────────────────────────
 export const orders = mysqlTable("orders", {
   id: int("id").autoincrement().primaryKey(),
 
-  // 订单基本信息（全局，所有型号共用）
-  orderNo:          varchar("orderNo", { length: 100 }),        // 金蝶订单号
-  orderDescription: text("orderDescription"),                   // 订单描述
-  customer:         varchar("customer", { length: 128 }),       // 客户名称
-  maker:            varchar("maker", { length: 64 }),           // 制单员
-  salesperson:      varchar("salesperson", { length: 64 }),     // 销售员
-  orderDate:        varchar("orderDate", { length: 20 }),       // 下单日期
-  deliveryDate:     varchar("deliveryDate", { length: 20 }),    // 预计交货日期
-  remarks:          text("remarks"),                            // 备注
+  orderNo:          varchar("orderNo", { length: 100 }),          // 订单号
+  orderDescription: text("orderDescription"),                     // 订单描述
+  customer:         varchar("customer", { length: 128 }),         // 客户名称
+  maker:            varchar("maker", { length: 64 }),             // 制单员
+  salesperson:      varchar("salesperson", { length: 64 }),       // 销售员
+  orderDate:        varchar("orderDate", { length: 20 }),         // 下单日期
+  deliveryDate:     varchar("deliveryDate", { length: 20 }),      // 预计交货日期
+  remarks:          text("remarks"),                              // 备注
 
-  // 状态：草稿/已提交/生产中/已完成/已取消
   status: mysqlEnum("status", ["draft", "submitted", "in_production", "completed", "cancelled"])
     .default("draft")
     .notNull(),
+
+  // 软删除：deletedAt 不为 null 表示已删除（进入回收站）
+  deletedAt: timestamp("deletedAt"),
 
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -41,43 +58,44 @@ export const orders = mysqlTable("orders", {
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = typeof orders.$inferInsert;
 
-// ─── 型号明细表（每个型号一行，关联到订单） ────────────────────────────────────
+// ─── 型号明细表 ─────────────────────────────────────────────────────────────────
 export const orderModels = mysqlTable("orderModels", {
   id: int("id").autoincrement().primaryKey(),
-  orderId: int("orderId").notNull(),                            // 关联订单 ID
+  orderId: int("orderId").notNull(),
 
-  sortOrder: int("sortOrder").default(0).notNull(),             // 排序序号
+  sortOrder: int("sortOrder").default(0).notNull(),
 
-  // 基本信息
-  modelName:  varchar("modelName", { length: 128 }),            // 型号名称
-  modelCode:  varchar("modelCode", { length: 64 }),             // 型号编码
-  quantity:   varchar("quantity", { length: 64 }),              // 数量
+  modelName:  varchar("modelName", { length: 128 }),
+  modelCode:  varchar("modelCode", { length: 64 }),
+  quantity:   varchar("quantity", { length: 64 }),
 
-  // 一、箱体描述（始终显示）
-  topCover:     text("topCover"),                               // 上盖材质
-  bottomCover:  text("bottomCover"),                            // 下盖材质
-  accessories:  text("accessories"),                            // 配件
+  // 一、箱体描述
+  topCover:     text("topCover"),
+  bottomCover:  text("bottomCover"),
+  accessories:  text("accessories"),
 
   // 二、贴纸描述
   needSticker:    boolean("needSticker").default(true).notNull(),
-  stickerSource:  varchar("stickerSource", { length: 64 }),     // 贴纸来源
-  stickerDesc:    text("stickerDesc"),                          // 贴纸描述
+  stickerSource:  varchar("stickerSource", { length: 64 }),
+  stickerDesc:    text("stickerDesc"),
+  stickerImages:  text("stickerImages"),   // JSON 数组，存贴纸图片 URL 列表
 
-  // 三、丝印描述（仅吟彩版）
+  // 三、丝印描述
   needSilkPrint:  boolean("needSilkPrint").default(true).notNull(),
-  silkPrintDesc:  text("silkPrintDesc"),                        // 丝印描述
+  silkPrintDesc:  text("silkPrintDesc"),
+  silkPrintImages: text("silkPrintImages"), // JSON 数组，存丝印图片 URL 列表
 
   // 四、内衬描述
   needLiner:      boolean("needLiner").default(true).notNull(),
-  topLiner:       text("topLiner"),                             // 上盖内衬
-  bottomLiner:    text("bottomLiner"),                          // 下盖内衬
+  topLiner:       text("topLiner"),
+  bottomLiner:    text("bottomLiner"),
+  linerImages:    text("linerImages"),     // JSON 数组，存内衬CAD图片 URL 列表
 
   // 五、纸箱描述
   needCarton:     boolean("needCarton").default(true).notNull(),
-  innerBox:       text("innerBox"),                             // 内箱规格
-  outerBox:       text("outerBox"),                             // 外箱规格
+  innerBox:       text("innerBox"),
+  outerBox:       text("outerBox"),
 
-  // 型号备注
   modelRemarks:   text("modelRemarks"),
 
   createdAt: timestamp("createdAt").defaultNow().notNull(),

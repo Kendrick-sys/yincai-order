@@ -1,6 +1,10 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, isNull, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, orders, orderModels, InsertOrder, InsertOrderModel } from "../drizzle/schema";
+import {
+  InsertUser, users,
+  orders, orderModels, InsertOrder, InsertOrderModel,
+  customers, InsertCustomer,
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -55,13 +59,55 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+// ─── 客户相关 ─────────────────────────────────────────────────────────────────
+
+/** 获取所有客户（按 sortOrder 排序） */
+export async function listCustomers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(customers).orderBy(customers.sortOrder, customers.createdAt);
+}
+
+/** 创建客户 */
+export async function createCustomer(data: Omit<InsertCustomer, 'id' | 'createdAt' | 'updatedAt'>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(customers).values(data).$returningId();
+  return result.id;
+}
+
+/** 更新客户 */
+export async function updateCustomer(id: number, data: Partial<Omit<InsertCustomer, 'id' | 'createdAt' | 'updatedAt'>>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(customers).set(data).where(eq(customers.id, id));
+}
+
+/** 删除客户 */
+export async function deleteCustomer(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(customers).where(eq(customers.id, id));
+}
+
 // ─── 订单相关 ─────────────────────────────────────────────────────────────────
 
-/** 获取所有订单列表 */
+/** 获取正常订单列表（未删除） */
 export async function listOrders() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(orders).orderBy(desc(orders.createdAt));
+  return db.select().from(orders)
+    .where(isNull(orders.deletedAt))
+    .orderBy(desc(orders.createdAt));
+}
+
+/** 获取回收站订单列表（已软删除） */
+export async function listTrashedOrders() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(orders)
+    .where(isNotNull(orders.deletedAt))
+    .orderBy(desc(orders.deletedAt));
 }
 
 /** 获取单个订单详情（含所有型号） */
@@ -112,8 +158,22 @@ export async function updateOrder(
   }
 }
 
-/** 删除订单（含型号） */
-export async function deleteOrder(id: number) {
+/** 软删除订单（移入回收站） */
+export async function softDeleteOrder(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(orders).set({ deletedAt: new Date() }).where(eq(orders.id, id));
+}
+
+/** 恢复订单（从回收站还原） */
+export async function restoreOrder(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(orders).set({ deletedAt: null }).where(eq(orders.id, id));
+}
+
+/** 彻底删除订单（含型号，不可恢复） */
+export async function hardDeleteOrder(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.delete(orderModels).where(eq(orderModels.orderId, id));

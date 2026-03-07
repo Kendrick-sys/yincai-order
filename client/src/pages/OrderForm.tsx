@@ -15,47 +15,40 @@ import {
 import { useLocation, useParams } from "wouter";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-
-// ─── 预设客户列表 ────────────────────────────────────────────────────────────────
-const PRESET_CUSTOMERS: string[] = [
-  "香港佬",
-  "安卡",
-  "山海关",
-  "萨克斯",
-  "迪卡伦",
-  "小米",
-  "华为",
-];
+import ImageUploader from "@/components/ImageUploader";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 interface ModelRow {
-  modelName:     string;
-  modelCode:     string;
-  quantity:      string;
-  topCover:      string;
-  bottomCover:   string;
-  accessories:   string;
-  needSticker:   boolean;
-  stickerSource: string;
-  stickerDesc:   string;
-  needSilkPrint: boolean;
-  silkPrintDesc: string;
-  needLiner:     boolean;
-  topLiner:      string;
-  bottomLiner:   string;
-  needCarton:    boolean;
-  innerBox:      string;
-  outerBox:      string;
-  modelRemarks:  string;
-  _expanded:     boolean; // UI 状态，不提交
+  modelName:       string;
+  modelCode:       string;
+  quantity:        string;
+  topCover:        string;
+  bottomCover:     string;
+  accessories:     string;
+  needSticker:     boolean;
+  stickerSource:   string;
+  stickerDesc:     string;
+  stickerImages:   string[];   // 图片 URL 列表
+  needSilkPrint:   boolean;
+  silkPrintDesc:   string;
+  silkPrintImages: string[];
+  needLiner:       boolean;
+  topLiner:        string;
+  bottomLiner:     string;
+  linerImages:     string[];
+  needCarton:      boolean;
+  innerBox:        string;
+  outerBox:        string;
+  modelRemarks:    string;
+  _expanded:       boolean;
 }
 
 const emptyModel = (): ModelRow => ({
   modelName: "", modelCode: "", quantity: "",
   topCover: "", bottomCover: "", accessories: "",
-  needSticker: true, stickerSource: "", stickerDesc: "",
-  needSilkPrint: true, silkPrintDesc: "",
-  needLiner: true, topLiner: "", bottomLiner: "",
+  needSticker: true, stickerSource: "", stickerDesc: "", stickerImages: [],
+  needSilkPrint: true, silkPrintDesc: "", silkPrintImages: [],
+  needLiner: true, topLiner: "", bottomLiner: "", linerImages: [],
   needCarton: true, innerBox: "", outerBox: "",
   modelRemarks: "", _expanded: true,
 });
@@ -66,16 +59,18 @@ function ModelCard({
   onChange, onDelete,
 }: {
   model: ModelRow; index: number; total: number;
-  onChange: (field: keyof ModelRow, value: string | boolean) => void;
+  onChange: (field: keyof ModelRow, value: string | boolean | string[]) => void;
   onDelete: () => void;
 }) {
   const toggle = (field: keyof ModelRow) => onChange(field, !model[field]);
 
-  const SectionHeader = ({ icon: Icon, title, switchField }: {
-    icon: React.ElementType; title: string; switchField?: keyof ModelRow;
+  const SectionHeader = ({ icon: Icon, title, switchField, color }: {
+    icon: React.ElementType; title: string; switchField?: keyof ModelRow; color: string;
   }) => (
     <div className="flex items-center gap-2 mb-3">
-      <Icon className="w-4 h-4 text-[#1A3C5E]" />
+      <div className={`w-5 h-5 rounded flex items-center justify-center ${color}`}>
+        <Icon className="w-3 h-3 text-white" />
+      </div>
       <span className="text-sm font-semibold text-gray-700">{title}</span>
       {switchField && (
         <div className="ml-auto flex items-center gap-2">
@@ -88,8 +83,6 @@ function ModelCard({
       )}
     </div>
   );
-
-  const isDisabled = (field: keyof ModelRow) => !model[field as keyof ModelRow];
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -148,7 +141,7 @@ function ModelCard({
 
           {/* 一、箱体描述 */}
           <div className="bg-blue-50/50 rounded-lg p-4">
-            <SectionHeader icon={Package} title="一、箱体描述" />
+            <SectionHeader icon={Package} title="一、箱体描述" color="bg-blue-500" />
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs text-gray-500 mb-1 block">上盖材质</Label>
@@ -167,25 +160,37 @@ function ModelCard({
 
           {/* 二、贴纸描述 */}
           <div className={`rounded-lg p-4 transition-colors ${model.needSticker ? "bg-green-50/50" : "bg-gray-50"}`}>
-            <SectionHeader icon={Tag} title="二、贴纸描述" switchField="needSticker" />
+            <SectionHeader icon={Tag} title="二、贴纸描述" switchField="needSticker" color="bg-green-500" />
             {model.needSticker ? (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">贴纸来源</Label>
-                  <Select value={model.stickerSource} onValueChange={v => onChange("stickerSource", v)}>
-                    <SelectTrigger className="h-9 text-sm bg-white">
-                      <SelectValue placeholder="请选择来源" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="客户提供">客户提供</SelectItem>
-                      <SelectItem value="按实际来料验货">按实际来料验货</SelectItem>
-                      <SelectItem value="工厂自备">工厂自备</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">贴纸来源</Label>
+                    <Select value={model.stickerSource} onValueChange={v => onChange("stickerSource", v)}>
+                      <SelectTrigger className="h-9 text-sm bg-white">
+                        <SelectValue placeholder="请选择来源" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="客户提供">客户提供</SelectItem>
+                        <SelectItem value="按实际来料验货">按实际来料验货</SelectItem>
+                        <SelectItem value="工厂自备">工厂自备</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">贴纸描述</Label>
+                    <Input placeholder="如：效果图，每个编码各一张" value={model.stickerDesc} onChange={e => onChange("stickerDesc", e.target.value)} className="h-9 text-sm bg-white" />
+                  </div>
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">贴纸描述</Label>
-                  <Input placeholder="如：效果图，每个编码各一张" value={model.stickerDesc} onChange={e => onChange("stickerDesc", e.target.value)} className="h-9 text-sm bg-white" />
+                  <Label className="text-xs text-gray-500 mb-1.5 block">贴纸图片（可上传效果图）</Label>
+                  <ImageUploader
+                    label="贴纸"
+                    category="sticker"
+                    images={model.stickerImages}
+                    onChange={urls => onChange("stickerImages", urls)}
+                    maxCount={5}
+                  />
                 </div>
               </div>
             ) : (
@@ -195,9 +200,9 @@ function ModelCard({
 
           {/* 三、丝印描述 */}
           <div className={`rounded-lg p-4 transition-colors ${model.needSilkPrint ? "bg-indigo-50/50" : "bg-gray-50"}`}>
-            <SectionHeader icon={Printer} title="三、丝印描述（吟彩版）" switchField="needSilkPrint" />
+            <SectionHeader icon={Printer} title="三、丝印描述（吟彩版）" switchField="needSilkPrint" color="bg-indigo-500" />
             {model.needSilkPrint ? (
-              <div>
+              <div className="space-y-3">
                 <Textarea
                   placeholder="请详细描述丝印内容、位置、颜色等..."
                   value={model.silkPrintDesc}
@@ -205,6 +210,16 @@ function ModelCard({
                   rows={2}
                   className="text-sm bg-white resize-none"
                 />
+                <div>
+                  <Label className="text-xs text-gray-500 mb-1.5 block">丝印图片（可上传设计稿）</Label>
+                  <ImageUploader
+                    label="丝印"
+                    category="silkprint"
+                    images={model.silkPrintImages}
+                    onChange={urls => onChange("silkPrintImages", urls)}
+                    maxCount={5}
+                  />
+                </div>
               </div>
             ) : (
               <p className="text-xs text-gray-400 italic">此型号不需要丝印</p>
@@ -213,16 +228,28 @@ function ModelCard({
 
           {/* 四、内衬描述 */}
           <div className={`rounded-lg p-4 transition-colors ${model.needLiner ? "bg-purple-50/50" : "bg-gray-50"}`}>
-            <SectionHeader icon={Layers} title="四、内衬描述" switchField="needLiner" />
+            <SectionHeader icon={Layers} title="四、内衬描述" switchField="needLiner" color="bg-purple-500" />
             {model.needLiner ? (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">上盖内衬</Label>
-                  <Textarea placeholder="材质、颜色、厚度等" value={model.topLiner} onChange={e => onChange("topLiner", e.target.value)} rows={2} className="text-sm bg-white resize-none" />
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">上盖内衬</Label>
+                    <Textarea placeholder="材质、颜色、厚度等" value={model.topLiner} onChange={e => onChange("topLiner", e.target.value)} rows={2} className="text-sm bg-white resize-none" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">下盖内衬</Label>
+                    <Textarea placeholder="材质、颜色、厚度等" value={model.bottomLiner} onChange={e => onChange("bottomLiner", e.target.value)} rows={2} className="text-sm bg-white resize-none" />
+                  </div>
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">下盖内衬</Label>
-                  <Textarea placeholder="材质、颜色、厚度等" value={model.bottomLiner} onChange={e => onChange("bottomLiner", e.target.value)} rows={2} className="text-sm bg-white resize-none" />
+                  <Label className="text-xs text-gray-500 mb-1.5 block">内衬图片（可上传 CAD 图纸）</Label>
+                  <ImageUploader
+                    label="内衬CAD"
+                    category="liner"
+                    images={model.linerImages}
+                    onChange={urls => onChange("linerImages", urls)}
+                    maxCount={5}
+                  />
                 </div>
               </div>
             ) : (
@@ -232,7 +259,7 @@ function ModelCard({
 
           {/* 五、纸箱描述 */}
           <div className={`rounded-lg p-4 transition-colors ${model.needCarton ? "bg-amber-50/50" : "bg-gray-50"}`}>
-            <SectionHeader icon={Archive} title="五、纸箱描述" switchField="needCarton" />
+            <SectionHeader icon={Archive} title="五、纸箱描述" switchField="needCarton" color="bg-amber-500" />
             {model.needCarton ? (
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -267,6 +294,9 @@ export default function OrderForm() {
   const isEdit = !!params.id;
   const orderId = params.id ? parseInt(params.id) : undefined;
 
+  // 从数据库读取客户列表
+  const { data: customerList = [] } = trpc.customers.list.useQuery();
+
   // 订单头部
   const [header, setHeader] = useState({
     orderNo: "", orderDescription: "", customer: "",
@@ -298,25 +328,28 @@ export default function OrderForm() {
     });
     if (existingOrder.models?.length) {
       setModels(existingOrder.models.map((m: any) => ({
-        modelName: m.modelName ?? "",
-        modelCode: m.modelCode ?? "",
-        quantity: m.quantity ?? "",
-        topCover: m.topCover ?? "",
-        bottomCover: m.bottomCover ?? "",
-        accessories: m.accessories ?? "",
-        needSticker: m.needSticker ?? true,
-        stickerSource: m.stickerSource ?? "",
-        stickerDesc: m.stickerDesc ?? "",
-        needSilkPrint: m.needSilkPrint ?? true,
-        silkPrintDesc: m.silkPrintDesc ?? "",
-        needLiner: m.needLiner ?? true,
-        topLiner: m.topLiner ?? "",
-        bottomLiner: m.bottomLiner ?? "",
-        needCarton: m.needCarton ?? true,
-        innerBox: m.innerBox ?? "",
-        outerBox: m.outerBox ?? "",
-        modelRemarks: m.modelRemarks ?? "",
-        _expanded: false,
+        modelName:       m.modelName ?? "",
+        modelCode:       m.modelCode ?? "",
+        quantity:        m.quantity ?? "",
+        topCover:        m.topCover ?? "",
+        bottomCover:     m.bottomCover ?? "",
+        accessories:     m.accessories ?? "",
+        needSticker:     m.needSticker ?? true,
+        stickerSource:   m.stickerSource ?? "",
+        stickerDesc:     m.stickerDesc ?? "",
+        stickerImages:   m.stickerImages ? JSON.parse(m.stickerImages) : [],
+        needSilkPrint:   m.needSilkPrint ?? true,
+        silkPrintDesc:   m.silkPrintDesc ?? "",
+        silkPrintImages: m.silkPrintImages ? JSON.parse(m.silkPrintImages) : [],
+        needLiner:       m.needLiner ?? true,
+        topLiner:        m.topLiner ?? "",
+        bottomLiner:     m.bottomLiner ?? "",
+        linerImages:     m.linerImages ? JSON.parse(m.linerImages) : [],
+        needCarton:      m.needCarton ?? true,
+        innerBox:        m.innerBox ?? "",
+        outerBox:        m.outerBox ?? "",
+        modelRemarks:    m.modelRemarks ?? "",
+        _expanded:       false,
       })));
     }
   }, [existingOrder]);
@@ -335,7 +368,13 @@ export default function OrderForm() {
       toast.warning("请至少填写订单描述或客户名称");
       return;
     }
-    const modelsPayload = models.map(({ _expanded, ...m }) => m);
+    // 序列化图片数组为 JSON 字符串存储
+    const modelsPayload = models.map(({ _expanded, stickerImages, silkPrintImages, linerImages, ...m }) => ({
+      ...m,
+      stickerImages:   JSON.stringify(stickerImages),
+      silkPrintImages: JSON.stringify(silkPrintImages),
+      linerImages:     JSON.stringify(linerImages),
+    }));
     if (isEdit && orderId) {
       updateMutation.mutate({ id: orderId, order: { ...header, status }, models: modelsPayload });
     } else {
@@ -343,7 +382,7 @@ export default function OrderForm() {
     }
   };
 
-  const updateModel = (index: number, field: keyof ModelRow, value: string | boolean) => {
+  const updateModel = (index: number, field: keyof ModelRow, value: string | boolean | string[]) => {
     setModels(prev => prev.map((m, i) => i === index ? { ...m, [field]: value } : m));
   };
 
@@ -357,6 +396,10 @@ export default function OrderForm() {
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  // 判断客户是否在数据库列表中
+  const customerNames = customerList.map((c: any) => c.name);
+  const isPresetCustomer = customerNames.includes(header.customer);
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
@@ -402,24 +445,25 @@ export default function OrderForm() {
               <Label className="text-xs text-gray-500 mb-1 block">客户名称</Label>
               <div className="flex gap-2">
                 <Select
-                  value={PRESET_CUSTOMERS.includes(header.customer) ? header.customer : (header.customer ? "__custom__" : "")}
-                  onValueChange={v => {
-                    if (v === "__custom__") return;
-                    setHeader(h => ({ ...h, customer: v }));
-                  }}
+                  value={isPresetCustomer ? header.customer : ""}
+                  onValueChange={v => setHeader(h => ({ ...h, customer: v }))}
                 >
                   <SelectTrigger className="h-9 text-sm w-40 flex-shrink-0">
                     <SelectValue placeholder="选择客户" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PRESET_CUSTOMERS.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    {customerNames.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">
+                        暂无预设客户，请在客户管理中添加
+                      </div>
+                    )}
+                    {customerList.map((c: any) => (
+                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                     ))}
-                    <SelectItem value="__custom__">手动输入...</SelectItem>
                   </SelectContent>
                 </Select>
                 <Input
-                  placeholder="手动输入客户名称"
+                  placeholder="或手动输入客户名称"
                   value={header.customer}
                   onChange={e => setHeader(h => ({ ...h, customer: e.target.value }))}
                   className="h-9 text-sm flex-1"
@@ -427,7 +471,7 @@ export default function OrderForm() {
               </div>
             </div>
             <div>
-              <Label className="text-xs text-gray-500 mb-1 block">金蝶订单号</Label>
+              <Label className="text-xs text-gray-500 mb-1 block">订单号</Label>
               <Input placeholder="如：SO-2024-001" value={header.orderNo} onChange={e => setHeader(h => ({ ...h, orderNo: e.target.value }))} className="h-9 text-sm" />
             </div>
             <div>
@@ -489,7 +533,7 @@ export default function OrderForm() {
         {/* 底部提示 */}
         <div className="flex items-start gap-2 text-xs text-gray-400 pb-8">
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-          <span>每个型号可独立控制是否需要贴纸、丝印、内衬、纸箱。关闭对应开关后该模块将不显示在打印版本中。</span>
+          <span>每个型号可独立控制是否需要贴纸、丝印、内衬、纸箱，并可上传对应图片（CAD图纸/效果图/设计稿）。关闭对应开关后该模块将不显示在打印版本中。</span>
         </div>
       </main>
     </div>

@@ -7,6 +7,8 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import OrderForm from "./pages/OrderForm";
 import PrintPreview from "./pages/PrintPreview";
+import Customers from "./pages/Customers";
+import Trash from "./pages/Trash";
 
 function Router() {
   return (
@@ -15,6 +17,8 @@ function Router() {
       <Route path={"/order/new"} component={OrderForm} />
       <Route path={"/order/:id/edit"} component={OrderForm} />
       <Route path={"/order/:id/print"} component={PrintPreview} />
+      <Route path={"/customers"} component={Customers} />
+      <Route path={"/trash"} component={Trash} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

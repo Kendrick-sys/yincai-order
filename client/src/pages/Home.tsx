@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import {
   Plus, Search, FileDown, Pencil, Trash2,
   ClipboardList, Package, CheckCircle2, XCircle,
-  Clock, Factory, ChevronRight, Copy, Printer
+  Clock, Factory, ChevronRight, Copy, Printer,
+  Users, Trash
 } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -99,10 +100,24 @@ export default function Home() {
               <p className="text-xs text-gray-400">Sales Order Management</p>
             </div>
           </div>
-          <Button onClick={() => navigate("/order/new")} className="bg-[#1A3C5E] hover:bg-[#15304d] gap-2">
-            <Plus className="w-4 h-4" />
-            新建订单
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link href="/trash">
+              <Button variant="outline" size="sm" className="gap-1.5 text-gray-500 border-gray-200 hover:text-red-500 hover:border-red-200">
+                <Trash className="w-3.5 h-3.5" />
+                回收站
+              </Button>
+            </Link>
+            <Link href="/customers">
+              <Button variant="outline" size="sm" className="gap-1.5 text-gray-500 border-gray-200 hover:text-[#1A3C5E] hover:border-[#1A3C5E]/30">
+                <Users className="w-3.5 h-3.5" />
+                客户管理
+              </Button>
+            </Link>
+            <Button onClick={() => navigate("/order/new")} className="bg-[#1A3C5E] hover:bg-[#15304d] gap-2">
+              <Plus className="w-4 h-4" />
+              新建订单
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -124,7 +139,7 @@ export default function Home() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3">
           <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <Input
-            placeholder="搜索客户名称、订单描述、金蝶订单号..."
+            placeholder="搜索客户名称、订单描述、订单号..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="border-0 shadow-none focus-visible:ring-0 p-0 text-sm"
@@ -168,7 +183,7 @@ export default function Home() {
                         {order.orderDescription || "（未填写描述）"}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {order.orderNo ? `金蝶：${order.orderNo}` : ""}
+                        {order.orderNo ? `订单号：${order.orderNo}` : ""}
                         {order.orderNo && order.orderDate ? "  ·  " : ""}
                         {order.orderDate ? `下单：${order.orderDate}` : ""}
                       </p>

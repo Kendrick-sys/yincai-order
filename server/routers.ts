@@ -4,43 +4,44 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import {
-  createOrder,
-  updateOrder,
-  listOrders,
-  getOrderById,
-  deleteOrder,
+  createOrder, updateOrder, listOrders, getOrderById,
+  softDeleteOrder, restoreOrder, hardDeleteOrder, listTrashedOrders,
   updateOrderStatus,
+  listCustomers, createCustomer, updateCustomer, deleteCustomer,
 } from "./db";
 
-// 型号明细的 schema
+// ─── Zod Schemas ──────────────────────────────────────────────────────────────
+
 const modelSchema = z.object({
-  modelName:     z.string().optional(),
-  modelCode:     z.string().optional(),
-  quantity:      z.string().optional(),
+  modelName:       z.string().optional(),
+  modelCode:       z.string().optional(),
+  quantity:        z.string().optional(),
   // 箱体
-  topCover:      z.string().optional(),
-  bottomCover:   z.string().optional(),
-  accessories:   z.string().optional(),
+  topCover:        z.string().optional(),
+  bottomCover:     z.string().optional(),
+  accessories:     z.string().optional(),
   // 贴纸
-  needSticker:   z.boolean().default(true),
-  stickerSource: z.string().optional(),
-  stickerDesc:   z.string().optional(),
+  needSticker:     z.boolean().default(true),
+  stickerSource:   z.string().optional(),
+  stickerDesc:     z.string().optional(),
+  stickerImages:   z.string().optional(),   // JSON 数组字符串
   // 丝印
-  needSilkPrint: z.boolean().default(true),
-  silkPrintDesc: z.string().optional(),
+  needSilkPrint:   z.boolean().default(true),
+  silkPrintDesc:   z.string().optional(),
+  silkPrintImages: z.string().optional(),   // JSON 数组字符串
   // 内衬
-  needLiner:     z.boolean().default(true),
-  topLiner:      z.string().optional(),
-  bottomLiner:   z.string().optional(),
+  needLiner:       z.boolean().default(true),
+  topLiner:        z.string().optional(),
+  bottomLiner:     z.string().optional(),
+  linerImages:     z.string().optional(),   // JSON 数组字符串
   // 纸箱
-  needCarton:    z.boolean().default(true),
-  innerBox:      z.string().optional(),
-  outerBox:      z.string().optional(),
+  needCarton:      z.boolean().default(true),
+  innerBox:        z.string().optional(),
+  outerBox:        z.string().optional(),
   // 备注
-  modelRemarks:  z.string().optional(),
+  modelRemarks:    z.string().optional(),
 });
 
-// 订单主表的 schema
 const orderHeaderSchema = z.object({
   orderNo:          z.string().optional(),
   orderDescription: z.string().optional(),
@@ -53,6 +54,17 @@ const orderHeaderSchema = z.object({
   status:           z.enum(["draft", "submitted", "in_production", "completed", "cancelled"]).optional(),
 });
 
+const customerSchema = z.object({
+  name:      z.string().min(1, "客户名称不能为空"),
+  code:      z.string().optional(),
+  contact:   z.string().optional(),
+  phone:     z.string().optional(),
+  remarks:   z.string().optional(),
+  sortOrder: z.number().optional(),
+});
+
+// ─── Router ───────────────────────────────────────────────────────────────────
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -64,21 +76,48 @@ export const appRouter = router({
     }),
   }),
 
+  // ─── 客户管理 ───────────────────────────────────────────────────────────────
+  customers: router({
+    list: publicProcedure.query(async () => listCustomers()),
+
+    create: publicProcedure
+      .input(customerSchema)
+      .mutation(async ({ input }) => {
+        const id = await createCustomer(input);
+        return { id };
+      }),
+
+    update: publicProcedure
+      .input(z.object({ id: z.number(), data: customerSchema.partial() }))
+      .mutation(async ({ input }) => {
+        await updateCustomer(input.id, input.data);
+        return { success: true };
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteCustomer(input.id);
+        return { success: true };
+      }),
+  }),
+
+  // ─── 订单管理 ───────────────────────────────────────────────────────────────
   orders: router({
-    // 获取所有订单列表
+    // 正常订单列表
     list: publicProcedure.query(async () => listOrders()),
 
-    // 获取单个订单（含型号）
+    // 回收站列表
+    listTrashed: publicProcedure.query(async () => listTrashedOrders()),
+
+    // 获取单个订单
     get: publicProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => getOrderById(input.id)),
 
-    // 创建订单（含型号）
+    // 创建订单
     create: publicProcedure
-      .input(z.object({
-        order: orderHeaderSchema,
-        models: z.array(modelSchema),
-      }))
+      .input(z.object({ order: orderHeaderSchema, models: z.array(modelSchema) }))
       .mutation(async ({ input }) => {
         const id = await createOrder(
           { ...input.order, status: input.order.status ?? "draft" },
@@ -87,13 +126,9 @@ export const appRouter = router({
         return { id };
       }),
 
-    // 更新订单（含型号）
+    // 更新订单
     update: publicProcedure
-      .input(z.object({
-        id: z.number(),
-        order: orderHeaderSchema,
-        models: z.array(modelSchema),
-      }))
+      .input(z.object({ id: z.number(), order: orderHeaderSchema, models: z.array(modelSchema) }))
       .mutation(async ({ input }) => {
         await updateOrder(input.id, input.order, input.models);
         return { success: true };
@@ -110,15 +145,31 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    // 删除订单
+    // 软删除（移入回收站）
     delete: publicProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
-        await deleteOrder(input.id);
+        await softDeleteOrder(input.id);
         return { success: true };
       }),
 
-    // 复制订单（复制主表+型号，状态重置为草稿）
+    // 从回收站恢复
+    restore: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await restoreOrder(input.id);
+        return { success: true };
+      }),
+
+    // 彻底删除（不可恢复）
+    hardDelete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await hardDeleteOrder(input.id);
+        return { success: true };
+      }),
+
+    // 复制订单
     duplicate: publicProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
@@ -138,24 +189,27 @@ export const appRouter = router({
             status: "draft",
           },
           (original.models ?? []).map((m: any) => ({
-            modelName: m.modelName ?? undefined,
-            modelCode: m.modelCode ?? undefined,
-            quantity: m.quantity ?? undefined,
-            topCover: m.topCover ?? undefined,
-            bottomCover: m.bottomCover ?? undefined,
-            accessories: m.accessories ?? undefined,
-            needSticker: m.needSticker ?? true,
-            stickerSource: m.stickerSource ?? undefined,
-            stickerDesc: m.stickerDesc ?? undefined,
-            needSilkPrint: m.needSilkPrint ?? true,
-            silkPrintDesc: m.silkPrintDesc ?? undefined,
-            needLiner: m.needLiner ?? true,
-            topLiner: m.topLiner ?? undefined,
-            bottomLiner: m.bottomLiner ?? undefined,
-            needCarton: m.needCarton ?? true,
-            innerBox: m.innerBox ?? undefined,
-            outerBox: m.outerBox ?? undefined,
-            modelRemarks: m.modelRemarks ?? undefined,
+            modelName:       m.modelName ?? undefined,
+            modelCode:       m.modelCode ?? undefined,
+            quantity:        m.quantity ?? undefined,
+            topCover:        m.topCover ?? undefined,
+            bottomCover:     m.bottomCover ?? undefined,
+            accessories:     m.accessories ?? undefined,
+            needSticker:     m.needSticker ?? true,
+            stickerSource:   m.stickerSource ?? undefined,
+            stickerDesc:     m.stickerDesc ?? undefined,
+            stickerImages:   m.stickerImages ?? undefined,
+            needSilkPrint:   m.needSilkPrint ?? true,
+            silkPrintDesc:   m.silkPrintDesc ?? undefined,
+            silkPrintImages: m.silkPrintImages ?? undefined,
+            needLiner:       m.needLiner ?? true,
+            topLiner:        m.topLiner ?? undefined,
+            bottomLiner:     m.bottomLiner ?? undefined,
+            linerImages:     m.linerImages ?? undefined,
+            needCarton:      m.needCarton ?? true,
+            innerBox:        m.innerBox ?? undefined,
+            outerBox:        m.outerBox ?? undefined,
+            modelRemarks:    m.modelRemarks ?? undefined,
           }))
         );
         return { id: newId };
