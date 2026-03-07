@@ -1,0 +1,22 @@
+CREATE TABLE `documents` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`orderId` int NOT NULL,
+	`docType` enum('contract_cn','pi','ci') NOT NULL,
+	`docNo` varchar(64) NOT NULL,
+	`counterpartyName` varchar(256),
+	`counterpartyAddress` text,
+	`lineItems` text NOT NULL,
+	`totalAmount` varchar(64),
+	`currency` varchar(8) NOT NULL DEFAULT 'CNY',
+	`depositPct` int DEFAULT 30,
+	`balancePct` int DEFAULT 70,
+	`incoterms` varchar(32),
+	`portOfLoading` varchar(128),
+	`bankChoice` enum('icbc','citi'),
+	`piDocId` int,
+	`pdfUrl` text,
+	`pdfKey` varchar(512),
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `documents_id` PRIMARY KEY(`id`)
+);

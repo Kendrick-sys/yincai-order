@@ -129,3 +129,44 @@ export const orderModels = mysqlTable("orderModels", {
 
 export type OrderModel = typeof orderModels.$inferSelect;
 export type InsertOrderModel = typeof orderModels.$inferInsert;
+
+// ─── 单据表（合同/PI/CI）────────────────────────────────────────────────────────
+export const documents = mysqlTable("documents", {
+  id: int("id").autoincrement().primaryKey(),
+  orderId: int("orderId").notNull(),                                 // 关联订单ID
+
+  docType: mysqlEnum("docType", ["contract_cn", "pi", "ci"]).notNull(), // 单据类型
+  docNo:   varchar("docNo", { length: 64 }).notNull(),              // 单据编号（自动生成）
+
+  // 乙方/买方信息（供货单位/客户）
+  counterpartyName:    varchar("counterpartyName", { length: 256 }), // 供货单位/客户名称
+  counterpartyAddress: text("counterpartyAddress"),                  // 地址
+
+  // 产品明细（JSON数组）
+  // 格式：[{ modelName, material, spec, quantity, unitPrice, amount }]
+  lineItems: text("lineItems").notNull(),
+
+  // 金额
+  totalAmount:    varchar("totalAmount", { length: 64 }),            // 总金额（字符串保留精度）
+  currency:       varchar("currency", { length: 8 }).default("CNY").notNull(), // CNY / USD / EUR
+  depositPct:     int("depositPct").default(30),                     // 定金比例（%）
+  balancePct:     int("balancePct").default(70),                     // 尾款比例（%）
+
+  // PI/CI 专属字段
+  incoterms:      varchar("incoterms", { length: 32 }),              // FOB / CIF / EXW
+  portOfLoading:  varchar("portOfLoading", { length: 128 }),         // 装运港
+  bankChoice:     mysqlEnum("bankChoice", ["icbc", "citi"]),         // 银行选择
+
+  // CI 专属字段
+  piDocId:        int("piDocId"),                                    // 关联的PI单据ID
+
+  // 存储
+  pdfUrl:         text("pdfUrl"),                                    // 生成的PDF下载URL
+  pdfKey:         varchar("pdfKey", { length: 512 }),                // S3 key
+
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Document = typeof documents.$inferSelect;
+export type InsertDocument = typeof documents.$inferInsert;

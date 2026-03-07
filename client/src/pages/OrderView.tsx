@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Pencil, Printer, FileDown, ImageOff, Box, Tag, Layers, Archive, Paintbrush } from "lucide-react";
+import { ArrowLeft, Pencil, Printer, FileDown, ImageOff, Box, Tag, Layers, Archive, Paintbrush, FileText } from "lucide-react";
 import { useLocation, useParams } from "wouter";
+import DocumentDialog from "@/components/DocumentDialog";
+import DocumentHistory from "@/components/DocumentHistory";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft:         { label: "草稿",   color: "bg-gray-100 text-gray-600 border-gray-200" },
@@ -93,6 +96,7 @@ export default function OrderView() {
   const [, navigate] = useLocation();
   const params = useParams<{ id: string }>();
   const orderId = parseInt(params.id);
+  const [docDialogOpen, setDocDialogOpen] = useState(false);
 
   const { data: order, isLoading } = trpc.orders.get.useQuery(
     { id: orderId },
@@ -153,6 +157,15 @@ export default function OrderView() {
             <Button variant="outline" size="sm" className="gap-1.5 text-sm" onClick={() => navigate(`/order/${orderId}/print`)}>
               <Printer className="w-3.5 h-3.5" />
               打印预览
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-sm border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+              onClick={() => setDocDialogOpen(true)}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              生成单据
             </Button>
             <Button size="sm" className="bg-[#1A3C5E] hover:bg-[#15304d] gap-1.5 text-sm" onClick={() => navigate(`/order/${orderId}/edit`)}>
               <Pencil className="w-3.5 h-3.5" />
@@ -375,7 +388,49 @@ export default function OrderView() {
             <p className="text-gray-400 text-sm">此订单暂无型号明细</p>
           </div>
         )}
+
+        {/* 历史单据 */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-5 rounded-full bg-[#1A3C5E]" />
+              <h3 className="font-semibold text-gray-700 text-sm">历史单据</h3>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+              onClick={() => setDocDialogOpen(true)}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              生成单据
+            </Button>
+          </div>
+          <DocumentHistory orderId={orderId} />
+        </div>
       </div>
+
+      {/* 生成单据弹窗 */}
+      {order && (
+        <DocumentDialog
+          open={docDialogOpen}
+          onClose={() => setDocDialogOpen(false)}
+          order={{
+            id: order.id,
+            customer: order.customer,
+            orderDate: order.orderDate,
+            deliveryDate: order.deliveryDate,
+            customerType: (order as any).customerType,
+            models: (order.models ?? []).map((m: any) => ({
+              modelName: m.modelName,
+              modelCode: m.modelCode,
+              quantity: m.quantity,
+              topCover: m.topCover,
+              bottomCover: m.bottomCover,
+            })),
+          }}
+        />
+      )}
     </div>
   );
 }

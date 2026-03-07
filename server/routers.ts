@@ -9,6 +9,12 @@ import {
   updateOrderStatus,
   listCustomers, listCustomersWithStats, createCustomer, updateCustomer, deleteCustomer,
 } from "./db";
+import {
+  generateDocNo, createDocument, updateDocumentPdf,
+  getDocumentsByOrderId, getDocumentById,
+} from "./db.documents";
+import { generateContractCnPdf, generatePiCiPdf } from "./generatePdf";
+import { storagePut } from "./storage";
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
 
@@ -148,6 +154,149 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await deleteCustomer(input.id);
         return { success: true };
+      }),
+  }),
+
+  // ─── 单据管理（合同/PI/CI）──────────────────────────────────────────────────
+  documents: router({
+    // 获取订单下的所有单据
+    listByOrder: publicProcedure
+      .input(z.object({ orderId: z.number() }))
+      .query(async ({ input }) => getDocumentsByOrderId(input.orderId)),
+
+    // 获取单个单据
+    get: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => getDocumentById(input.id)),
+
+    // 生成国内采购合同
+    generateContractCn: publicProcedure
+      .input(z.object({
+        orderId: z.number(),
+        counterpartyName: z.string().min(1, "供货单位不能为空"),
+        counterpartyAddress: z.string().optional(),
+        lineItems: z.array(z.object({
+          modelName: z.string(),
+          material: z.string().optional(),
+          spec: z.string().optional(),
+          quantity: z.number(),
+          unitPrice: z.number(),
+          amount: z.number(),
+        })),
+        totalAmount: z.number().min(0.01, "总金额必须大于0"),
+        depositPct: z.number().min(1).max(99),
+        balancePct: z.number().min(1).max(99),
+        orderDate: z.string().optional(),
+        deliveryDate: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const docNo = await generateDocNo("contract_cn");
+        const today = new Date().toISOString().slice(0, 10);
+
+        // 生成 PDF
+        const pdfBuffer = await generateContractCnPdf({
+          docNo,
+          orderDate: input.orderDate ?? today,
+          deliveryDate: input.deliveryDate ?? "",
+          counterpartyName: input.counterpartyName,
+          counterpartyAddress: input.counterpartyAddress,
+          lineItems: input.lineItems,
+          totalAmount: input.totalAmount,
+          depositPct: input.depositPct,
+          balancePct: input.balancePct,
+        });
+
+        // 上传到 S3
+        const fileKey = `documents/${docNo}-${Date.now()}.pdf`;
+        const { url } = await storagePut(fileKey, pdfBuffer, "application/pdf");
+
+        // 保存记录
+        await createDocument({
+          orderId: input.orderId,
+          docType: "contract_cn",
+          docNo,
+          counterpartyName: input.counterpartyName,
+          counterpartyAddress: input.counterpartyAddress,
+          lineItems: JSON.stringify(input.lineItems),
+          totalAmount: String(input.totalAmount),
+          currency: "CNY",
+          depositPct: input.depositPct,
+          balancePct: input.balancePct,
+          pdfUrl: url,
+          pdfKey: fileKey,
+        });
+
+        return { docNo, pdfUrl: url };
+      }),
+
+    // 生成 PI / CI
+    generatePiCi: publicProcedure
+      .input(z.object({
+        orderId: z.number(),
+        docType: z.enum(["pi", "ci"]),
+        buyerName: z.string().min(1, "买方名称不能为空"),
+        buyerAddress: z.string().optional(),
+        lineItems: z.array(z.object({
+          modelName: z.string(),
+          spec: z.string().optional(),
+          quantity: z.number(),
+          unitPrice: z.number(),
+          amount: z.number(),
+        })),
+        totalAmount: z.number().min(0.01),
+        currency: z.enum(["USD", "EUR"]).default("USD"),
+        depositPct: z.number().min(1).max(99),
+        balancePct: z.number().min(1).max(99),
+        incoterms: z.string().optional(),
+        portOfLoading: z.string().optional(),
+        bankChoice: z.enum(["icbc", "citi"]).default("icbc"),
+        deliveryDate: z.string().optional(),
+        piDocId: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const docNo = await generateDocNo(input.docType);
+        const today = new Date().toISOString().slice(0, 10);
+
+        const pdfBuffer = await generatePiCiPdf({
+          docType: input.docType,
+          docNo,
+          docDate: today,
+          deliveryDate: input.deliveryDate ?? "",
+          buyerName: input.buyerName,
+          buyerAddress: input.buyerAddress,
+          lineItems: input.lineItems,
+          totalAmount: input.totalAmount,
+          currency: input.currency,
+          depositPct: input.depositPct,
+          balancePct: input.balancePct,
+          incoterms: input.incoterms,
+          portOfLoading: input.portOfLoading,
+          bankChoice: input.bankChoice,
+        });
+
+        const fileKey = `documents/${docNo}-${Date.now()}.pdf`;
+        const { url } = await storagePut(fileKey, pdfBuffer, "application/pdf");
+
+        await createDocument({
+          orderId: input.orderId,
+          docType: input.docType,
+          docNo,
+          counterpartyName: input.buyerName,
+          counterpartyAddress: input.buyerAddress,
+          lineItems: JSON.stringify(input.lineItems),
+          totalAmount: String(input.totalAmount),
+          currency: input.currency,
+          depositPct: input.depositPct,
+          balancePct: input.balancePct,
+          incoterms: input.incoterms,
+          portOfLoading: input.portOfLoading,
+          bankChoice: input.bankChoice,
+          piDocId: input.piDocId,
+          pdfUrl: url,
+          pdfKey: fileKey,
+        });
+
+        return { docNo, pdfUrl: url };
       }),
   }),
 

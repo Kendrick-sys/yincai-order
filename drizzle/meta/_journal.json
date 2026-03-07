@@ -71,6 +71,13 @@
       "when": 1772879138764,
       "tag": "0009_tough_cloak",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1772884254495,
+      "tag": "0010_remarkable_jetstream",
+      "breakpoints": true
     }
   ]
 }
