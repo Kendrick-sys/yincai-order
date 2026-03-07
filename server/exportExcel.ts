@@ -173,6 +173,9 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
   colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   const totalCols = colWidths.length;
 
+  // 冻结前4行（大标题 + 订单信息行1 + 订单信息行2 + 列标题行），滚动时保持可见
+  ws.views = [{ state: "frozen", xSplit: 0, ySplit: 5, topLeftCell: "A6" }];
+
   // 列索引（1-indexed）
   const COL_STICKER_DESC = 8;
   const COL_SILK_DESC    = 9;
