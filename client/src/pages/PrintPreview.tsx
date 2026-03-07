@@ -389,25 +389,43 @@ export default function PrintPreview() {
                   <td style={tdValue} colSpan={4}>国内订单无需报关</td>
                 )}
               </tr>
-              {(order as any).isAlibaba && (
-                <tr>
-                  <td style={tdLabel}>订单渠道</td>
-                  <td style={{
-                    ...tdValue,
-                    backgroundColor: "#fff0e6",
-                    color: "#cc4400",
-                    fontWeight: "bold",
-                    borderRight: "1px solid #ccc",
-                  }} colSpan={5}>
-                    阿里巴巴订单
-                    {(order as any).alibabaOrderNo && (
-                      <span style={{ marginLeft: 12, fontWeight: "normal", color: "#555" }}>
-                        订单号：{(order as any).alibabaOrderNo}
+              <tr>
+                <td style={tdLabel}>订单渠道</td>
+                <td style={{ ...tdValue, borderRight: "1px solid #ccc" }} colSpan={5}>
+                  {(order as any).isAlibaba ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        backgroundColor: "#FF6A00",
+                        color: "#fff",
+                        fontWeight: 700,
+                        fontSize: 11,
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                      }}>
+                        阿里巴巴订单
                       </span>
-                    )}
-                  </td>
-                </tr>
-              )}
+                      {(order as any).alibabaOrderNo && (
+                        <span style={{
+                          fontFamily: "monospace",
+                          fontSize: 12,
+                          color: "#333",
+                          backgroundColor: "#f3f4f6",
+                          padding: "1px 6px",
+                          borderRadius: 3,
+                          letterSpacing: "0.03em",
+                        }}>
+                          {(order as any).alibabaOrderNo}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span style={{ color: "#666", fontSize: 12 }}>普通订单</span>
+                  )}
+                </td>
+              </tr>
               {order.remarks && (
                 <tr>
                   <td style={tdLabel}>备注</td>
