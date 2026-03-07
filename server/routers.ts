@@ -111,6 +111,7 @@ const customerSchema = z.object({
   country:   z.enum(["domestic", "overseas"]).default("domestic"),  // 国内/国外
   company:   z.string().optional(),      // 公司名（英文，用于 PI/CI）
   attn:      z.string().optional(),      // 联系人（Attn，英文，用于 PI/CI）
+  enAddress: z.string().optional(),      // 英文地址（用于 PI/CI Buyer 区块）
   email:     z.string().email("邮箱格式不正确").optional().or(z.literal("")),
   contact:   z.string().min(1, "联系人不能为空"),
   phone:     z.string().min(1, "联系电话不能为空"),

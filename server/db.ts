@@ -105,6 +105,7 @@ export async function listCustomersWithStats() {
       code: customers.code,
       company: customers.company,
       attn: customers.attn,
+      enAddress: customers.enAddress,
       contact: customers.contact,
       phone: customers.phone,
       email: customers.email,

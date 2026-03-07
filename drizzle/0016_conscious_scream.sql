@@ -1,0 +1,1 @@
+ALTER TABLE `customers` ADD `en_address` varchar(500);

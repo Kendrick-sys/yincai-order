@@ -23,6 +23,7 @@ type CustomerForm = {
   country: "domestic" | "overseas";
   company: string;   // 公司名（英文，用于 PI/CI）
   attn: string;      // 联系人（Attn，英文，用于 PI/CI）
+  enAddress: string; // 英文地址（用于 PI/CI Buyer 区块）
   email: string;
   contact: string;
   phone: string;
@@ -31,7 +32,7 @@ type CustomerForm = {
 
 const emptyForm: CustomerForm = {
   name: "", address: "", country: "domestic",
-  company: "", attn: "",
+  company: "", attn: "", enAddress: "",
   email: "", contact: "", phone: "", remarks: "",
 };
 
@@ -72,6 +73,7 @@ export default function Customers() {
       country: c.country ?? "domestic",
       company: c.company ?? "",
       attn: c.attn ?? "",
+      enAddress: c.enAddress ?? "",
       email: c.email ?? "",
       contact: c.contact ?? "",
       phone: c.phone ?? "",
@@ -363,6 +365,16 @@ export default function Customers() {
                       onChange={e => setForm(f => ({ ...f, company: e.target.value }))}
                     />
                   </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">English Address（英文地址）</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="如：Building 5, Al Quoz Industrial Area 3, Dubai, UAE"
+                    value={form.enAddress}
+                    onChange={e => setForm(f => ({ ...f, enAddress: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">将自动填入 PI/CI 的 Buyer 地址字段</p>
                 </div>
               </>
             )}

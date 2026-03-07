@@ -373,7 +373,7 @@ function buildContractCnHtml(data: ContractCnData): string {
   }
   .header { display: flex; align-items: flex-start; margin-bottom: 20px; }
   .logo-area { flex: 0 0 auto; }
-  .logo-img { height: 60px; width: auto; }
+  .logo-img { height: 45px; width: auto; }
   .title-area { flex: 1; text-align: center; }
   h1 { font-size: 26px; font-weight: 700; letter-spacing: 6px; margin-top: 8px; }
   .meta-row { display: flex; justify-content: space-between; margin: 16px 0 8px; font-size: 12px; }
@@ -628,6 +628,7 @@ function buildPiCiHtml(data: PiCiData): string {
     <p>${ENV.companyEnAddress}</p>
     <p>Tel: ${ENV.companyContactPhone}</p>
     <p>Email: ${ENV.companyContactEmail}</p>
+    ${ENV.companyContactName ? `<p>Contact: ${ENV.companyContactName}</p>` : ""}
   </div>
   <div class="info-block">
     <h3>Buyer</h3>

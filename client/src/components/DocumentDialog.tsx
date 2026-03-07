@@ -1019,7 +1019,9 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         if (matchedCustomer.company) setBuyerCompany(matchedCustomer.company);
         if (matchedCustomer.phone) setBuyerTel(matchedCustomer.phone);
         if (matchedCustomer.email) setBuyerEmail(matchedCustomer.email);
-        if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
+        // 优先使用英文地址，如无英文地址则回退到中文地址
+        if (matchedCustomer.enAddress) setBuyerAddress(matchedCustomer.enAddress);
+        else if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
       }
     }
 

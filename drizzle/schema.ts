@@ -24,6 +24,7 @@ export const customers = mysqlTable("customers", {
   country:  mysqlEnum("country", ["domestic", "overseas"]).default("domestic").notNull(), // 国家：国内/国外
   company:  varchar("company", { length: 256 }),                  // 公司名（英文，用于 PI/CI）
   attn:     varchar("attn", { length: 128 }),                     // 联系人（Attn，英文，用于 PI/CI）
+  enAddress: varchar("en_address", { length: 500 }),               // 英文地址（用于 PI/CI Buyer 区块）
   email:    varchar("email", { length: 320 }),                    // 邮箱
   contact:  varchar("contact", { length: 64 }),                   // 联系人（中文）
   phone:    varchar("phone", { length: 32 }),                     // 联系电话

@@ -373,3 +373,13 @@
 - [x] generatePdf.ts：PI/CI BUYER 区块格式修正（公司名→地址→Tel→Email→Attn，去掉 Company: 前缀，去掉 Add: 前缀）
 - [x] generatePdf.ts：PI/CI 标题从 TO (BUYER) 改为 BUYER
 - [x] TypeScript 0 错误，测试全部通过
+
+## 新功能（第四十七批）
+
+- [x] Schema：customers 表新增 enAddress（英文地址）字段并推送迁移
+- [x] Router/DB：customerSchema 和 listCustomersWithStats 同步 enAddress 字段
+- [x] 客户管理 UI：国外客户编辑弹窗新增英文地址输入框
+- [x] DocumentDialog：生成 PI/CI 时自动从客户 enAddress 填入 buyerAddress
+- [x] generatePdf.ts：国内合同 logo 高度从 60px 改为 45px
+- [x] generatePdf.ts：SELLER 区块公司名加粗，检查电话邮筱格式
+- [x] TypeScript 0 错误，测试全部通过
