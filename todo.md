@@ -356,3 +356,11 @@
 - [x] generatePdf.ts：Logo 材质名称（PVC/滴胶/PC/鄧射/金属拉丝）全部翻译为英文
 - [x] generatePdf.ts：Silk Print 等其他附加模块检查是否有中文残留（已验证无中文）
 - [x] TypeScript 0 错误，测试全部通过
+
+## 新功能（第四十五批）
+
+- [x] DocumentDialog.tsx：PI/CI 所有 "Lining" 改为 "Foam"（标题/小计/标签）
+- [x] DocumentDialog.tsx：Liner 材质下拉 `EPE (珍珠棉)` → `EPE`，`PU (普通棉)` → `PU`，`XPE (交联聚乙烯)` → `XPE`
+- [x] DocumentDialog.tsx：Logo 材质下拉全部改为英文（滴胶→Epoxy Resin，鄧射→Laser Engraving，金属拉丝→Metal Brushed）
+- [x] generatePdf.ts：Lining → Foam，映射表同步更新新选项値
+- [x] TypeScript 0 错误，测试全部通过

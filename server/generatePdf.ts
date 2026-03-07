@@ -12,23 +12,29 @@ import { ENV } from "./_core/env";
 // ─── 材质名称中英文映射（确保 PI/CI PDF 纯英文输出） ─────────────────────────────────────
 
 const LINER_MATERIAL_EN: Record<string, string> = {
-  "PU":           "PU Foam",
-  "EPE":          "EPE Foam",
-  "EPE (珍珠棉)": "EPE Foam",
-  "XPE":          "XPE Foam",
-  "XPE (交联聚乙烯)": "XPE Foam",
-  "EVA":          "EVA Foam",
+  "PU":           "PU",
+  "EPE":          "EPE",
+  "EPE (珍珠棉)": "EPE",
+  "PU（普通棉）":  "PU",
+  "EPE（珍珠棉）": "EPE",
+  "XPE":          "XPE",
+  "XPE (交联聚乙烯)": "XPE",
+  "XPE（交联聚乙烯）": "XPE",
+  "EVA":          "EVA",
   "其他":         "Other",
 };
 
 const LOGO_MATERIAL_EN: Record<string, string> = {
-  "PVC":          "PVC",
-  "滴胶":         "Epoxy Resin",
-  "PC":           "PC",
-  "鄧射":         "Laser Engraving",
-  "镜面鄧射":     "Mirror Laser",
-  "金属拉丝":     "Metal Brushed",
-  "其他":         "Other",
+  "PVC":              "PVC",
+  "滴胶":             "Epoxy Resin",
+  "Epoxy Resin":      "Epoxy Resin",
+  "PC":               "PC",
+  "鄧射":             "Laser Engraving",
+  "Laser Engraving":  "Laser Engraving",
+  "镜面鄧射":         "Mirror Laser",
+  "金属拉丝":         "Metal Brushed",
+  "Metal Brushed":    "Metal Brushed",
+  "其他":             "Other",
 };
 
 /** 将 Liner 材质名称转为英文（如未匹配则保留原字符串） */
@@ -539,10 +545,10 @@ function buildPiCiHtml(data: PiCiData): string {
     if (extras.hasLiner && extras.linerAmount > 0) {
       const matLabel = extras.linerMaterial ? ` (${linerMatEn(extras.linerMaterial)})` : "";
       const desc = extras.linerDescription ? ` - ${extras.linerDescription}` : "";
-      extraRows.push(`<tr><td colspan="3" style="text-align:left">Liner${matLabel}${desc}</td><td>${extras.linerQuantity}</td><td>${extras.linerUnitPrice > 0 ? currencySymbol + extras.linerUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerAmount.toFixed(2)}</td></tr>`);
+      extraRows.push(`<tr><td colspan="3" style="text-align:left">Foam${matLabel}${desc}</td><td>${extras.linerQuantity}</td><td>${extras.linerUnitPrice > 0 ? currencySymbol + extras.linerUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerAmount.toFixed(2)}</td></tr>`);
     }
     if (extras.hasLiner && extras.hasLinerTemplate && extras.linerTemplateAmount > 0) {
-      extraRows.push(`<tr><td colspan="3" style="text-align:left">Liner Mold Fee</td><td>${extras.linerTemplateQuantity}</td><td>${extras.linerTemplateUnitPrice > 0 ? currencySymbol + extras.linerTemplateUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerTemplateAmount.toFixed(2)}</td></tr>`);
+      extraRows.push(`<tr><td colspan="3" style="text-align:left">Foam Mold Fee</td><td>${extras.linerTemplateQuantity}</td><td>${extras.linerTemplateUnitPrice > 0 ? currencySymbol + extras.linerTemplateUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerTemplateAmount.toFixed(2)}</td></tr>`);
     }
     if (extras.hasLogo && extras.logoAmount > 0) {
       const matLabel = extras.logoMaterial ? ` (${logoMatEn(extras.logoMaterial)})` : "";

@@ -35,9 +35,9 @@ const PI_PRODUCT_NAME_OPTIONS = ["Plastic Case", "Other"];
 // 箱体材质选项
 const BOX_MATERIAL_OPTIONS = ["PP", "ABS", "其他"];
 // 内衬材质选项（含「其他」手动输入）
-const LINER_MATERIAL_OPTIONS = ["PU（普通棉）", "EPE（珍珠棉）", "XPE", "EVA", "其他"];
+const LINER_MATERIAL_OPTIONS = ["PU", "EPE", "XPE", "EVA", "其他"];
 // LOGO 材质选项
-const LOGO_MATERIAL_OPTIONS = ["PVC", "滴胶", "PC", "镭射", "金属拉丝"];
+const LOGO_MATERIAL_OPTIONS = ["PVC", "Epoxy Resin", "PC", "Laser Engraving", "Metal Brushed"];
 
 // ─── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -1446,16 +1446,16 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
   const renderPiExtras = (tabPrefix: string) => (
     <>
-      {/* II. Lining */}
+      {/* II. Foam */}
       <Separator />
       <div className="flex items-center gap-3">
         <Switch id={`${tabPrefix}-hasLiner`} checked={piExtras.hasLiner} onCheckedChange={v => updatePiExtra("hasLiner", v)} />
-        <label htmlFor={`${tabPrefix}-hasLiner`} className="text-xs font-semibold text-foreground/70 cursor-pointer">II. Lining Details</label>
+        <label htmlFor={`${tabPrefix}-hasLiner`} className="text-xs font-semibold text-foreground/70 cursor-pointer">II. Foam Details</label>
       </div>
       {piExtras.hasLiner && (
         <div className="space-y-3 pl-2">
           <ExtraFeeRow
-            label="Lining Cost"
+            label="Foam Cost"
             showMaterial
             material={piExtras.linerMaterial}
             materialOptions={LINER_MATERIAL_OPTIONS}
@@ -1470,23 +1470,23 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             onQuantityChange={qty => updatePiExtraWithCalc("linerQuantity", "linerUnitPrice", "linerAmount", qty, piExtras.linerUnitPrice)}
             onUnitPriceChange={price => updatePiExtraWithCalc("linerQuantity", "linerUnitPrice", "linerAmount", piExtras.linerQuantity, price)}
             subtotal={!piExtras.hasLinerTemplate ? piExtras.linerAmount : undefined}
-            subtotalLabel="Lining Subtotal"
+            subtotalLabel="Foam Subtotal"
             currency={currency}
           />
           <div className="flex items-center gap-3">
             <Switch id={`${tabPrefix}-hasLinerTemplate`} checked={piExtras.hasLinerTemplate} onCheckedChange={v => updatePiExtra("hasLinerTemplate", v)} />
-            <label htmlFor={`${tabPrefix}-hasLinerTemplate`} className="text-xs text-muted-foreground cursor-pointer">Include Lining Mold Fee</label>
+            <label htmlFor={`${tabPrefix}-hasLinerTemplate`} className="text-xs text-muted-foreground cursor-pointer">Include Foam Mold Fee</label>
           </div>
           {piExtras.hasLinerTemplate && (
             <ExtraFeeRow
-              label="Lining Mold Fee"
+              label="Foam Mold Fee"
               quantity={piExtras.linerTemplateQuantity}
               unitPrice={piExtras.linerTemplateUnitPrice}
               amount={piExtras.linerTemplateAmount}
               onQuantityChange={qty => updatePiExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", qty, piExtras.linerTemplateUnitPrice)}
               onUnitPriceChange={price => updatePiExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", piExtras.linerTemplateQuantity, price)}
               subtotal={round2(piExtras.linerAmount + piExtras.linerTemplateAmount)}
-              subtotalLabel="Lining Total (incl. Mold)"
+              subtotalLabel="Foam Total (incl. Mold)"
               currency={currency}
             />
           )}
@@ -1679,7 +1679,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           </div>
           {piExtras.hasLiner && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Lining{piExtras.hasLinerTemplate ? " (incl. Mold)" : ""}</span>
+              <span className="text-muted-foreground">Foam{piExtras.hasLinerTemplate ? " (incl. Mold)" : ""}</span>
               <span>{currency === "USD" ? "$" : "€"}{round2(piExtras.linerAmount + (piExtras.hasLinerTemplate ? piExtras.linerTemplateAmount : 0)).toFixed(2)}</span>
             </div>
           )}
