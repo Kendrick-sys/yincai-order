@@ -309,6 +309,8 @@ export default function OrderForm() {
     customsDeclared: false,
     isAlibaba: false,
     alibabaOrderNo: "",
+    is1688: false,
+    alibaba1688OrderNo: "",
     maker: "", salesperson: "", orderDate: new Date().toISOString().slice(0, 10),
     deliveryDate: "", remarks: "", status: "draft" as const,
     recipientName: "", recipientPhone: "", recipientAddress: "", factoryShipNo: "",
@@ -334,6 +336,8 @@ export default function OrderForm() {
       customsDeclared: existingOrder.customsDeclared ?? false,
       isAlibaba: (existingOrder as any).isAlibaba ?? false,
       alibabaOrderNo: (existingOrder as any).alibabaOrderNo ?? "",
+      is1688: (existingOrder as any).is1688 ?? false,
+      alibaba1688OrderNo: (existingOrder as any).alibaba1688OrderNo ?? "",
       maker: existingOrder.maker ?? "",
       salesperson: existingOrder.salesperson ?? "",
       orderDate: existingOrder.orderDate ?? "",
@@ -389,6 +393,10 @@ export default function OrderForm() {
     }
     if (header.isAlibaba && !header.alibabaOrderNo?.trim()) {
       toast.warning("阿里巴巴订单号不能为空");
+      return;
+    }
+    if (header.is1688 && !header.alibaba1688OrderNo?.trim()) {
+      toast.warning("1688订单号不能为空");
       return;
     }
     // 序列化图片数组为 JSON 字符串存储
@@ -540,9 +548,10 @@ export default function OrderForm() {
                   </span>
                 </div>
               )}
-              {/* 第四行：阿里巴巴订单 */}
-              <div className="flex items-center gap-1.5 mt-2.5">
+              {/* 第四行：订单渠道（阿里巴巴 / 1688） */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                 <span className="text-xs text-gray-400 w-14 flex-shrink-0">订单渠道</span>
+                {/* 阿里巴巴 */}
                 <button
                   type="button"
                   onClick={() => setHeader(h => ({ ...h, isAlibaba: !h.isAlibaba, alibabaOrderNo: h.isAlibaba ? "" : h.alibabaOrderNo }))}
@@ -552,7 +561,7 @@ export default function OrderForm() {
                       : "border-border text-muted-foreground hover:border-[#FF6A00]"
                     }`}
                 >
-                  {header.isAlibaba ? "☑ 阿里巴巴订单" : "☐ 阿里巴巴订单"}
+                  {header.isAlibaba ? "☑ 阿里巴巴" : "☐ 阿里巴巴"}
                 </button>
                 {header.isAlibaba && (
                   <div className="flex items-center gap-1 flex-1 max-w-xs">
@@ -567,6 +576,35 @@ export default function OrderForm() {
                       }`}
                     />
                     {!header.alibabaOrderNo?.trim() && (
+                      <span className="text-red-500 text-xs whitespace-nowrap">必填</span>
+                    )}
+                  </div>
+                )}
+                {/* 1688 */}
+                <button
+                  type="button"
+                  onClick={() => setHeader(h => ({ ...h, is1688: !h.is1688, alibaba1688OrderNo: h.is1688 ? "" : h.alibaba1688OrderNo }))}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150
+                    ${header.is1688
+                      ? "border-[#FF6A00] bg-orange-50 text-[#FF6A00]"
+                      : "border-border text-muted-foreground hover:border-[#FF6A00]"
+                    }`}
+                >
+                  {header.is1688 ? "☑ 1688订单" : "☐ 1688订单"}
+                </button>
+                {header.is1688 && (
+                  <div className="flex items-center gap-1 flex-1 max-w-xs">
+                    <Input
+                      placeholder="请输入1688订单号"
+                      value={header.alibaba1688OrderNo}
+                      onChange={e => setHeader(h => ({ ...h, alibaba1688OrderNo: e.target.value }))}
+                      className={`h-8 text-sm flex-1 ${
+                        !header.alibaba1688OrderNo?.trim()
+                          ? "border-red-400 focus:border-red-500 bg-red-50/30"
+                          : "border-[#FF6A00]/40 focus:border-[#FF6A00]"
+                      }`}
+                    />
+                    {!header.alibaba1688OrderNo?.trim() && (
                       <span className="text-red-500 text-xs whitespace-nowrap">必填</span>
                     )}
                   </div>

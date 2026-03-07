@@ -231,16 +231,19 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       COLORS.labelBg, COLORS.labelFg, false, 9);
   }
 
-  // ── 第4行：阿里巴巴订单标注行
+  // ── 第4行：订单渠道标注行（阿里巴巴 / 1688）
   ws.getRow(4).height = 20;
   const isAlibaba: boolean = (order as any).isAlibaba ?? false;
   const alibabaOrderNo: string = (order as any).alibabaOrderNo ?? "";
-  if (isAlibaba) {
-    const alibabaText = alibabaOrderNo
-      ? `阿里巴巴订单  订单号：${alibabaOrderNo}`
-      : "阿里巴巴订单";
-    // 阿里巴巴订单号占前5列，中5列显示下单日期，后4列显示销售员
-    mergeSet(ws, 4, 1, 4, 5, alibabaText, "FFF0E6", "CC4400", true, 10);
+  const is1688: boolean = (order as any).is1688 ?? false;
+  const alibaba1688OrderNo: string = (order as any).alibaba1688OrderNo ?? "";
+  if (isAlibaba || is1688) {
+    // 构建渠道标注文本
+    const channelParts: string[] = [];
+    if (isAlibaba) channelParts.push(alibabaOrderNo ? `阿里巴巴订单：${alibabaOrderNo}` : "阿里巴巴订单");
+    if (is1688) channelParts.push(alibaba1688OrderNo ? `1688订单：${alibaba1688OrderNo}` : "1688订单");
+    const channelText = channelParts.join("  、  ");
+    mergeSet(ws, 4, 1, 4, 5, channelText, "FFF0E6", "CC4400", true, 10);
     mergeSet(ws, 4, 6, 4, 10,
       `下单日期：${order.orderDate ?? ""}   交货日期：${order.deliveryDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
@@ -248,7 +251,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
       `销售员：${order.salesperson ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
   } else {
-    // 非阿里巴巴订单：显示下单日期和销售员
+    // 普通订单：显示下单日期和销售员
     mergeSet(ws, 4, 1, 4, 5,
       `下单日期：${order.orderDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
@@ -568,6 +571,8 @@ function buildSummarySheet(
     customsDeclared: boolean | null;
     isAlibaba: boolean | null;
     alibabaOrderNo: string | null;
+    is1688: boolean | null;
+    alibaba1688OrderNo: string | null;
     orderNo: string | null;
     orderDate: string | null;
     deliveryDate: string | null;
@@ -579,8 +584,8 @@ function buildSummarySheet(
     totalQuantity: number;   // 订单内所有型号的数量之和
   }>
 ) {
-  // 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 阿里巴巴 | 订单号 | 下单日期 | 交货日期 | 制单员 | 销售员 | 状态 | 型号数 | 数量 | 备注
-  const COL_WIDTHS = [6, 22, 18, 10, 10, 14, 16, 12, 12, 10, 10, 10, 8, 10, 28];
+  // 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 订单渠道 | 订单号 | 下单日期 | 交货日期 | 制单员 | 销售员 | 状态 | 型号数 | 数量 | 备注
+  const COL_WIDTHS = [6, 22, 18, 10, 10, 18, 16, 12, 12, 10, 10, 10, 8, 10, 28];
   COL_WIDTHS.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   const totalCols = COL_WIDTHS.length; // 15
 
@@ -590,7 +595,7 @@ function buildSummarySheet(
 
   // 第2行：列标题（不启用 AutoFilter）
   ws.getRow(2).height = 22;
-  const headers = ["序号", "订单描述", "客户", "国内/国外", "是否报关", "阿里巴巴", "订单号", "下单日期", "交货日期", "制单员", "销售员", "状态", "型号数", "数量", "备注"];
+  const headers = ["序号", "订单描述", "客户", "国内/国外", "是否报关", "订单渠道", "订单号", "下单日期", "交货日期", "制单员", "销售员", "状态", "型号数", "数量", "备注"];
   headers.forEach((h, i) => {
     setCell(ws, 2, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
   });
@@ -616,9 +621,10 @@ function buildSummarySheet(
     // 国外行用浅蓝背景，国内用默认背景
     const rowActualBg = isOverseas ? (idx % 2 === 0 ? "EBF4FF" : "D6EAFF") : rowBg;
 
-    const alibabaTxt = order.isAlibaba
-      ? (order.alibabaOrderNo ? `阿里巴巴 ${order.alibabaOrderNo}` : "阿里巴巴")
-      : "—";
+    const channelParts: string[] = [];
+    if (order.isAlibaba) channelParts.push(order.alibabaOrderNo ? `阿里巴巴 ${order.alibabaOrderNo}` : "阿里巴巴");
+    if (order.is1688) channelParts.push(order.alibaba1688OrderNo ? `1688 ${order.alibaba1688OrderNo}` : "1688");
+    const channelTxt = channelParts.length > 0 ? channelParts.join(" / ") : "—";
 
     const values = [
       String(idx + 1),
@@ -626,7 +632,7 @@ function buildSummarySheet(
       order.customer ?? "",
       customerTypeTxt,
       customsTxt,
-      alibabaTxt,
+      channelTxt,
       order.orderNo ?? "",
       order.orderDate ?? "",
       order.deliveryDate ?? "",
@@ -649,8 +655,8 @@ function buildSummarySheet(
       } else if (ci === 4 && isOverseas) {
         cellBg = order.customsDeclared ? "FFF3CD" : "F0F0F0";
         cellFg = order.customsDeclared ? "7B5800" : "555555";
-      } else if (ci === 5 && order.isAlibaba) {
-        // 阿里巴巴订单用橙色标注
+      } else if (ci === 5 && (order.isAlibaba || order.is1688)) {
+        // 阿里巴巴或 1688 订单用橙色标注
         cellBg = "FFF0E6";
         cellFg = "CC4400";
       }
@@ -669,12 +675,17 @@ function buildSummarySheet(
   const totalCustoms     = ordersData.filter(o => o.customerType === "overseas" && o.customsDeclared).length;
 
   const totalAlibaba = ordersData.filter(o => o.isAlibaba).length;
+  const total1688 = ordersData.filter(o => o.is1688).length;
+  const channelSummaryParts: string[] = [];
+  if (totalAlibaba > 0) channelSummaryParts.push(`阿里巴巴 ${totalAlibaba} 张`);
+  if (total1688 > 0) channelSummaryParts.push(`1688 ${total1688} 张`);
+  const channelSummaryTxt = channelSummaryParts.length > 0 ? channelSummaryParts.join(" / ") : "—";
 
   mergeSet(ws, totalRow, 1, totalRow, 2, "合计", "1A3C5E", "FFFFFF", true, 10);
   setCell(ws, totalRow, 3, `共 ${ordersData.length} 张订单`, "E8F0F8", "1A3C5E", true, 9, "center");
   setCell(ws, totalRow, 4, `国内 ${totalDomestic} / 国外 ${totalOverseas}`, "E8F0F8", "1A3C5E", false, 9, "center");
   setCell(ws, totalRow, 5, totalOverseas > 0 ? `报关 ${totalCustoms} 张` : "—", "E8F0F8", "7B5800", false, 9, "center");
-  setCell(ws, totalRow, 6, totalAlibaba > 0 ? `阿里巴巴 ${totalAlibaba} 张` : "—", "FFF0E6", "CC4400", false, 9, "center");
+  setCell(ws, totalRow, 6, channelSummaryTxt, channelSummaryParts.length > 0 ? "FFF0E6" : "E8F0F8", channelSummaryParts.length > 0 ? "CC4400" : COLORS.valueFg, false, 9, "center");
   // 中间列（订单号~状态）留空
   for (let c = 7; c <= 12; c++) {
     setCell(ws, totalRow, c, "", "E8F0F8", COLORS.valueFg);
@@ -759,6 +770,8 @@ export async function generateMonthlyOrdersExcel(
         customsDeclared: (order as any).customsDeclared as boolean | null,
         isAlibaba: (order as any).isAlibaba as boolean | null,
         alibabaOrderNo: (order as any).alibabaOrderNo as string | null,
+        is1688: (order as any).is1688 as boolean | null,
+        alibaba1688OrderNo: (order as any).alibaba1688OrderNo as string | null,
         orderNo: order.orderNo,
         orderDate: order.orderDate,
         deliveryDate: order.deliveryDate,

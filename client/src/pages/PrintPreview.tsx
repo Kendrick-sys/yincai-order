@@ -52,6 +52,12 @@ const PRINT_STYLE = `
     position: fixed !important;
     left: 0; top: 0;
     width: 100%; height: auto;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  #print-area * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   .no-print { display: none !important; }
   @page {
@@ -392,32 +398,70 @@ export default function PrintPreview() {
               <tr>
                 <td style={tdLabel}>订单渠道</td>
                 <td style={{ ...tdValue, borderRight: "1px solid #ccc" }} colSpan={5}>
-                  {(order as any).isAlibaba ? (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        backgroundColor: "#FF6A00",
-                        color: "#fff",
-                        fontWeight: 700,
-                        fontSize: 11,
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                      }}>
-                        阿里巴巴订单
-                      </span>
-                      {(order as any).alibabaOrderNo && (
-                        <span style={{
-                          fontFamily: "monospace",
-                          fontSize: 12,
-                          color: "#333",
-                          backgroundColor: "#f3f4f6",
-                          padding: "1px 6px",
-                          borderRadius: 3,
-                          letterSpacing: "0.03em",
-                        }}>
-                          {(order as any).alibabaOrderNo}
+                  {((order as any).isAlibaba || (order as any).is1688) ? (
+                    <span style={{ display: "inline-flex", flexDirection: "column", gap: 4 }}>
+                      {(order as any).isAlibaba && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            backgroundColor: "#FF6A00",
+                            color: "#fff",
+                            fontWeight: 700,
+                            fontSize: 11,
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            WebkitPrintColorAdjust: "exact" as any,
+                            printColorAdjust: "exact" as any,
+                          }}>
+                            阿里巴巴订单
+                          </span>
+                          {(order as any).alibabaOrderNo && (
+                            <span style={{
+                              fontSize: 12,
+                              color: "#333",
+                              backgroundColor: "#f3f4f6",
+                              padding: "1px 6px",
+                              borderRadius: 3,
+                              WebkitPrintColorAdjust: "exact" as any,
+                              printColorAdjust: "exact" as any,
+                            }}>
+                              {(order as any).alibabaOrderNo}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {(order as any).is1688 && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            backgroundColor: "#FF6A00",
+                            color: "#fff",
+                            fontWeight: 700,
+                            fontSize: 11,
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            WebkitPrintColorAdjust: "exact" as any,
+                            printColorAdjust: "exact" as any,
+                          }}>
+                            1688订单
+                          </span>
+                          {(order as any).alibaba1688OrderNo && (
+                            <span style={{
+                              fontSize: 12,
+                              color: "#333",
+                              backgroundColor: "#f3f4f6",
+                              padding: "1px 6px",
+                              borderRadius: 3,
+                              WebkitPrintColorAdjust: "exact" as any,
+                              printColorAdjust: "exact" as any,
+                            }}>
+                              {(order as any).alibaba1688OrderNo}
+                            </span>
+                          )}
                         </span>
                       )}
                     </span>

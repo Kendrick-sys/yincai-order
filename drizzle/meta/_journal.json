@@ -57,6 +57,13 @@
       "when": 1772876404792,
       "tag": "0007_messy_pyro",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1772878296248,
+      "tag": "0008_high_the_santerians",
+      "breakpoints": true
     }
   ]
 }

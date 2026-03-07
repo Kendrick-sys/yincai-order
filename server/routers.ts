@@ -59,6 +59,9 @@ const orderHeaderSchema = z.object({
   // 阿里巴巴订单
   isAlibaba:        z.boolean().optional(),
   alibabaOrderNo:   z.string().optional(),
+  // 1688订单
+  is1688:           z.boolean().optional(),
+  alibaba1688OrderNo: z.string().optional(),
   // 收件人信息
   recipientName:    z.string().optional(),
   recipientPhone:   z.string().optional(),
@@ -72,6 +75,14 @@ const orderHeaderSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "阿里巴巴订单号不能为空",
       path: ["alibabaOrderNo"],
+    });
+  }
+  // 1688订单时，订单号必填
+  if (data.is1688 && !data.alibaba1688OrderNo?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "1688订单号不能为空",
+      path: ["alibaba1688OrderNo"],
     });
   }
 });

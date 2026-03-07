@@ -161,7 +161,8 @@ export default function Home() {
       (o.customer ?? "").includes(search) ||
       (o.orderDescription ?? "").includes(search) ||
       (o.orderNo ?? "").includes(search) ||
-      ((o as any).alibabaOrderNo ?? "").includes(search)
+      ((o as any).alibabaOrderNo ?? "").includes(search) ||
+      ((o as any).alibaba1688OrderNo ?? "").includes(search)
     ),
     [orders, search]
   );
@@ -385,7 +386,7 @@ export default function Home() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3">
           <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <Input
-            placeholder="搜索客户名称、订单描述、订单号、阿里巴巴订单号..."
+            placeholder="搜索客户名称、订单描述、订单号、阿里巴巴/1688订单号..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="border-0 shadow-none focus-visible:ring-0 p-0 text-sm"
@@ -527,6 +528,11 @@ export default function Home() {
                         {(order as any).isAlibaba && (
                           <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1.5 py-0.5 rounded flex-shrink-0">
                             阿里巴巴
+                          </span>
+                        )}
+                        {(order as any).is1688 && (
+                          <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1.5 py-0.5 rounded flex-shrink-0">
+                            1688
                           </span>
                         )}
                         {(order as any).customerType === "overseas" && (order as any).customsDeclared && (
