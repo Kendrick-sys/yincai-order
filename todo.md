@@ -395,3 +395,9 @@
 - [x] 功能补全：客户档案 Excel 导出新增英文地址（enAddress）列
 - [x] 功能补全：exportCustomers.ts 改用 listCustomersWithStats（包含 enAddress 字段）
 - [x] TypeScript 0 错误，10 项测试全部通过
+
+## 第四十九批
+
+- [x] PDF 标题居中修复：PI/CI 的 PROFORMA INVOICE / COMMERCIAL INVOICE 及国内合同“采购合同”标题真正居中
+- [x] 订单编辑页图片上传支持拖拽（drag & drop）
+- [x] DocumentHistory 新增“已发送”标记和发送时间记录（schema + router + UI）

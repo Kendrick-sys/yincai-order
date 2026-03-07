@@ -174,3 +174,23 @@ export async function getDocumentById(id: number) {
     .where(eq(documents.id, id));
   return rows[0] ?? null;
 }
+
+/** 标记单据为已发送（记录发送时间） */
+export async function markDocumentSent(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(documents)
+    .set({ sentAt: new Date() })
+    .where(eq(documents.id, id));
+}
+
+/** 取消已发送标记 */
+export async function unmarkDocumentSent(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(documents)
+    .set({ sentAt: null })
+    .where(eq(documents.id, id));
+}

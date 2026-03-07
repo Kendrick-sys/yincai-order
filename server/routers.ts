@@ -13,7 +13,7 @@ import {
   generateDocNo, createDocument, updateDocumentPdf,
   getDocumentsByOrderId, getDocumentById, voidDocument,
   getActivePiByOrderId, getDocPrefixes, saveDocPrefixes,
-  incrementDocumentVersion,
+  incrementDocumentVersion, markDocumentSent, unmarkDocumentSent,
 } from "./db.documents";
 import { generateContractCnPdf, generatePiCiPdf } from "./generatePdf";
 import { storagePut } from "./storage";
@@ -278,6 +278,20 @@ export const appRouter = router({
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await voidDocument(input.id);
+        return { success: true };
+      }),
+    // 标记单据为已发送
+    markSent: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await markDocumentSent(input.id);
+        return { success: true };
+      }),
+    // 取消已发送标记
+    unmarkSent: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await unmarkDocumentSent(input.id);
         return { success: true };
       }),
 

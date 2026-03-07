@@ -185,6 +185,9 @@ export const documents = mysqlTable("documents", {
   // 状态
   status: mysqlEnum("status", ["active", "voided"]).default("active").notNull(), // active=有效, voided=已作废
 
+  // 发送记录
+  sentAt: timestamp("sentAt"),                                       // 标记为已发送的时间（null=未发送）
+
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

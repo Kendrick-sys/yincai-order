@@ -371,10 +371,10 @@ function buildContractCnHtml(data: ContractCnData): string {
     padding: 40px 50px;
     line-height: 1.7;
   }
-  .header { display: flex; align-items: flex-start; margin-bottom: 20px; }
-  .logo-area { flex: 0 0 auto; }
+  .header { position: relative; display: flex; align-items: flex-start; margin-bottom: 20px; min-height: 50px; }
+  .logo-area { flex: 0 0 auto; position: relative; z-index: 1; }
   .logo-img { height: 45px; width: auto; }
-  .title-area { flex: 1; text-align: center; }
+  .title-area { position: absolute; left: 0; right: 0; top: 0; text-align: center; pointer-events: none; }
   h1 { font-size: 26px; font-weight: 700; letter-spacing: 6px; margin-top: 8px; }
   .meta-row { display: flex; justify-content: space-between; margin: 16px 0 8px; font-size: 12px; }
   .party-row { margin: 6px 0; font-size: 12px; }
@@ -580,9 +580,9 @@ function buildPiCiHtml(data: PiCiData): string {
     padding: 36px 48px;
     line-height: 1.6;
   }
-  .header { display: flex; align-items: flex-start; margin-bottom: 16px; }
-  .logo-img { height: 55px; width: auto; }
-  .title-area { flex: 1; text-align: center; }
+  .header { position: relative; display: flex; align-items: flex-start; margin-bottom: 16px; min-height: 60px; }
+  .logo-img { height: 55px; width: auto; position: relative; z-index: 1; }
+  .title-area { position: absolute; left: 0; right: 0; top: 0; text-align: center; pointer-events: none; }
   h1 { font-size: 22px; font-weight: 700; letter-spacing: 3px; margin-top: 6px; }
   .doc-no { font-size: 13px; font-weight: 600; margin-top: 4px; }
   .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }

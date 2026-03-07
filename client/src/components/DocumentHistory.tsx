@@ -1,7 +1,7 @@
 /**
  * DocumentHistory.tsx
  * 订单详情页中展示历史生成的单据列表（合同/PI/CI）
- * 功能：下载、作废、重新生成（版本号+1）、PI→CI关联展示、ZIP批量导出
+ * 功能：下载、作废、重新生成（版本号+1）、PI→CI关联展示、ZIP批量导出、已发送标记
  */
 
 import { trpc } from "@/lib/trpc";
@@ -24,7 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { FileText, ExternalLink, Clock, Ban, RefreshCw, Download, ArrowRight } from "lucide-react";
+import { FileText, ExternalLink, Clock, Ban, RefreshCw, Download, ArrowRight, Send, SendHorizonal } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -64,6 +64,22 @@ export default function DocumentHistory({ orderId }: Props) {
       toast.error(`重新生成失败：${err.message}`);
       setRegeneratingId(null);
     },
+  });
+
+  const markSentMutation = trpc.documents.markSent.useMutation({
+    onSuccess: () => {
+      toast.success("已标记为已发送");
+      utils.documents.listByOrder.invalidate({ orderId });
+    },
+    onError: (err) => toast.error(`操作失败：${err.message}`),
+  });
+
+  const unmarkSentMutation = trpc.documents.unmarkSent.useMutation({
+    onSuccess: () => {
+      toast.success("已取消发送标记");
+      utils.documents.listByOrder.invalidate({ orderId });
+    },
+    onError: (err) => toast.error(`操作失败：${err.message}`),
   });
 
   const handleRegenerate = (id: number) => {
@@ -151,11 +167,18 @@ export default function DocumentHistory({ orderId }: Props) {
           const typeInfo = DOC_TYPE_LABELS[doc.docType] ?? { label: doc.docType, color: "" };
           const isVoided = doc.status === "voided";
           const isRegenerating = regeneratingId === doc.id;
+          const isSent = !!doc.sentAt;
           const version = doc.version ?? 1;
           const createdAt = new Date(doc.createdAt).toLocaleString("zh-CN", {
             year: "numeric", month: "2-digit", day: "2-digit",
             hour: "2-digit", minute: "2-digit",
           });
+          const sentAtStr = doc.sentAt
+            ? new Date(doc.sentAt).toLocaleString("zh-CN", {
+                year: "numeric", month: "2-digit", day: "2-digit",
+                hour: "2-digit", minute: "2-digit",
+              })
+            : null;
 
           // PI→CI 关联：如果是 CI 且有 piDocId，找到对应 PI 的 docNo
           const linkedPiNo = doc.docType === "ci" && doc.piDocId
@@ -168,11 +191,13 @@ export default function DocumentHistory({ orderId }: Props) {
               className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
                 isVoided
                   ? "border-border bg-muted/20 opacity-60"
-                  : "border-border bg-card hover:bg-muted/30"
+                  : isSent
+                    ? "border-green-200 bg-green-50/40 hover:bg-green-50/60"
+                    : "border-border bg-card hover:bg-muted/30"
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <FileText className={`w-4 h-4 flex-shrink-0 ${isVoided ? "text-muted-foreground/50" : "text-muted-foreground"}`} />
+                <FileText className={`w-4 h-4 flex-shrink-0 ${isVoided ? "text-muted-foreground/50" : isSent ? "text-green-600" : "text-muted-foreground"}`} />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-sm font-medium ${isVoided ? "line-through text-muted-foreground" : "text-foreground"}`}>
@@ -188,6 +213,13 @@ export default function DocumentHistory({ orderId }: Props) {
                     {version > 1 && (
                       <Badge variant="outline" className="text-xs px-1.5 py-0 bg-amber-50 text-amber-600 border-amber-200">
                         v{version}
+                      </Badge>
+                    )}
+                    {/* 已发送标签 */}
+                    {isSent && !isVoided && (
+                      <Badge variant="outline" className="text-xs px-1.5 py-0 bg-green-50 text-green-600 border-green-200 gap-1">
+                        <SendHorizonal className="w-2.5 h-2.5" />
+                        已发送
                       </Badge>
                     )}
                     {isVoided && (
@@ -214,6 +246,19 @@ export default function DocumentHistory({ orderId }: Props) {
                         · {doc.currency === "CNY" ? "¥" : doc.currency === "USD" ? "$" : "€"}
                         {parseFloat(doc.totalAmount).toFixed(2)}
                       </span>
+                    )}
+                    {/* 发送时间 */}
+                    {sentAtStr && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-0.5 text-xs text-green-600 cursor-default">
+                            · 已发送于 {sentAtStr}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p>点击右侧按钮可取消发送标记</p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                     {/* PI→CI 关联追踪 */}
                     {linkedPiNo && (
@@ -245,6 +290,38 @@ export default function DocumentHistory({ orderId }: Props) {
                     下载
                   </Button>
                 )}
+
+                {/* 已发送 / 标记发送 按钮 */}
+                {!isVoided && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={`gap-1.5 text-xs h-7 ${
+                          isSent
+                            ? "border-green-300 text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-700"
+                            : "text-muted-foreground hover:text-green-600 hover:border-green-300"
+                        }`}
+                        onClick={() => {
+                          if (isSent) {
+                            unmarkSentMutation.mutate({ id: doc.id });
+                          } else {
+                            markSentMutation.mutate({ id: doc.id });
+                          }
+                        }}
+                        disabled={markSentMutation.isPending || unmarkSentMutation.isPending}
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        {isSent ? "已发送" : "标记发送"}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>{isSent ? "点击取消发送标记" : "标记此单据已通过邮件发送给客户"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+
                 {/* 重新生成按钮 */}
                 {!isVoided && (
                   <Tooltip>
