@@ -184,46 +184,49 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
   mergeSet(ws, 1, 1, 1, totalCols, "吟彩销售订单记录表", COLORS.headerBg, COLORS.headerFg, true, 14);
 
   // ── 第2行：订单基本信息行1（订单描述 / 客户 / 订单号）
+  // totalCols = 14，分为 5-5-4 三段，与列标题行对齐
   ws.getRow(2).height = 20;
   const isOverseas = (order as any).customerType === "overseas";
   const customerTypeLabel = isOverseas ? "国外" : "国内";
   const customsDeclared: boolean | null = (order as any).customsDeclared ?? null;
 
-  // 行2：订单描述 | 客户（国内/国外）| 订单号
-  const row2Span = Math.floor(totalCols / 3);
-  mergeSet(ws, 2, 1, 2, row2Span,
+  // 行2：订单描述（列1-5）| 客户（列6-10）| 订单号（列11-14）
+  mergeSet(ws, 2, 1, 2, 5,
     `订单描述：${order.orderDescription ?? ""}`,
     COLORS.labelBg, COLORS.labelFg, false, 9);
-  mergeSet(ws, 2, row2Span + 1, 2, row2Span * 2,
+  mergeSet(ws, 2, 6, 2, 10,
     `客户：${order.customer ?? ""}  [「${customerTypeLabel}」]`,
     isOverseas ? COLORS.overseas : COLORS.labelBg,
     isOverseas ? "1A3C5E" : COLORS.labelFg, isOverseas, 9);
-  mergeSet(ws, 2, row2Span * 2 + 1, 2, totalCols,
+  mergeSet(ws, 2, 11, 2, 14,
     `订单号：${order.orderNo ?? ""}`,
     COLORS.labelBg, COLORS.labelFg, false, 9);
 
   // 行3：是否报关（国外客户显示报关信息，国内客户显示下单日期+交货日期+制单员）
+  // 行3：同样分为 5-5-4 三段对齐
   ws.getRow(3).height = 20;
   if (isOverseas) {
     const customsBg  = customsDeclared ? "FFF3CD" : "F0F0F0";
     const customsFg  = customsDeclared ? "7B5800" : "555555";
     const customsVal = customsDeclared === null ? "报关未标注" :
                        customsDeclared ? "☑ 需要报关" : "☐ 无需报关";
-    mergeSet(ws, 3, 1, 3, 3, `报关状态：${customsVal}`, customsBg, customsFg, true, 10);
-    mergeSet(ws, 3, 4, 3, Math.floor(totalCols / 2),
+    // 报关状态占前5列，下单+交货占中5列，制单员占后4列
+    mergeSet(ws, 3, 1, 3, 5, `报关状态：${customsVal}`, customsBg, customsFg, true, 10);
+    mergeSet(ws, 3, 6, 3, 10,
       `下单日期：${order.orderDate ?? ""}   交货日期：${order.deliveryDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
-    mergeSet(ws, 3, Math.floor(totalCols / 2) + 1, 3, totalCols,
+    mergeSet(ws, 3, 11, 3, 14,
       `制单员：${order.maker ?? ""}   销售员：${order.salesperson ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
   } else {
-    mergeSet(ws, 3, 1, 3, Math.floor(totalCols / 3),
+    // 国内订单：下单日期占前5列，交货日期占中5列，制单员占后4列
+    mergeSet(ws, 3, 1, 3, 5,
       `下单日期：${order.orderDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
-    mergeSet(ws, 3, Math.floor(totalCols / 3) + 1, 3, Math.floor(totalCols * 2 / 3),
+    mergeSet(ws, 3, 6, 3, 10,
       `交货日期：${order.deliveryDate ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
-    mergeSet(ws, 3, Math.floor(totalCols * 2 / 3) + 1, 3, totalCols,
+    mergeSet(ws, 3, 11, 3, 14,
       `制单员：${order.maker ?? ""}   销售员：${order.salesperson ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
   }
@@ -356,11 +359,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
 
   ws.pageSetup.printArea = `A1:${String.fromCharCode(64 + totalCols)}${signRow}`;
   ws.pageSetup.firstPageNumber = 1;
-  // 启用列标题行的 AutoFilter
-  ws.autoFilter = {
-    from: { row: 4, column: 1 },
-    to:   { row: signRow - 1, column: totalCols },
-  };
+  // 不启用 AutoFilter（打印导出订单表不需要筛选）
 
   const buffer = await wb.xlsx.writeBuffer();
   return Buffer.from(buffer);
@@ -390,9 +389,9 @@ const STATUS_DISPLAY: Record<string, string> = {
 
 /**
  * 在汇总工作表中写入一批订单的汇总行
- * 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 订单号 | 下单日期 | 交货日期 | 制单员 | 销售员 | 状态 | 型号数 | 备注
- * 底部增加总计行（总订单数 + 总型号数）
- * 第2行列标题启用 AutoFilter 筛选
+ * 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 订单号 | 下单日期 | 交货日期 | 制单员 | 销售员 | 状态 | 型号数 | 数量 | 备注
+ * 底部增加总计行（总订单数 + 总型号数 + 总件数）
+ * 不启用 AutoFilter
  */
 function buildSummarySheet(
   ws: ExcelJS.Worksheet,
@@ -411,19 +410,21 @@ function buildSummarySheet(
     status: string | null;
     remarks: string | null;
     modelCount: number;
+    totalQuantity: number;   // 订单内所有型号的数量之和
   }>
 ) {
-  const COL_WIDTHS = [6, 22, 18, 10, 10, 16, 12, 12, 10, 10, 10, 8, 28];
+  // 列：序号 | 订单描述 | 客户 | 国内/国外 | 是否报关 | 订单号 | 下单日期 | 交货日期 | 制单员 | 销售员 | 状态 | 型号数 | 数量 | 备注
+  const COL_WIDTHS = [6, 22, 18, 10, 10, 16, 12, 12, 10, 10, 10, 8, 10, 28];
   COL_WIDTHS.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
-  const totalCols = COL_WIDTHS.length;
+  const totalCols = COL_WIDTHS.length; // 14
 
   // 第1行：大标题
   ws.getRow(1).height = 34;
   mergeSet(ws, 1, 1, 1, totalCols, sheetTitle, COLORS.headerBg, COLORS.headerFg, true, 13);
 
-  // 第2行：列标题（启用 AutoFilter）
+  // 第2行：列标题（不启用 AutoFilter）
   ws.getRow(2).height = 22;
-  const headers = ["序号", "订单描述", "客户", "国内/国外", "是否报关", "订单号", "下单日期", "交货日期", "制单员", "销售员", "状态", "型号数", "备注"];
+  const headers = ["序号", "订单描述", "客户", "国内/国外", "是否报关", "订单号", "下单日期", "交货日期", "制单员", "销售员", "状态", "型号数", "数量", "备注"];
   headers.forEach((h, i) => {
     setCell(ws, 2, i + 1, h, COLORS.sectionBox, COLORS.sectionFg, true, 10, "center");
   });
@@ -462,11 +463,12 @@ function buildSummarySheet(
       order.salesperson ?? "",
       statusTxt,
       String(order.modelCount),
+      order.totalQuantity > 0 ? String(order.totalQuantity) : "",
       order.remarks ?? "",
     ];
 
     values.forEach((val, ci) => {
-      const align: ExcelJS.Alignment["horizontal"] = (ci === 0 || ci === 11) ? "center" : "left";
+      const align: ExcelJS.Alignment["horizontal"] = (ci === 0 || ci === 11 || ci === 12) ? "center" : "left";
       let cellBg = rowActualBg;
       let cellFg = COLORS.valueFg;
       if (ci === 3) {
@@ -480,33 +482,27 @@ function buildSummarySheet(
     });
   });
 
-  // ── 启用 AutoFilter（第2行列标题行）
+  // ── 总计行（紧接数据行之后，不留空行）
   const lastDataRow = ordersData.length + 2;
-  ws.autoFilter = {
-    from: { row: 2, column: 1 },
-    to:   { row: lastDataRow, column: totalCols },
-  };
-
-  // ── 总计行（紧接数据行之后）
   const totalRow = lastDataRow + 1;
   ws.getRow(totalRow).height = 26;
-  const totalModelCount = ordersData.reduce((sum, o) => sum + o.modelCount, 0);
-  const totalOverseas = ordersData.filter(o => o.customerType === "overseas").length;
-  const totalDomestic = ordersData.length - totalOverseas;
-  const totalCustoms  = ordersData.filter(o => o.customerType === "overseas" && o.customsDeclared).length;
+  const totalModelCount  = ordersData.reduce((sum, o) => sum + o.modelCount, 0);
+  const totalQty         = ordersData.reduce((sum, o) => sum + o.totalQuantity, 0);
+  const totalOverseas    = ordersData.filter(o => o.customerType === "overseas").length;
+  const totalDomestic    = ordersData.length - totalOverseas;
+  const totalCustoms     = ordersData.filter(o => o.customerType === "overseas" && o.customsDeclared).length;
 
-  // 合并前几列写总计标签
   mergeSet(ws, totalRow, 1, totalRow, 2, "合计", "1A3C5E", "FFFFFF", true, 10);
   setCell(ws, totalRow, 3, `共 ${ordersData.length} 张订单`, "E8F0F8", "1A3C5E", true, 9, "center");
   setCell(ws, totalRow, 4, `国内 ${totalDomestic} / 国外 ${totalOverseas}`, "E8F0F8", "1A3C5E", false, 9, "center");
   setCell(ws, totalRow, 5, totalOverseas > 0 ? `报关 ${totalCustoms} 张` : "—", "E8F0F8", "7B5800", false, 9, "center");
-  // 中间列留空
-  for (let c = 6; c <= totalCols - 1; c++) {
+  // 中间列（订单号~状态）留空
+  for (let c = 6; c <= 11; c++) {
     setCell(ws, totalRow, c, "", "E8F0F8", COLORS.valueFg);
   }
-  // 型号数列写总型号数
   setCell(ws, totalRow, 12, `共 ${totalModelCount} 个型号`, "E8F0F8", "1A3C5E", true, 9, "center");
-  setCell(ws, totalRow, 13, "", "E8F0F8", COLORS.valueFg);
+  setCell(ws, totalRow, 13, totalQty > 0 ? `共 ${totalQty} 件` : "", "E8F0F8", "1A3C5E", true, 9, "center");
+  setCell(ws, totalRow, 14, "", "E8F0F8", COLORS.valueFg);
 }
 
 /**
@@ -542,11 +538,16 @@ export async function generateMonthlyOrdersExcel(
     throw new Error(`${year}年${month}月${statusLabel}订单暂无数据`);
   }
 
-  // 加载每个订单的型号数量
+  // 加载每个订单的型号数量和总件数
   const ordersWithModelCount = await Promise.all(
     monthOrders.map(async (order) => {
       const models = await db!.select().from(orderModelsTable)
         .where(eq(orderModelsTable.orderId, order.id));
+      // 汇总所有型号的数量（quantity 字段为字符串，尝试转整数求和）
+      const totalQuantity = models.reduce((sum, m) => {
+        const q = parseInt((m as any).quantity ?? "0", 10);
+        return sum + (isNaN(q) ? 0 : q);
+      }, 0);
       return {
         id: order.id,
         orderDescription: order.orderDescription,
@@ -561,6 +562,7 @@ export async function generateMonthlyOrdersExcel(
         status: order.status,
         remarks: order.remarks,
         modelCount: models.length,
+        totalQuantity,
       };
     })
   );
