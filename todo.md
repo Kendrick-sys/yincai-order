@@ -381,5 +381,17 @@
 - [x] 客户管理 UI：国外客户编辑弹窗新增英文地址输入框
 - [x] DocumentDialog：生成 PI/CI 时自动从客户 enAddress 填入 buyerAddress
 - [x] generatePdf.ts：国内合同 logo 高度从 60px 改为 45px
-- [x] generatePdf.ts：SELLER 区块公司名加粗，检查电话邮筱格式
+- [x] generatePdf.ts：SELLER 区块公司名加粗，检查电话邮箱格式
 - [x] TypeScript 0 错误，测试全部通过
+
+## 全面审核与优化（第四十八批）
+
+- [x] 错别字修复：合同前言缺少逗号（"达成一致甲方"→"达成一致，甲方"）
+- [x] 错别字修复：exportExcel.ts 注释乱码字符清理
+- [x] 性能优化：QueryClient 全局 staleTime/gcTime/retry/refetchOnWindowFocus 配置
+- [x] 性能优化：ZIP 导出改为 Promise.allSettled 并发下载 PDF
+- [x] 性能优化：月汇总 Excel 导出从 N 次并发查询优化为 1 次批量 inArray 查询
+- [x] 代码清理：删除废弃的 orderExport.ts 和 orderTypes.ts（旧版前端打印遗留文件）
+- [x] 功能补全：客户档案 Excel 导出新增英文地址（enAddress）列
+- [x] 功能补全：exportCustomers.ts 改用 listCustomersWithStats（包含 enAddress 字段）
+- [x] TypeScript 0 错误，10 项测试全部通过

@@ -8,7 +8,16 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,           // 默认 30s 内不重新拉取
+      gcTime: 5 * 60_000,          // 缓存 5 分钟
+      retry: 1,                    // 失败重试一次
+      refetchOnWindowFocus: false, // 切换标签页时不自动重拉
+    },
+  },
+});
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;

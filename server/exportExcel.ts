@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import { getOrderById, getDb } from "./db";
 import { orders as ordersTable, orderModels as orderModelsTable } from "../drizzle/schema";
-import { and, isNull, like, eq } from "drizzle-orm";
+import { and, isNull, like, eq, inArray } from "drizzle-orm";
 import https from "https";
 import http from "http";
 
@@ -192,8 +192,7 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
   const isOverseas = (order as any).customerType === "overseas";
   const customerTypeLabel = isOverseas ? "国外" : "国内";
   const customsDeclared: boolean | null = (order as any).customsDeclared ?? null;
-
-  // 行2：订单描述（兗1-5）| 客户（兗6-10）| 销售员（圕11-14）
+  // 行2：订单描述（列1-5）| 客户（列6-10）| 销售员（列11-14）
   mergeSet(ws, 2, 1, 2, 5,
     `订单描述：${order.orderDescription ?? ""}`,
     COLORS.labelBg, COLORS.labelFg, false, 9);
@@ -776,52 +775,62 @@ export async function generateMonthlyOrdersExcel(
     customerType: string | null;
   }> = [];
 
-  const ordersWithModelCount = await Promise.all(
-    monthOrders.map(async (order) => {
-      const models = await db!.select().from(orderModelsTable)
-        .where(eq(orderModelsTable.orderId, order.id));
-      // 汇总所有型号的数量（quantity 字段为字符串，尝试转整数求和）
-      const totalQuantity = models.reduce((sum, m) => {
-        const q = parseInt((m as any).quantity ?? "0", 10);
-        return sum + (isNaN(q) ? 0 : q);
-      }, 0);
-      // 收集型号明细（用于第4工作表）
-      for (const m of models) {
-        allModelDetails.push({
-          modelName: (m as any).modelName as string | null,
-          modelCode: (m as any).modelCode as string | null,
-          quantity: (m as any).quantity as string | null,
-          orderDescription: order.orderDescription,
-          customer: order.customer,
-          orderDate: order.orderDate,
-          orderId: order.id,
-          customerType: (order as any).customerType as string | null,
-        });
-      }
-      return {
-        id: order.id,
+  // 一次性批量查询当月所有订单的型号（避免 N 次并发查询）
+  const orderIds = monthOrders.map(o => o.id);
+  const allModels = orderIds.length > 0
+    ? await db!.select().from(orderModelsTable).where(inArray(orderModelsTable.orderId, orderIds))
+    : [];
+  // 按 orderId 分组
+  const modelsByOrderId = new Map<number, typeof allModels>();
+  for (const m of allModels) {
+    const arr = modelsByOrderId.get(m.orderId) ?? [];
+    arr.push(m);
+    modelsByOrderId.set(m.orderId, arr);
+  }
+
+  const ordersWithModelCount = monthOrders.map((order) => {
+    const models = modelsByOrderId.get(order.id) ?? [];
+    // 汇总所有型号的数量（quantity 字段为字符串，尝试转整数求和）
+    const totalQuantity = models.reduce((sum, m) => {
+      const q = parseInt((m as any).quantity ?? "0", 10);
+      return sum + (isNaN(q) ? 0 : q);
+    }, 0);
+    // 收集型号明细（用于第4工作表）
+    for (const m of models) {
+      allModelDetails.push({
+        modelName: (m as any).modelName as string | null,
+        modelCode: (m as any).modelCode as string | null,
+        quantity: (m as any).quantity as string | null,
         orderDescription: order.orderDescription,
         customer: order.customer,
-        customerType: (order as any).customerType as string | null,
-        customsDeclared: (order as any).customsDeclared as boolean | null,
-        isAlibaba: (order as any).isAlibaba as boolean | null,
-        alibabaOrderNo: (order as any).alibabaOrderNo as string | null,
-        is1688: (order as any).is1688 as boolean | null,
-        alibaba1688OrderNo: (order as any).alibaba1688OrderNo as string | null,
-        isAmazon: (order as any).isAmazon as boolean | null,
-        amazonOrderNo: (order as any).amazonOrderNo as string | null,
-        orderNo: order.orderNo,
         orderDate: order.orderDate,
-        deliveryDate: order.deliveryDate,
-        maker: order.maker,
-        salesperson: order.salesperson,
-        status: order.status,
-        remarks: order.remarks,
-        modelCount: models.length,
-        totalQuantity,
-      };
-    })
-  );
+        orderId: order.id,
+        customerType: (order as any).customerType as string | null,
+      });
+    }
+    return {
+      id: order.id,
+      orderDescription: order.orderDescription,
+      customer: order.customer,
+      customerType: (order as any).customerType as string | null,
+      customsDeclared: (order as any).customsDeclared as boolean | null,
+      isAlibaba: (order as any).isAlibaba as boolean | null,
+      alibabaOrderNo: (order as any).alibabaOrderNo as string | null,
+      is1688: (order as any).is1688 as boolean | null,
+      alibaba1688OrderNo: (order as any).alibaba1688OrderNo as string | null,
+      isAmazon: (order as any).isAmazon as boolean | null,
+      amazonOrderNo: (order as any).amazonOrderNo as string | null,
+      orderNo: order.orderNo,
+      orderDate: order.orderDate,
+      deliveryDate: order.deliveryDate,
+      maker: order.maker,
+      salesperson: order.salesperson,
+      status: order.status,
+      remarks: order.remarks,
+      modelCount: models.length,
+      totalQuantity,
+    };
+  });
 
   const domesticOrders = ordersWithModelCount.filter(o => o.customerType !== "overseas");
   const overseasOrders = ordersWithModelCount.filter(o => o.customerType === "overseas");

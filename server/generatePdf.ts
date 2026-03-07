@@ -29,9 +29,9 @@ const LOGO_MATERIAL_EN: Record<string, string> = {
   "滴胶":             "Epoxy Resin",
   "Epoxy Resin":      "Epoxy Resin",
   "PC":               "PC",
-  "鄧射":             "Laser Engraving",
+  "鄧射":             "Laser Engraving",  // 鄧射（镑射的异体字，保留兼容）
   "Laser Engraving":  "Laser Engraving",
-  "镜面鄧射":         "Mirror Laser",
+  "镜面鄧射":         "Mirror Laser",   // 鄧射（镑射的异体字，保留兼容）
   "金属拉丝":         "Metal Brushed",
   "Metal Brushed":    "Metal Brushed",
   "其他":             "Other",
@@ -415,7 +415,7 @@ function buildContractCnHtml(data: ContractCnData): string {
 <div class="party-row">乙方（供货方）：${ENV.companyCnName}&nbsp;&nbsp;&nbsp;&nbsp;（以下简称乙方）</div>
 
 <p class="preamble">
-甲、乙双方为了实现各自的经营目的，本着自愿、公平和诚实守信的原则，经双方充分协商达成一致甲方同意向乙方订购产品，特订立本合同，以资双方共同遵守。
+甲、乙双方为了实现各自的经营目的，本着自愿、公平和诚实守信的原则，经双方充分协商达成一致，甲方同意向乙方订购产品，特订立本合同，以资双方共同遵守。
 </p>
 
 <div class="section-title">一、箱子明细：</div>

@@ -140,15 +140,20 @@ async function startServer() {
         }).on("error", reject);
       });
 
-      for (const doc of activeDocs) {
-        try {
+      // 并发下载所有 PDF，提升导出速度
+      const downloadResults = await Promise.allSettled(
+        activeDocs.map(async (doc) => {
           const buf = await downloadFile(doc.pdfUrl!);
           const typeLabel = { contract_cn: "采购合同", pi: "PI形式发票", ci: "CI商业发票" }[doc.docType] ?? doc.docType;
           const versionSuffix = (doc.version ?? 1) > 1 ? `_v${doc.version}` : "";
-          archive.append(buf, { name: `${typeLabel}_${doc.docNo}${versionSuffix}.pdf` });
-        } catch {
-          // 跳过下载失败的单据
+          return { buf, name: `${typeLabel}_${doc.docNo}${versionSuffix}.pdf` };
+        })
+      );
+      for (const result of downloadResults) {
+        if (result.status === "fulfilled") {
+          archive.append(result.value.buf, { name: result.value.name });
         }
+        // 已拒绝的项静默跳过
       }
 
       await archive.finalize();

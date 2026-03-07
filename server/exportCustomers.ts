@@ -1,15 +1,15 @@
 import ExcelJS from "exceljs";
-import { listCustomers } from "./db";
+import { listCustomersWithStats } from "./db";
 
 /** 生成客户档案 Excel */
 export async function generateCustomersExcel(): Promise<Buffer> {
-  const customers = await listCustomers();
+  const customers = await listCustomersWithStats();
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("客户档案");
 
   // ─── 标题行 ───────────────────────────────────────────────────────────────────
-  sheet.mergeCells("A1:H1");
+  sheet.mergeCells("A1:I1");
   const titleCell = sheet.getCell("A1");
   titleCell.value = "吟彩客户档案";
   titleCell.font = { name: "微软雅黑", size: 16, bold: true, color: { argb: "FFFFFFFF" } };
@@ -18,7 +18,7 @@ export async function generateCustomersExcel(): Promise<Buffer> {
   sheet.getRow(1).height = 40;
 
   // ─── 导出时间行 ────────────────────────────────────────────────────────────────
-  sheet.mergeCells("A2:H2");
+  sheet.mergeCells("A2:I2");
   const dateCell = sheet.getCell("A2");
   dateCell.value = `导出时间：${new Date().toLocaleString("zh-CN")}　　共 ${customers.length} 个客户`;
   dateCell.font = { name: "微软雅黑", size: 10, color: { argb: "FF666666" } };
@@ -28,14 +28,15 @@ export async function generateCustomersExcel(): Promise<Buffer> {
 
   // ─── 表头 ─────────────────────────────────────────────────────────────────────
   const headers = [
-    { key: "no",      header: "序号",       width: 6  },
-    { key: "name",    header: "客户名称",   width: 20 },
-    { key: "country", header: "国内/国外",  width: 10 },
-    { key: "address", header: "客户地址",   width: 28 },
-    { key: "contact", header: "联系人",     width: 12 },
-    { key: "phone",   header: "联系电话",   width: 16 },
-    { key: "email",   header: "邮箱",       width: 28 },
-    { key: "remarks", header: "备注",       width: 24 },
+    { key: "no",        header: "序号",         width: 6  },
+    { key: "name",      header: "客户名称",     width: 20 },
+    { key: "country",   header: "国内/国外",    width: 10 },
+    { key: "address",   header: "客户地址",     width: 28 },
+    { key: "enAddress", header: "英文地址",     width: 32 },
+    { key: "contact",   header: "联系人",       width: 12 },
+    { key: "phone",     header: "联系电话",     width: 16 },
+    { key: "email",     header: "邮箱",         width: 28 },
+    { key: "remarks",   header: "备注",         width: 24 },
   ];
 
   sheet.columns = headers.map(h => ({ key: h.key, width: h.width }));
@@ -62,14 +63,15 @@ export async function generateCustomersExcel(): Promise<Buffer> {
     const countryLabel = isOverseas ? "国外" : "国内";
 
     const row = sheet.addRow({
-      no:      idx + 1,
-      name:    c.name    ?? "",
-      country: countryLabel,
-      address: c.address ?? c.code ?? "",
-      contact: c.contact ?? "",
-      phone:   c.phone   ?? "",
-      email:   c.email   ?? "",
-      remarks: c.remarks ?? "",
+      no:        idx + 1,
+      name:      c.name      ?? "",
+      country:   countryLabel,
+      address:   c.address   ?? c.code ?? "",
+      enAddress: c.enAddress ?? "",
+      contact:   c.contact   ?? "",
+      phone:     c.phone     ?? "",
+      email:     c.email     ?? "",
+      remarks:   c.remarks   ?? "",
     });
 
     const isEven = idx % 2 === 1;
