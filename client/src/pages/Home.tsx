@@ -9,7 +9,7 @@ import {
   Users, Trash, Eye
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 function downloadOrderExcel(orderId: number) {
@@ -30,14 +30,34 @@ const STATUS_CONFIG = {
 
 type StatusKey = keyof typeof STATUS_CONFIG;
 
+// 状态筛选 Tab 定义（不含「已取消」，作为次要状态）
+const STATUS_TABS: Array<{ key: StatusKey | "all"; label: string }> = [
+  { key: "all",          label: "全部" },
+  { key: "draft",        label: "草稿" },
+  { key: "submitted",    label: "已提交" },
+  { key: "in_production",label: "生产中" },
+  { key: "completed",    label: "已完成" },
+  { key: "cancelled",    label: "已取消" },
+];
+
 export default function Home() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<StatusKey | "all">("all");
+
+  // 读取 URL 参数 ?customer=xxx（从客户管理页跳转过来）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const customerParam = params.get("customer");
+    if (customerParam) {
+      setSearch(customerParam);
+    }
+  }, []);
 
   const utils = trpc.useUtils();
   const { data: orders = [], isLoading } = trpc.orders.list.useQuery(
     undefined,
-    { staleTime: 30_000 }  // 30秒内不重新拉取
+    { staleTime: 30_000 }
   );
 
   const deleteMutation = trpc.orders.delete.useMutation({
@@ -75,18 +95,22 @@ export default function Home() {
     onError: () => toast.error("复制失败，请重试"),
   });
 
-  const filtered = orders.filter(o =>
+  // 先按搜索词过滤，再按 Tab 状态过滤
+  const searchFiltered = orders.filter(o =>
     !search ||
     (o.customer ?? "").includes(search) ||
     (o.orderDescription ?? "").includes(search) ||
     (o.orderNo ?? "").includes(search)
   );
+  const filtered = activeTab === "all"
+    ? searchFiltered
+    : searchFiltered.filter(o => o.status === activeTab);
 
-  // 统计
+  // 统计（基于搜索结果，不受 Tab 影响）
   const stats = Object.entries(STATUS_CONFIG).map(([key, cfg]) => ({
     key,
     label: cfg.label,
-    count: orders.filter(o => o.status === key).length,
+    count: searchFiltered.filter(o => o.status === key).length,
     dot: cfg.dot,
   }));
 
@@ -143,17 +167,25 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {/* 状态统计卡片 */}
+      <main className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+        {/* 状态统计卡片（点击可筛选） */}
         <div className="grid grid-cols-5 gap-3">
           {stats.map(s => (
-            <div key={s.key} className="bg-white rounded-xl border border-gray-100 px-4 py-3 shadow-sm">
+            <button
+              key={s.key}
+              onClick={() => setActiveTab(prev => prev === s.key ? "all" : s.key as StatusKey)}
+              className={`bg-white rounded-xl border px-4 py-3 shadow-sm text-left transition-all duration-150
+                ${activeTab === s.key
+                  ? "border-[#1A3C5E] ring-1 ring-[#1A3C5E]/20"
+                  : "border-gray-100 hover:border-gray-200"
+                }`}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <span className={`w-2 h-2 rounded-full ${s.dot}`} />
                 <span className="text-xs text-gray-500">{s.label}</span>
               </div>
               <p className="text-2xl font-bold text-gray-800">{s.count}</p>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -173,6 +205,36 @@ export default function Home() {
           )}
         </div>
 
+        {/* 状态筛选 Tab */}
+        <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+          {STATUS_TABS.map(tab => {
+            const count = tab.key === "all"
+              ? searchFiltered.length
+              : searchFiltered.filter(o => o.status === tab.key).length;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150
+                  ${activeTab === tab.key
+                    ? "bg-[#1A3C5E] text-white"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  }`}
+              >
+                {tab.label}
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-normal
+                  ${activeTab === tab.key
+                    ? "bg-white/20 text-white"
+                    : "bg-gray-100 text-gray-400"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* 订单列表 */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           {/* 表头 */}
@@ -190,7 +252,17 @@ export default function Home() {
           ) : filtered.length === 0 ? (
             <div className="py-16 text-center">
               <Package className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-              <p className="text-gray-400 text-sm">{search ? "没有找到匹配的订单" : "暂无订单，点击「新建订单」开始"}</p>
+              <p className="text-gray-400 text-sm">
+                {search ? `没有找到「${search}」的相关订单` : activeTab !== "all" ? `暂无「${STATUS_CONFIG[activeTab as StatusKey]?.label}」状态的订单` : "暂无订单，点击「新建订单」开始"}
+              </p>
+              {(search || activeTab !== "all") && (
+                <button
+                  onClick={() => { setSearch(""); setActiveTab("all"); }}
+                  className="mt-2 text-xs text-[#1A3C5E] hover:underline"
+                >
+                  清除筛选条件
+                </button>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
@@ -217,14 +289,14 @@ export default function Home() {
                     {/* 制单员 */}
                     <span className="text-sm text-gray-600 text-center">{order.maker || "—"}</span>
                     {/* 状态 */}
-                    <div className="flex flex-col gap-1">
-                      <Badge className={`text-xs border w-fit ${statusCfg.color}`} variant="outline">
+                    <div className="flex flex-col gap-1 items-center">
+                      <Badge className={`text-xs border ${statusCfg.color}`} variant="outline">
                         {statusCfg.label}
                       </Badge>
                       {next && (
                         <button
                           onClick={() => updateStatusMutation.mutate({ id: order.id, status: next })}
-                          className="text-xs text-[#1A3C5E] hover:underline flex items-center gap-0.5 w-fit"
+                          className="text-xs text-[#1A3C5E] hover:underline flex items-center gap-0.5"
                         >
                           推进至{STATUS_CONFIG[next].label}
                           <ChevronRight className="w-3 h-3" />

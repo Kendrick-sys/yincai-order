@@ -13,8 +13,8 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home } from "lucide-react";
-import { Link } from "wouter";
+import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home, ExternalLink } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 
 type CustomerForm = {
@@ -33,6 +33,7 @@ const emptyForm: CustomerForm = {
 };
 
 export default function Customers() {
+  const [, navigate] = useLocation();
   const utils = trpc.useUtils();
   const { data: customers = [] } = trpc.customers.list.useQuery(
     undefined,
@@ -196,10 +197,14 @@ export default function Customers() {
                   )}
                   {/* 订单统计 */}
                   <div className="flex items-center gap-3 mt-1.5">
-                    <span className="inline-flex items-center gap-1 text-xs text-primary font-medium">
+                    <button
+                      onClick={() => navigate(`/?customer=${encodeURIComponent(c.name)}`)}
+                      className="inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline cursor-pointer"
+                    >
                       <span className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold">{Number(c.orderCount) || 0}</span>
                       历史订单
-                    </span>
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
                     {c.lastOrderDate && (
                       <span className="text-xs text-muted-foreground">
                         最近下单：{c.lastOrderDate}
