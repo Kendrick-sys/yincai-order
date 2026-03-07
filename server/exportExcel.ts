@@ -119,7 +119,8 @@ async function embedImagesInColumn(
       const buf = await fetchImageBuffer(url);
       if (!buf) continue;
       const ext = guessExt(url);
-      const imgId = wb.addImage({ buffer: buf, extension: ext });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const imgId = wb.addImage({ buffer: buf as any, extension: ext });
       const r = startRow + rowsUsed;
       ws.getRow(r).height = imgHeightPt;
       // 填充背景
