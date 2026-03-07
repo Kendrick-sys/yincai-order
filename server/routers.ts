@@ -341,7 +341,12 @@ export const appRouter = router({
         orderId: z.number(),
         docType: z.enum(["pi", "ci"]),
         buyerName: z.string().min(1, "买方名称不能为空"),
+        buyerAttn: z.string().optional(),
+        buyerCompany: z.string().optional(),
         buyerAddress: z.string().optional(),
+        buyerTel: z.string().optional(),
+        buyerEmail: z.string().optional(),
+        transitDays: z.string().optional(),
         lineItems: z.array(z.object({
           modelName: z.string(),
           spec: z.string().optional(),
@@ -388,7 +393,10 @@ export const appRouter = router({
           customColorQuantity: z.number(),
           customColorUnitPrice: z.number(),
           customColorAmount: z.number(),
-          shippingFee: z.number(),
+          domesticFreight: z.number().default(0),
+          internationalFreightType: z.string().optional(),
+          internationalFreight: z.number().default(0),
+          freightDescription: z.string().optional(),
         }).optional(),
       }))
       .mutation(async ({ input }) => {
@@ -401,7 +409,12 @@ export const appRouter = router({
           docDate: today,
           deliveryDate: input.deliveryDate ?? "",
           buyerName: input.buyerName,
+          buyerAttn: input.buyerAttn,
+          buyerCompany: input.buyerCompany,
           buyerAddress: input.buyerAddress,
+          buyerTel: input.buyerTel,
+          buyerEmail: input.buyerEmail,
+          transitDays: input.transitDays,
           lineItems: input.lineItems,
           totalAmount: input.totalAmount,
           currency: input.currency,
@@ -410,7 +423,11 @@ export const appRouter = router({
           incoterms: input.incoterms,
           portOfLoading: input.portOfLoading,
           bankChoice: input.bankChoice,
-          extras: input.piExtras,
+          extras: input.piExtras ? {
+            ...input.piExtras,
+            domesticFreight: input.piExtras.domesticFreight ?? 0,
+            internationalFreight: input.piExtras.internationalFreight ?? 0,
+          } : undefined,
         });
 
         const fileKey = `documents/${docNo}-${Date.now()}.pdf`;

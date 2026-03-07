@@ -28,8 +28,10 @@ import { Loader2, FileText, Download, AlertCircle, Copy, RotateCcw } from "lucid
 const COMPANY_NAME_CN = "深圳市吟彩新型材料制品有限公司";
 const VAT_RATE = 1.13; // 增值税税率 13%
 
-// 产品名称选项
+// 产品名称选项（国内合同）
 const PRODUCT_NAME_OPTIONS = ["塑料工具箱", "其他"];
+// 产品名称选项（PI/CI，英文）
+const PI_PRODUCT_NAME_OPTIONS = ["Plastic Case", "Other"];
 // 箱体材质选项
 const BOX_MATERIAL_OPTIONS = ["PP", "ABS", "其他"];
 // 内衬材质选项（含「其他」手动输入）
@@ -93,8 +95,20 @@ interface DomesticExtras {
   customColorQuantity: number;
   customColorUnitPrice: number;
   customColorAmount: number;
-  // 物流运费（只有金额）
+  // 物流运费（只有金额，国内合同）
   shippingFee: number;
+}
+
+/** PI/CI 附加明细（运费拆分为国内+国外） */
+interface PiExtras extends Omit<DomesticExtras, 'shippingFee'> {
+  // 国内运输费
+  domesticFreight: number;
+  // 国外运输方式
+  internationalFreightType: "air" | "sea" | "";
+  // 国外运输费
+  internationalFreight: number;
+  // 物流描述
+  freightDescription: string;
 }
 
 function defaultExtras(): DomesticExtras {
@@ -132,6 +146,44 @@ function defaultExtras(): DomesticExtras {
   };
 }
 
+function defaultPiExtras(): PiExtras {
+  return {
+    hasLiner: false,
+    linerMaterial: "",
+    linerDescription: "",
+    linerQuantity: 0,
+    linerUnitPrice: 0,
+    linerAmount: 0,
+    hasLinerTemplate: false,
+    linerTemplateQuantity: 0,
+    linerTemplateUnitPrice: 0,
+    linerTemplateAmount: 0,
+    hasLogo: false,
+    logoMaterial: "",
+    logoDescription: "",
+    logoQuantity: 0,
+    logoUnitPrice: 0,
+    logoAmount: 0,
+    hasSilkPrint: false,
+    silkPrintDescription: "",
+    silkPrintQuantity: 0,
+    silkPrintUnitPrice: 0,
+    silkPrintAmount: 0,
+    hasSilkPrintTemplate: false,
+    silkPrintTemplateQuantity: 0,
+    silkPrintTemplateUnitPrice: 0,
+    silkPrintTemplateAmount: 0,
+    hasCustomColor: false,
+    customColorQuantity: 0,
+    customColorUnitPrice: 0,
+    customColorAmount: 0,
+    domesticFreight: 0,
+    internationalFreightType: "",
+    internationalFreight: 0,
+    freightDescription: "",
+  };
+}
+
 interface OrderModel {
   modelName?: string | null;
   modelCode?: string | null;
@@ -166,6 +218,17 @@ function buildInitialLineItems(models: OrderModel[]): LineItemInput[] {
   return (models ?? []).map(m => ({
     modelName: "塑料工具箱", // 默认产品名称
     material: "PP",          // 默认材质
+    spec: m.modelCode ?? "",
+    quantity: parseInt(m.quantity ?? "0") || 0,
+    unitPrice: 0,
+    amount: 0,
+  }));
+}
+
+function buildInitialPiLineItems(models: OrderModel[]): LineItemInput[] {
+  return (models ?? []).map(m => ({
+    modelName: "Plastic Case", // 默认产品名称（英文）
+    material: "PP",
     spec: m.modelCode ?? "",
     quantity: parseInt(m.quantity ?? "0") || 0,
     unitPrice: 0,
@@ -313,7 +376,7 @@ function DomesticLineItemsTable({
                       onValueChange={v => handleMaterialSelect(idx, v)}
                     >
                       <SelectTrigger className="h-7 text-xs border-0 bg-transparent focus:ring-0 px-1">
-                        <SelectValue placeholder="选择..." />
+                        <SelectValue placeholder="材质..." />
                       </SelectTrigger>
                       <SelectContent>
                         {BOX_MATERIAL_OPTIONS.map(opt => (
@@ -382,6 +445,7 @@ function ExtraFeeRow({
   onMaterialChange,
   subtotal,
   subtotalLabel,
+  currency = "CNY",
 }: {
   label: string;
   quantity: number;
@@ -404,6 +468,13 @@ function ExtraFeeRow({
   /** 货币（用于小计显示符号） */
   currency?: "USD" | "EUR" | "CNY";
 }) {
+  const currSymbol = currency === "CNY" ? "¥" : currency === "USD" ? "$" : "€";
+  const unitLabel = currency === "CNY" ? "单价（元）" : `Unit Price (${currency})`;
+  const amtLabel = currency === "CNY" ? "金额（元）" : `Amount (${currency})`;
+  const qtyLabel = currency === "CNY" ? "数量（个）" : "Qty";
+  const descLabel = currency === "CNY" ? "描述" : "Description";
+  const matLabel = currency === "CNY" ? "材质" : "Material";
+
   return (
     <div className="rounded-lg border border-border bg-background shadow-sm overflow-hidden">
       {/* 标题行 */}
@@ -415,10 +486,10 @@ function ExtraFeeRow({
         <div className="flex flex-wrap gap-3 items-end">
           {showMaterial && materialOptions && onMaterialChange && (
             <div className="space-y-1 min-w-[110px]">
-              <Label className="text-xs text-muted-foreground">材质</Label>
+              <Label className="text-xs text-muted-foreground">{matLabel}</Label>
               <Select value={material || ""} onValueChange={onMaterialChange}>
                 <SelectTrigger className="h-8 text-xs w-full">
-                  <SelectValue placeholder="选择材质..." />
+                  <SelectValue placeholder="选择..." />
                 </SelectTrigger>
                 <SelectContent>
                   {materialOptions.map(opt => (
@@ -430,17 +501,17 @@ function ExtraFeeRow({
           )}
           {showDescription && onDescriptionChange !== undefined && (
             <div className="space-y-1 flex-1 min-w-[140px]">
-              <Label className="text-xs text-muted-foreground">描述</Label>
+              <Label className="text-xs text-muted-foreground">{descLabel}</Label>
               <Input
                 value={description || ""}
                 onChange={e => onDescriptionChange(e.target.value)}
-                placeholder={descriptionPlaceholder || "可选描述"}
+                placeholder={descriptionPlaceholder || "Optional description"}
                 className="h-8 text-xs"
               />
             </div>
           )}
           <div className="space-y-1 w-[90px]">
-            <Label className="text-xs text-muted-foreground">数量（个）</Label>
+            <Label className="text-xs text-muted-foreground">{qtyLabel}</Label>
             <Input
               type="number"
               min={0}
@@ -450,8 +521,8 @@ function ExtraFeeRow({
               placeholder="0"
             />
           </div>
-          <div className="space-y-1 w-[100px]">
-            <Label className="text-xs text-muted-foreground">单价（元）</Label>
+          <div className="space-y-1 w-[110px]">
+            <Label className="text-xs text-muted-foreground">{unitLabel}</Label>
             <Input
               type="number"
               step="0.01"
@@ -462,10 +533,10 @@ function ExtraFeeRow({
               placeholder="0.00"
             />
           </div>
-          <div className="space-y-1 w-[100px]">
-            <Label className="text-xs text-muted-foreground">金额（元）</Label>
+          <div className="space-y-1 w-[110px]">
+            <Label className="text-xs text-muted-foreground">{amtLabel}</Label>
             <div className={`h-8 flex items-center justify-center text-xs font-semibold rounded border px-2 ${amount > 0 ? "bg-primary/5 border-primary/30 text-primary" : "bg-muted/30 border-border text-muted-foreground"}`}>
-              {amount > 0 ? `¥${amount.toFixed(2)}` : "—"}
+              {amount > 0 ? `${currSymbol}${amount.toFixed(2)}` : "—"}
             </div>
           </div>
         </div>
@@ -474,7 +545,7 @@ function ExtraFeeRow({
       {subtotal !== undefined && subtotal > 0 && (
         <div className="flex items-center justify-between px-3 py-2 bg-primary/5 border-t border-primary/20">
           <span className="text-xs text-primary/70 font-medium">{subtotalLabel ?? "小计"}</span>
-          <span className="text-sm font-bold text-primary">¥{subtotal.toFixed(2)}</span>
+          <span className="text-sm font-bold text-primary">{currSymbol}{subtotal.toFixed(2)}</span>
         </div>
       )}
     </div>
@@ -493,6 +564,8 @@ function LineItemsTable({
   onChange: (items: LineItemInput[]) => void;
 }) {
   const currencySymbol = currency === "CNY" ? "¥" : currency === "USD" ? "$" : "€";
+  // 每行产品名称是否为「Other」（手动输入）
+  const [customProductName, setCustomProductName] = useState<Record<number, boolean>>({});
 
   const updateItem = (idx: number, field: keyof LineItemInput, value: string | number) => {
     const newItems = items.map((item, i) => {
@@ -508,6 +581,16 @@ function LineItemsTable({
     onChange(newItems);
   };
 
+  const handleProductNameSelect = (idx: number, value: string) => {
+    if (value === "Other") {
+      setCustomProductName(prev => ({ ...prev, [idx]: true }));
+      updateItem(idx, "modelName", "");
+    } else {
+      setCustomProductName(prev => ({ ...prev, [idx]: false }));
+      updateItem(idx, "modelName", value);
+    }
+  };
+
   const total = useMemo(() => round2(items.reduce((sum, item) => sum + (item.amount || 0), 0)), [items]);
 
   return (
@@ -516,39 +599,59 @@ function LineItemsTable({
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-muted/50">
-              <th className="border border-border px-2 py-1.5 text-left font-medium">产品名称</th>
-              <th className="border border-border px-2 py-1.5 text-left font-medium">材质</th>
-              <th className="border border-border px-2 py-1.5 text-left font-medium">规格</th>
-              <th className="border border-border px-2 py-1.5 text-center font-medium w-20">数量</th>
-              <th className="border border-border px-2 py-1.5 text-center font-medium w-28">单价</th>
-              <th className="border border-border px-2 py-1.5 text-center font-medium w-28">金额</th>
+              <th className="border border-border px-2 py-1.5 text-left font-medium w-36">Product Name</th>
+              <th className="border border-border px-2 py-1.5 text-left font-medium">Model / Spec</th>
+              <th className="border border-border px-2 py-1.5 text-center font-medium w-20">Qty</th>
+              <th className="border border-border px-2 py-1.5 text-center font-medium w-28">Unit Price ({currency})</th>
+              <th className="border border-border px-2 py-1.5 text-center font-medium w-28">Amount ({currency})</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item, idx) => (
               <tr key={idx} className="hover:bg-muted/20">
+                {/* Product Name: dropdown with Plastic Case / Other */}
                 <td className="border border-border px-1 py-1">
-                  <Input
-                    value={item.modelName}
-                    onChange={e => updateItem(idx, "modelName", e.target.value)}
-                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
-                    placeholder="产品名称"
-                  />
-                </td>
-                <td className="border border-border px-1 py-1">
-                  <Input
-                    value={item.material}
-                    onChange={e => updateItem(idx, "material", e.target.value)}
-                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
-                    placeholder="材质"
-                  />
+                  {customProductName[idx] ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={item.modelName}
+                        onChange={e => updateItem(idx, "modelName", e.target.value)}
+                        className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
+                        placeholder="Enter product name"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomProductName(prev => ({ ...prev, [idx]: false }));
+                          updateItem(idx, "modelName", "Plastic Case");
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground px-1 flex-shrink-0"
+                        title="Back to dropdown"
+                      >↩</button>
+                    </div>
+                  ) : (
+                    <Select
+                      value={PI_PRODUCT_NAME_OPTIONS.includes(item.modelName) ? item.modelName : (item.modelName ? "Other" : "Plastic Case")}
+                      onValueChange={v => handleProductNameSelect(idx, v)}
+                    >
+                      <SelectTrigger className="h-7 text-xs border-0 bg-transparent focus:ring-0 px-1">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PI_PRODUCT_NAME_OPTIONS.map(opt => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </td>
                 <td className="border border-border px-1 py-1">
                   <Input
                     value={item.spec}
                     onChange={e => updateItem(idx, "spec", e.target.value)}
                     className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
-                    placeholder="规格"
+                    placeholder="Model / Spec"
                   />
                 </td>
                 <td className="border border-border px-1 py-1 text-center">
@@ -578,7 +681,7 @@ function LineItemsTable({
               </tr>
             ))}
             <tr className="bg-muted/30 font-semibold">
-              <td colSpan={5} className="border border-border px-2 py-1.5 text-right text-sm">合计</td>
+              <td colSpan={4} className="border border-border px-2 py-1.5 text-right text-sm">Subtotal</td>
               <td className="border border-border px-2 py-1.5 text-center text-sm">
                 {currencySymbol}{total.toFixed(2)}
               </td>
@@ -586,7 +689,7 @@ function LineItemsTable({
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted-foreground">* 输入单价后金额自动计算，可手动调整</p>
+      <p className="text-xs text-muted-foreground">* Enter unit price to auto-calculate amount. Select "Other" to type a custom product name.</p>
     </div>
   );
 }
@@ -668,102 +771,177 @@ function PaymentTerms({
   );
 }
 
-// ─── PI/CI 共用字段组件 ────────────────────────────────────────────────────────
+// ─── PI/CI 共用字段组件（扩展版，含完整 Buyer 信息） ─────────────────────────────
 
 function PiCiFields({
   buyerName,
+  buyerAttn,
+  buyerCompany,
   buyerAddress,
+  buyerTel,
+  buyerEmail,
   currency,
   bankChoice,
   incoterms,
   portOfLoading,
+  transitDays,
   onBuyerNameChange,
+  onBuyerAttnChange,
+  onBuyerCompanyChange,
   onBuyerAddressChange,
+  onBuyerTelChange,
+  onBuyerEmailChange,
   onCurrencyChange,
   onBankChoiceChange,
   onIncotermsChange,
   onPortOfLoadingChange,
+  onTransitDaysChange,
 }: {
   buyerName: string;
+  buyerAttn: string;
+  buyerCompany: string;
   buyerAddress: string;
+  buyerTel: string;
+  buyerEmail: string;
   currency: "USD" | "EUR";
   bankChoice: "icbc" | "citi";
   incoterms: string;
   portOfLoading: string;
+  transitDays: string;
   onBuyerNameChange: (v: string) => void;
+  onBuyerAttnChange: (v: string) => void;
+  onBuyerCompanyChange: (v: string) => void;
   onBuyerAddressChange: (v: string) => void;
+  onBuyerTelChange: (v: string) => void;
+  onBuyerEmailChange: (v: string) => void;
   onCurrencyChange: (v: "USD" | "EUR") => void;
   onBankChoiceChange: (v: "icbc" | "citi") => void;
   onIncotermsChange: (v: string) => void;
   onPortOfLoadingChange: (v: string) => void;
+  onTransitDaysChange: (v: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <div className="space-y-1.5">
-        <Label className="text-xs">Buyer Name <span className="text-destructive ml-1">*</span></Label>
-        <Input
-          value={buyerName}
-          onChange={e => onBuyerNameChange(e.target.value)}
-          placeholder="Customer / Company Name"
-          className="h-8 text-sm"
-        />
+    <div className="space-y-4">
+      {/* Buyer 信息区块 */}
+      <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+        <p className="text-xs font-semibold text-foreground/70 mb-1">Buyer Information (TO)</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Contact Name (TO) <span className="text-destructive ml-1">*</span></Label>
+            <Input
+              value={buyerName}
+              onChange={e => onBuyerNameChange(e.target.value)}
+              placeholder="e.g. John Smith"
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Attn</Label>
+            <Input
+              value={buyerAttn}
+              onChange={e => onBuyerAttnChange(e.target.value)}
+              placeholder="e.g. Purchasing Dept."
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Company Name</Label>
+            <Input
+              value={buyerCompany}
+              onChange={e => onBuyerCompanyChange(e.target.value)}
+              placeholder="e.g. SCHEMES L.L.C"
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Address</Label>
+            <Input
+              value={buyerAddress}
+              onChange={e => onBuyerAddressChange(e.target.value)}
+              placeholder="e.g. Dubai, U.A.E."
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Tel</Label>
+            <Input
+              value={buyerTel}
+              onChange={e => onBuyerTelChange(e.target.value)}
+              placeholder="e.g. +971-4-334-6966"
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Email</Label>
+            <Input
+              value={buyerEmail}
+              onChange={e => onBuyerEmailChange(e.target.value)}
+              placeholder="e.g. info@example.com"
+              className="h-8 text-sm"
+            />
+          </div>
+        </div>
       </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">Buyer Address</Label>
-        <Input
-          value={buyerAddress}
-          onChange={e => onBuyerAddressChange(e.target.value)}
-          placeholder="Optional"
-          className="h-8 text-sm"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">Currency</Label>
-        <Select value={currency} onValueChange={v => onCurrencyChange(v as "USD" | "EUR")}>
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="USD">USD（美元）</SelectItem>
-            <SelectItem value="EUR">EUR（欧元）</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">Bank Account</Label>
-        <Select value={bankChoice} onValueChange={v => onBankChoiceChange(v as "icbc" | "citi")}>
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="icbc">工商银行（ICBC）</SelectItem>
-            <SelectItem value="citi">花旗银行（Citibank，阿里巴巴收汇）</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">Incoterms</Label>
-        <Select value={incoterms} onValueChange={onIncotermsChange}>
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="FOB">FOB</SelectItem>
-            <SelectItem value="CIF">CIF</SelectItem>
-            <SelectItem value="EXW">EXW</SelectItem>
-            <SelectItem value="DDP">DDP</SelectItem>
-            <SelectItem value="CFR">CFR</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">Port of Loading</Label>
-        <Input
-          value={portOfLoading}
-          onChange={e => onPortOfLoadingChange(e.target.value)}
-          placeholder="e.g. Shenzhen"
-          className="h-8 text-sm"
-        />
+
+      {/* 贸易条款区块 */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Currency</Label>
+          <Select value={currency} onValueChange={v => onCurrencyChange(v as "USD" | "EUR")}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="USD">USD (US Dollar)</SelectItem>
+              <SelectItem value="EUR">EUR (Euro)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Bank Account</Label>
+          <Select value={bankChoice} onValueChange={v => onBankChoiceChange(v as "icbc" | "citi")}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="icbc">工商银行（ICBC）</SelectItem>
+              <SelectItem value="citi">花旗银行（Citibank，阿里巴巴收汇）</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Incoterms</Label>
+          <Select value={incoterms} onValueChange={onIncotermsChange}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="FOB">FOB</SelectItem>
+              <SelectItem value="CIF">CIF</SelectItem>
+              <SelectItem value="EXW">EXW</SelectItem>
+              <SelectItem value="DDP">DDP</SelectItem>
+              <SelectItem value="CFR">CFR</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Port of Loading</Label>
+          <Input
+            value={portOfLoading}
+            onChange={e => onPortOfLoadingChange(e.target.value)}
+            placeholder="e.g. Shenzhen"
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Estimated Transit Days</Label>
+          <Input
+            value={transitDays}
+            onChange={e => onTransitDaysChange(e.target.value)}
+            placeholder="e.g. 25-30 days by sea"
+            className="h-8 text-sm"
+          />
+        </div>
       </div>
     </div>
   );
@@ -777,6 +955,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [lineItems, setLineItems] = useState<LineItemInput[]>([]);
+  const [piLineItems, setPiLineItems] = useState<LineItemInput[]>([]);
 
   // 国内合同专属
   const [counterpartyName, setCounterpartyName] = useState("");
@@ -785,13 +964,18 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   const [extras, setExtras] = useState<DomesticExtras>(defaultExtras());
 
   // PI/CI 专属
-  const [piExtras, setPiExtras] = useState<DomesticExtras>(defaultExtras());
+  const [piExtras, setPiExtras] = useState<PiExtras>(defaultPiExtras());
   const [buyerName, setBuyerName] = useState(order.customer ?? "");
+  const [buyerAttn, setBuyerAttn] = useState("");
+  const [buyerCompany, setBuyerCompany] = useState("");
   const [buyerAddress, setBuyerAddress] = useState("");
+  const [buyerTel, setBuyerTel] = useState("");
+  const [buyerEmail, setBuyerEmail] = useState("");
   const [currency, setCurrency] = useState<"USD" | "EUR">("USD");
   const [incoterms, setIncoterms] = useState("FOB");
   const [portOfLoading, setPortOfLoading] = useState("Shenzhen");
   const [bankChoice, setBankChoice] = useState<"icbc" | "citi">("icbc");
+  const [transitDays, setTransitDays] = useState("");
 
   // 通用
   const [depositPct, setDepositPct] = useState(30);
@@ -808,6 +992,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
   // ── localStorage 持久化 key（按订单 ID 区分）──────────────────────────────────
   const storageKey = `yincai_contract_cn_${order.id}`;
+  const piStorageKey = `yincai_pi_${order.id}`;
 
   // 初始化行项目（优先从 localStorage 恢复，否则从订单数据初始化）
   useEffect(() => {
@@ -817,7 +1002,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     setActiveTab(defaultTab);
     setSelectedPiId("");
 
-    // 尝试从 localStorage 恢复上次填写内容
+    // 尝试从 localStorage 恢复国内合同内容
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
@@ -829,18 +1014,43 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         if (parsed.extras) setExtras({ ...defaultExtras(), ...parsed.extras });
         if (parsed.depositPct) setDepositPct(parsed.depositPct);
         if (parsed.balancePct) setBalancePct(parsed.balancePct);
-        return; // 已恢复，跳过默认初始化
+      } else {
+        setLineItems(buildInitialLineItems(order.models ?? []));
+        setExtras(defaultExtras());
+        setNeedInvoice(false);
+        setCounterpartyName("");
+        setCounterpartyAddress("");
       }
     } catch {
-      // localStorage 数据损坏，忽略
+      setLineItems(buildInitialLineItems(order.models ?? []));
     }
 
-    // 无缓存时使用订单数据初始化
-    setLineItems(buildInitialLineItems(order.models ?? []));
-    setExtras(defaultExtras());
-    setNeedInvoice(false);
-    setCounterpartyName("");
-    setCounterpartyAddress("");
+    // 尝试从 localStorage 恢复 PI/CI 内容
+    try {
+      const piSaved = localStorage.getItem(piStorageKey);
+      if (piSaved) {
+        const parsed = JSON.parse(piSaved);
+        if (parsed.piLineItems) setPiLineItems(parsed.piLineItems);
+        if (parsed.buyerAttn !== undefined) setBuyerAttn(parsed.buyerAttn);
+        if (parsed.buyerCompany !== undefined) setBuyerCompany(parsed.buyerCompany);
+        if (parsed.buyerAddress !== undefined) setBuyerAddress(parsed.buyerAddress);
+        if (parsed.buyerTel !== undefined) setBuyerTel(parsed.buyerTel);
+        if (parsed.buyerEmail !== undefined) setBuyerEmail(parsed.buyerEmail);
+        if (parsed.currency) setCurrency(parsed.currency);
+        if (parsed.incoterms) setIncoterms(parsed.incoterms);
+        if (parsed.portOfLoading !== undefined) setPortOfLoading(parsed.portOfLoading);
+        if (parsed.bankChoice) setBankChoice(parsed.bankChoice);
+        if (parsed.transitDays !== undefined) setTransitDays(parsed.transitDays);
+        if (parsed.piExtras) setPiExtras({ ...defaultPiExtras(), ...parsed.piExtras });
+        if (parsed.depositPct) setDepositPct(parsed.depositPct);
+        if (parsed.balancePct) setBalancePct(parsed.balancePct);
+      } else {
+        setPiLineItems(buildInitialPiLineItems(order.models ?? []));
+        setPiExtras(defaultPiExtras());
+      }
+    } catch {
+      setPiLineItems(buildInitialPiLineItems(order.models ?? []));
+    }
   }, [open, order]);
 
   // 每次国内合同字段变化时，自动保存到 localStorage
@@ -860,6 +1070,31 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
       // 存储失败（如隐私模式），静默忽略
     }
   }, [open, lineItems, counterpartyName, counterpartyAddress, needInvoice, extras, depositPct, balancePct]);
+
+  // 每次 PI/CI 字段变化时，自动保存到 localStorage
+  useEffect(() => {
+    if (!open) return;
+    try {
+      localStorage.setItem(piStorageKey, JSON.stringify({
+        piLineItems,
+        buyerAttn,
+        buyerCompany,
+        buyerAddress,
+        buyerTel,
+        buyerEmail,
+        currency,
+        incoterms,
+        portOfLoading,
+        bankChoice,
+        transitDays,
+        piExtras,
+        depositPct,
+        balancePct,
+      }));
+    } catch {
+      // 存储失败，静默忽略
+    }
+  }, [open, piLineItems, buyerAttn, buyerCompany, buyerAddress, buyerTel, buyerEmail, currency, incoterms, portOfLoading, bankChoice, transitDays, piExtras, depositPct, balancePct]);
 
   // 切换到 CI Tab 时重置 PI 选择
   useEffect(() => {
@@ -891,14 +1126,14 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   };
 
   // PI/CI 附加费用更新辅助
-  const updatePiExtra = <K extends keyof DomesticExtras>(key: K, value: DomesticExtras[K]) => {
+  const updatePiExtra = <K extends keyof PiExtras>(key: K, value: PiExtras[K]) => {
     setPiExtras(prev => ({ ...prev, [key]: value }));
   };
 
   const updatePiExtraWithCalc = (
-    qtyKey: keyof DomesticExtras,
-    priceKey: keyof DomesticExtras,
-    amountKey: keyof DomesticExtras,
+    qtyKey: keyof PiExtras,
+    priceKey: keyof PiExtras,
+    amountKey: keyof PiExtras,
     qty: number,
     price: number,
   ) => {
@@ -912,20 +1147,20 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
   // ── 总价计算 ─────────────────────────────────────────────────────────────────
 
-  /** 箱子明细小计 */
+  /** 箱子明细小计（国内合同） */
   const boxSubtotal = useMemo(
     () => round2(lineItems.reduce((sum, item) => sum + (item.amount || 0), 0)),
     [lineItems]
   );
 
-  /** 各附加项金额 */
+  /** 各附加项金额（国内合同） */
   const linerTotal = extras.hasLiner ? round2(extras.linerAmount + (extras.hasLinerTemplate ? extras.linerTemplateAmount : 0)) : 0;
   const logoTotal = extras.hasLogo ? extras.logoAmount : 0;
   const silkPrintTotal = extras.hasSilkPrint ? round2(extras.silkPrintAmount + (extras.hasSilkPrintTemplate ? extras.silkPrintTemplateAmount : 0)) : 0;
   const customColorTotal = extras.hasCustomColor ? extras.customColorAmount : 0;
   const shippingTotal = extras.shippingFee || 0;
 
-  /** 税前总价 */
+  /** 税前总价（国内合同） */
   const subtotalBeforeTax = useMemo(
     () => round2(boxSubtotal + linerTotal + logoTotal + silkPrintTotal + customColorTotal + shippingTotal),
     [boxSubtotal, linerTotal, logoTotal, silkPrintTotal, customColorTotal, shippingTotal]
@@ -940,14 +1175,15 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   /** PI/CI 总价（箱子 + 附加明细） */
   const piCiTotalAmount = useMemo(
     () => round2(
-      lineItems.reduce((sum, item) => sum + (item.amount || 0), 0) +
+      piLineItems.reduce((sum, item) => sum + (item.amount || 0), 0) +
       (piExtras.hasLiner ? round2(piExtras.linerAmount + (piExtras.hasLinerTemplate ? piExtras.linerTemplateAmount : 0)) : 0) +
       (piExtras.hasLogo ? piExtras.logoAmount : 0) +
       (piExtras.hasSilkPrint ? round2(piExtras.silkPrintAmount + (piExtras.hasSilkPrintTemplate ? piExtras.silkPrintTemplateAmount : 0)) : 0) +
       (piExtras.hasCustomColor ? piExtras.customColorAmount : 0) +
-      (piExtras.shippingFee || 0)
+      (piExtras.domesticFreight || 0) +
+      (piExtras.internationalFreight || 0)
     ),
-    [lineItems, piExtras]
+    [piLineItems, piExtras]
   );
 
   const isPaymentValid = depositPct + balancePct === 100;
@@ -956,20 +1192,27 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   const handleResetForm = () => {
     if (!confirm("确定要清空本订单的所有填写内容吗？")) return;
     try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
+    try { localStorage.removeItem(piStorageKey); } catch { /* ignore */ }
     setLineItems(buildInitialLineItems(order.models ?? []));
+    setPiLineItems(buildInitialPiLineItems(order.models ?? []));
     setExtras(defaultExtras());
-    setPiExtras(defaultExtras());
+    setPiExtras(defaultPiExtras());
     setNeedInvoice(false);
     setCounterpartyName("");
     setCounterpartyAddress("");
     setDepositPct(30);
     setBalancePct(70);
     setBuyerName(order.customer ?? "");
+    setBuyerAttn("");
+    setBuyerCompany("");
     setBuyerAddress("");
+    setBuyerTel("");
+    setBuyerEmail("");
     setCurrency("USD");
     setIncoterms("FOB");
     setPortOfLoading("Shenzhen");
     setBankChoice("icbc");
+    setTransitDays("");
   };
 
   // ── 从 PI 填充 CI ─────────────────────────────────────────────────────────────
@@ -994,7 +1237,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     try {
       const piItems = JSON.parse(pi.lineItems ?? "[]");
       if (Array.isArray(piItems) && piItems.length > 0) {
-        setLineItems(piItems.map((item: any) => ({
+        setPiLineItems(piItems.map((item: any) => ({
           modelName: item.modelName ?? "",
           material: item.material ?? "",
           spec: item.spec ?? "",
@@ -1104,15 +1347,19 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         return;
       }
       if (!buyerName.trim()) {
-        toast.error("请填写买方名称");
+        toast.error("Please enter Buyer Contact Name");
         return;
       }
       generatePiCiMutation.mutate({
         orderId: order.id,
         docType: activeTab as "pi" | "ci",
         buyerName,
+        buyerAttn: buyerAttn || undefined,
+        buyerCompany: buyerCompany || undefined,
         buyerAddress: buyerAddress || undefined,
-        lineItems: lineItems.map(item => ({
+        buyerTel: buyerTel || undefined,
+        buyerEmail: buyerEmail || undefined,
+        lineItems: piLineItems.map(item => ({
           modelName: item.modelName,
           spec: item.spec || undefined,
           quantity: item.quantity,
@@ -1125,6 +1372,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         balancePct,
         incoterms: incoterms || undefined,
         portOfLoading: portOfLoading || undefined,
+        transitDays: transitDays || undefined,
         bankChoice,
         deliveryDate: order.deliveryDate ?? undefined,
         piDocId: selectedPiId ? Number(selectedPiId) : undefined,
@@ -1158,11 +1406,307 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           customColorQuantity: piExtras.customColorQuantity,
           customColorUnitPrice: piExtras.customColorUnitPrice,
           customColorAmount: piExtras.customColorAmount,
-          shippingFee: piExtras.shippingFee || 0,
+          domesticFreight: piExtras.domesticFreight || 0,
+          internationalFreightType: piExtras.internationalFreightType || undefined,
+          internationalFreight: piExtras.internationalFreight || 0,
+          freightDescription: piExtras.freightDescription || undefined,
         },
       });
     }
   };
+
+  // ── PI/CI 附加明细渲染（复用于 PI 和 CI Tab） ─────────────────────────────────
+
+  const renderPiExtras = (tabPrefix: string) => (
+    <>
+      {/* II. Lining */}
+      <Separator />
+      <div className="flex items-center gap-3">
+        <Switch id={`${tabPrefix}-hasLiner`} checked={piExtras.hasLiner} onCheckedChange={v => updatePiExtra("hasLiner", v)} />
+        <label htmlFor={`${tabPrefix}-hasLiner`} className="text-xs font-semibold text-foreground/70 cursor-pointer">II. Lining Details</label>
+      </div>
+      {piExtras.hasLiner && (
+        <div className="space-y-3 pl-2">
+          <ExtraFeeRow
+            label="Lining Cost"
+            showMaterial
+            material={piExtras.linerMaterial}
+            materialOptions={LINER_MATERIAL_OPTIONS}
+            onMaterialChange={v => updatePiExtra("linerMaterial", v)}
+            showDescription
+            description={piExtras.linerDescription}
+            onDescriptionChange={v => updatePiExtra("linerDescription", v)}
+            descriptionPlaceholder="e.g. Top & Bottom lining"
+            quantity={piExtras.linerQuantity}
+            unitPrice={piExtras.linerUnitPrice}
+            amount={piExtras.linerAmount}
+            onQuantityChange={qty => updatePiExtraWithCalc("linerQuantity", "linerUnitPrice", "linerAmount", qty, piExtras.linerUnitPrice)}
+            onUnitPriceChange={price => updatePiExtraWithCalc("linerQuantity", "linerUnitPrice", "linerAmount", piExtras.linerQuantity, price)}
+            subtotal={!piExtras.hasLinerTemplate ? piExtras.linerAmount : undefined}
+            subtotalLabel="Lining Subtotal"
+            currency={currency}
+          />
+          <div className="flex items-center gap-3">
+            <Switch id={`${tabPrefix}-hasLinerTemplate`} checked={piExtras.hasLinerTemplate} onCheckedChange={v => updatePiExtra("hasLinerTemplate", v)} />
+            <label htmlFor={`${tabPrefix}-hasLinerTemplate`} className="text-xs text-muted-foreground cursor-pointer">Include Lining Mold Fee</label>
+          </div>
+          {piExtras.hasLinerTemplate && (
+            <ExtraFeeRow
+              label="Lining Mold Fee"
+              quantity={piExtras.linerTemplateQuantity}
+              unitPrice={piExtras.linerTemplateUnitPrice}
+              amount={piExtras.linerTemplateAmount}
+              onQuantityChange={qty => updatePiExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", qty, piExtras.linerTemplateUnitPrice)}
+              onUnitPriceChange={price => updatePiExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", piExtras.linerTemplateQuantity, price)}
+              subtotal={round2(piExtras.linerAmount + piExtras.linerTemplateAmount)}
+              subtotalLabel="Lining Total (incl. Mold)"
+              currency={currency}
+            />
+          )}
+        </div>
+      )}
+
+      {/* III. Custom LOGO */}
+      <Separator />
+      <div className="flex items-center gap-3">
+        <Switch id={`${tabPrefix}-hasLogo`} checked={piExtras.hasLogo} onCheckedChange={v => updatePiExtra("hasLogo", v)} />
+        <label htmlFor={`${tabPrefix}-hasLogo`} className="text-xs font-semibold text-foreground/70 cursor-pointer">III. Custom LOGO</label>
+      </div>
+      {piExtras.hasLogo && (
+        <div className="pl-2">
+          <ExtraFeeRow
+            label="LOGO Cost"
+            showMaterial
+            material={piExtras.logoMaterial}
+            materialOptions={LOGO_MATERIAL_OPTIONS}
+            onMaterialChange={v => updatePiExtra("logoMaterial", v)}
+            showDescription
+            description={piExtras.logoDescription}
+            onDescriptionChange={v => updatePiExtra("logoDescription", v)}
+            descriptionPlaceholder="e.g. Front gold-stamped LOGO"
+            quantity={piExtras.logoQuantity}
+            unitPrice={piExtras.logoUnitPrice}
+            amount={piExtras.logoAmount}
+            onQuantityChange={qty => updatePiExtraWithCalc("logoQuantity", "logoUnitPrice", "logoAmount", qty, piExtras.logoUnitPrice)}
+            onUnitPriceChange={price => updatePiExtraWithCalc("logoQuantity", "logoUnitPrice", "logoAmount", piExtras.logoQuantity, price)}
+            subtotal={piExtras.logoAmount}
+            subtotalLabel="LOGO Subtotal"
+            currency={currency}
+          />
+        </div>
+      )}
+
+      {/* IV. Silk Screen Printing */}
+      <Separator />
+      <div className="flex items-center gap-3">
+        <Switch id={`${tabPrefix}-hasSilkPrint`} checked={piExtras.hasSilkPrint} onCheckedChange={v => updatePiExtra("hasSilkPrint", v)} />
+        <label htmlFor={`${tabPrefix}-hasSilkPrint`} className="text-xs font-semibold text-foreground/70 cursor-pointer">IV. Silk Screen Printing</label>
+      </div>
+      {piExtras.hasSilkPrint && (
+        <div className="space-y-3 pl-2">
+          <ExtraFeeRow
+            label="Silk Print Cost"
+            showDescription
+            description={piExtras.silkPrintDescription}
+            onDescriptionChange={v => updatePiExtra("silkPrintDescription", v)}
+            descriptionPlaceholder="e.g. Single-color silk print, front"
+            quantity={piExtras.silkPrintQuantity}
+            unitPrice={piExtras.silkPrintUnitPrice}
+            amount={piExtras.silkPrintAmount}
+            onQuantityChange={qty => updatePiExtraWithCalc("silkPrintQuantity", "silkPrintUnitPrice", "silkPrintAmount", qty, piExtras.silkPrintUnitPrice)}
+            onUnitPriceChange={price => updatePiExtraWithCalc("silkPrintQuantity", "silkPrintUnitPrice", "silkPrintAmount", piExtras.silkPrintQuantity, price)}
+            subtotal={!piExtras.hasSilkPrintTemplate ? piExtras.silkPrintAmount : undefined}
+            subtotalLabel="Silk Print Subtotal"
+            currency={currency}
+          />
+          <div className="flex items-center gap-3">
+            <Switch id={`${tabPrefix}-hasSilkPrintTemplate`} checked={piExtras.hasSilkPrintTemplate} onCheckedChange={v => updatePiExtra("hasSilkPrintTemplate", v)} />
+            <label htmlFor={`${tabPrefix}-hasSilkPrintTemplate`} className="text-xs text-muted-foreground cursor-pointer">Include Silk Print Screen Fee</label>
+          </div>
+          {piExtras.hasSilkPrintTemplate && (
+            <ExtraFeeRow
+              label="Screen Fee"
+              quantity={piExtras.silkPrintTemplateQuantity}
+              unitPrice={piExtras.silkPrintTemplateUnitPrice}
+              amount={piExtras.silkPrintTemplateAmount}
+              onQuantityChange={qty => updatePiExtraWithCalc("silkPrintTemplateQuantity", "silkPrintTemplateUnitPrice", "silkPrintTemplateAmount", qty, piExtras.silkPrintTemplateUnitPrice)}
+              onUnitPriceChange={price => updatePiExtraWithCalc("silkPrintTemplateQuantity", "silkPrintTemplateUnitPrice", "silkPrintTemplateAmount", piExtras.silkPrintTemplateQuantity, price)}
+              subtotal={round2(piExtras.silkPrintAmount + piExtras.silkPrintTemplateAmount)}
+              subtotalLabel="Silk Print Total (incl. Screen)"
+              currency={currency}
+            />
+          )}
+        </div>
+      )}
+
+      {/* V. Custom Color */}
+      <Separator />
+      <div className="flex items-center gap-3">
+        <Switch id={`${tabPrefix}-hasCustomColor`} checked={piExtras.hasCustomColor} onCheckedChange={v => updatePiExtra("hasCustomColor", v)} />
+        <label htmlFor={`${tabPrefix}-hasCustomColor`} className="text-xs font-semibold text-foreground/70 cursor-pointer">V. Custom Color</label>
+      </div>
+      {piExtras.hasCustomColor && (
+        <div className="pl-2">
+          <ExtraFeeRow
+            label="Custom Color Fee"
+            quantity={piExtras.customColorQuantity}
+            unitPrice={piExtras.customColorUnitPrice}
+            amount={piExtras.customColorAmount}
+            onQuantityChange={qty => updatePiExtraWithCalc("customColorQuantity", "customColorUnitPrice", "customColorAmount", qty, piExtras.customColorUnitPrice)}
+            onUnitPriceChange={price => updatePiExtraWithCalc("customColorQuantity", "customColorUnitPrice", "customColorAmount", piExtras.customColorQuantity, price)}
+            subtotal={piExtras.customColorAmount}
+            subtotalLabel="Color Subtotal"
+            currency={currency}
+          />
+        </div>
+      )}
+
+      {/* VI. Freight */}
+      <Separator />
+      <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-4">
+        <p className="text-xs font-semibold text-foreground/70">VI. Freight</p>
+
+        {/* 国内运输费 */}
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground font-medium">Domestic Freight (China inland)</p>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 space-y-1">
+              <Label className="text-xs text-muted-foreground">Amount ({currency})</Label>
+              <Input
+                type="number" step="0.01" min={0}
+                value={piExtras.domesticFreight || ""}
+                onChange={e => updatePiExtra("domesticFreight", parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+                className="h-8 text-sm"
+              />
+            </div>
+            {piExtras.domesticFreight > 0 && (
+              <div className="text-sm font-semibold text-foreground pt-5">
+                {currency === "USD" ? "$" : "€"}{piExtras.domesticFreight.toFixed(2)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 国外运输费 */}
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground font-medium">International Freight</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Shipping Mode</Label>
+              <Select
+                value={piExtras.internationalFreightType || "none"}
+                onValueChange={v => updatePiExtra("internationalFreightType", v === "none" ? "" : v as "air" | "sea")}
+              >
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="Select mode..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not applicable</SelectItem>
+                  <SelectItem value="air">Air Freight (空运)</SelectItem>
+                  <SelectItem value="sea">Sea Freight (海运)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Amount ({currency})</Label>
+              <Input
+                type="number" step="0.01" min={0}
+                value={piExtras.internationalFreight || ""}
+                onChange={e => updatePiExtra("internationalFreight", parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+                className="h-8 text-sm"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Logistics Description (Optional)</Label>
+            <Input
+              value={piExtras.freightDescription}
+              onChange={e => updatePiExtra("freightDescription", e.target.value)}
+              placeholder="e.g. FOB Shenzhen, via COSCO, ETD 2026-04-01"
+              className="h-8 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* 运费小计 */}
+        {(piExtras.domesticFreight > 0 || piExtras.internationalFreight > 0) && (
+          <div className="flex items-center justify-between pt-1 border-t border-border">
+            <span className="text-xs text-muted-foreground font-medium">Total Freight</span>
+            <span className="text-sm font-bold text-primary">
+              {currency === "USD" ? "$" : "€"}{round2((piExtras.domesticFreight || 0) + (piExtras.internationalFreight || 0)).toFixed(2)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Price Summary */}
+      <Separator />
+      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+        <p className="text-xs font-semibold text-foreground/70 mb-2">Price Summary</p>
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Product Subtotal</span>
+            <span>{currency === "USD" ? "$" : "€"}{round2(piLineItems.reduce((s, i) => s + (i.amount || 0), 0)).toFixed(2)}</span>
+          </div>
+          {piExtras.hasLiner && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Lining{piExtras.hasLinerTemplate ? " (incl. Mold)" : ""}</span>
+              <span>{currency === "USD" ? "$" : "€"}{round2(piExtras.linerAmount + (piExtras.hasLinerTemplate ? piExtras.linerTemplateAmount : 0)).toFixed(2)}</span>
+            </div>
+          )}
+          {piExtras.hasLogo && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Custom LOGO</span>
+              <span>{currency === "USD" ? "$" : "€"}{piExtras.logoAmount.toFixed(2)}</span>
+            </div>
+          )}
+          {piExtras.hasSilkPrint && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Silk Print{piExtras.hasSilkPrintTemplate ? " (incl. Screen)" : ""}</span>
+              <span>{currency === "USD" ? "$" : "€"}{round2(piExtras.silkPrintAmount + (piExtras.hasSilkPrintTemplate ? piExtras.silkPrintTemplateAmount : 0)).toFixed(2)}</span>
+            </div>
+          )}
+          {piExtras.hasCustomColor && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Custom Color</span>
+              <span>{currency === "USD" ? "$" : "€"}{piExtras.customColorAmount.toFixed(2)}</span>
+            </div>
+          )}
+          {piExtras.domesticFreight > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Domestic Freight</span>
+              <span>{currency === "USD" ? "$" : "€"}{piExtras.domesticFreight.toFixed(2)}</span>
+            </div>
+          )}
+          {piExtras.internationalFreight > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                International Freight{piExtras.internationalFreightType === "air" ? " (Air)" : piExtras.internationalFreightType === "sea" ? " (Sea)" : ""}
+              </span>
+              <span>{currency === "USD" ? "$" : "€"}{piExtras.internationalFreight.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between border-t-2 border-primary/30 pt-2 mt-1">
+            <span className="font-bold text-base">Grand Total</span>
+            <span className="font-bold text-base text-primary">{currency === "USD" ? "$" : "€"}{piCiTotalAmount.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+      <p className="text-xs font-semibold text-foreground/70">Payment Terms</p>
+      <PaymentTerms
+        depositPct={depositPct}
+        balancePct={balancePct}
+        totalAmount={piCiTotalAmount}
+        currency={currency}
+        onDepositChange={setDepositPct}
+        onBalanceChange={setBalancePct}
+      />
+    </>
+  );
 
   // ── 渲染 ──────────────────────────────────────────────────────────────────────
 
@@ -1247,7 +1791,6 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
               <label htmlFor="needInvoice" className="text-sm font-medium text-amber-800 cursor-pointer select-none">
                 需要开具增值税发票（含税价 × 1.13）
               </label>
-
             </div>
 
             {/* 箱子明细 */}
@@ -1258,14 +1801,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             {/* 内衬 */}
             <Separator />
             <div className="flex items-center gap-3">
-              <Switch
-                id="hasLiner"
-                checked={extras.hasLiner}
-                onCheckedChange={v => updateExtra("hasLiner", v)}
-              />
-              <label htmlFor="hasLiner" className="text-xs font-semibold text-foreground/70 cursor-pointer">
-                二、内衬明细
-              </label>
+              <Switch id="hasLiner" checked={extras.hasLiner} onCheckedChange={v => updateExtra("hasLiner", v)} />
+              <label htmlFor="hasLiner" className="text-xs font-semibold text-foreground/70 cursor-pointer">二、内衬明细</label>
             </div>
             {extras.hasLiner && (
               <div className="space-y-3 pl-2">
@@ -1278,7 +1815,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                   showDescription
                   description={extras.linerDescription}
                   onDescriptionChange={v => updateExtra("linerDescription", v)}
-                  descriptionPlaceholder="如：上下盖各一片"
+                  descriptionPlaceholder="如：上下盖内衬，EVA 黑色"
                   quantity={extras.linerQuantity}
                   unitPrice={extras.linerUnitPrice}
                   amount={extras.linerAmount}
@@ -1288,25 +1825,19 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                   subtotalLabel="内衬小计"
                 />
                 <div className="flex items-center gap-3">
-                  <Switch
-                    id="hasLinerTemplate"
-                    checked={extras.hasLinerTemplate}
-                    onCheckedChange={v => updateExtra("hasLinerTemplate", v)}
-                  />
-                  <label htmlFor="hasLinerTemplate" className="text-xs text-muted-foreground cursor-pointer">
-                    包含内衬定制模板费
-                  </label>
+                  <Switch id="hasLinerTemplate" checked={extras.hasLinerTemplate} onCheckedChange={v => updateExtra("hasLinerTemplate", v)} />
+                  <label htmlFor="hasLinerTemplate" className="text-xs text-muted-foreground cursor-pointer">含内衬开模费</label>
                 </div>
                 {extras.hasLinerTemplate && (
                   <ExtraFeeRow
-                    label="内衬定制模板费"
+                    label="内衬开模费"
                     quantity={extras.linerTemplateQuantity}
                     unitPrice={extras.linerTemplateUnitPrice}
                     amount={extras.linerTemplateAmount}
                     onQuantityChange={qty => updateExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", qty, extras.linerTemplateUnitPrice)}
                     onUnitPriceChange={price => updateExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", extras.linerTemplateQuantity, price)}
-                    subtotal={linerTotal}
-                    subtotalLabel="内衬合计（含模板费）"
+                    subtotal={round2(extras.linerAmount + extras.linerTemplateAmount)}
+                    subtotalLabel="内衬合计（含开模）"
                   />
                 )}
               </div>
@@ -1315,14 +1846,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             {/* LOGO */}
             <Separator />
             <div className="flex items-center gap-3">
-              <Switch
-                id="hasLogo"
-                checked={extras.hasLogo}
-                onCheckedChange={v => updateExtra("hasLogo", v)}
-              />
-              <label htmlFor="hasLogo" className="text-xs font-semibold text-foreground/70 cursor-pointer">
-                三、定制 LOGO
-              </label>
+              <Switch id="hasLogo" checked={extras.hasLogo} onCheckedChange={v => updateExtra("hasLogo", v)} />
+              <label htmlFor="hasLogo" className="text-xs font-semibold text-foreground/70 cursor-pointer">三、定制 LOGO</label>
             </div>
             {extras.hasLogo && (
               <div className="pl-2">
@@ -1350,14 +1875,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             {/* 丝印 */}
             <Separator />
             <div className="flex items-center gap-3">
-              <Switch
-                id="hasSilkPrint"
-                checked={extras.hasSilkPrint}
-                onCheckedChange={v => updateExtra("hasSilkPrint", v)}
-              />
-              <label htmlFor="hasSilkPrint" className="text-xs font-semibold text-foreground/70 cursor-pointer">
-                四、定制丝印
-              </label>
+              <Switch id="hasSilkPrint" checked={extras.hasSilkPrint} onCheckedChange={v => updateExtra("hasSilkPrint", v)} />
+              <label htmlFor="hasSilkPrint" className="text-xs font-semibold text-foreground/70 cursor-pointer">四、定制丝印</label>
             </div>
             {extras.hasSilkPrint && (
               <div className="space-y-3 pl-2">
@@ -1366,7 +1885,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                   showDescription
                   description={extras.silkPrintDescription}
                   onDescriptionChange={v => updateExtra("silkPrintDescription", v)}
-                  descriptionPlaceholder="如：黑色单色丝印，正面"
+                  descriptionPlaceholder="如：单色丝印，正面"
                   quantity={extras.silkPrintQuantity}
                   unitPrice={extras.silkPrintUnitPrice}
                   amount={extras.silkPrintAmount}
@@ -1376,25 +1895,19 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                   subtotalLabel="丝印小计"
                 />
                 <div className="flex items-center gap-3">
-                  <Switch
-                    id="hasSilkPrintTemplate"
-                    checked={extras.hasSilkPrintTemplate}
-                    onCheckedChange={v => updateExtra("hasSilkPrintTemplate", v)}
-                  />
-                  <label htmlFor="hasSilkPrintTemplate" className="text-xs text-muted-foreground cursor-pointer">
-                    包含丝印定制模板费
-                  </label>
+                  <Switch id="hasSilkPrintTemplate" checked={extras.hasSilkPrintTemplate} onCheckedChange={v => updateExtra("hasSilkPrintTemplate", v)} />
+                  <label htmlFor="hasSilkPrintTemplate" className="text-xs text-muted-foreground cursor-pointer">含丝印开版费</label>
                 </div>
                 {extras.hasSilkPrintTemplate && (
                   <ExtraFeeRow
-                    label="丝印定制模板费"
+                    label="丝印开版费"
                     quantity={extras.silkPrintTemplateQuantity}
                     unitPrice={extras.silkPrintTemplateUnitPrice}
                     amount={extras.silkPrintTemplateAmount}
                     onQuantityChange={qty => updateExtraWithCalc("silkPrintTemplateQuantity", "silkPrintTemplateUnitPrice", "silkPrintTemplateAmount", qty, extras.silkPrintTemplateUnitPrice)}
                     onUnitPriceChange={price => updateExtraWithCalc("silkPrintTemplateQuantity", "silkPrintTemplateUnitPrice", "silkPrintTemplateAmount", extras.silkPrintTemplateQuantity, price)}
-                    subtotal={silkPrintTotal}
-                    subtotalLabel="丝印合计（含模板费）"
+                    subtotal={round2(extras.silkPrintAmount + extras.silkPrintTemplateAmount)}
+                    subtotalLabel="丝印合计（含开版）"
                   />
                 )}
               </div>
@@ -1403,14 +1916,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             {/* 定制颜色 */}
             <Separator />
             <div className="flex items-center gap-3">
-              <Switch
-                id="hasCustomColor"
-                checked={extras.hasCustomColor}
-                onCheckedChange={v => updateExtra("hasCustomColor", v)}
-              />
-              <label htmlFor="hasCustomColor" className="text-xs font-semibold text-foreground/70 cursor-pointer">
-                五、定制颜色
-              </label>
+              <Switch id="hasCustomColor" checked={extras.hasCustomColor} onCheckedChange={v => updateExtra("hasCustomColor", v)} />
+              <label htmlFor="hasCustomColor" className="text-xs font-semibold text-foreground/70 cursor-pointer">五、定制颜色费</label>
             </div>
             {extras.hasCustomColor && (
               <div className="pl-2">
@@ -1422,7 +1929,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                   onQuantityChange={qty => updateExtraWithCalc("customColorQuantity", "customColorUnitPrice", "customColorAmount", qty, extras.customColorUnitPrice)}
                   onUnitPriceChange={price => updateExtraWithCalc("customColorQuantity", "customColorUnitPrice", "customColorAmount", extras.customColorQuantity, price)}
                   subtotal={extras.customColorAmount}
-                  subtotalLabel="定制颜色小计"
+                  subtotalLabel="颜色费小计"
                 />
               </div>
             )}
@@ -1435,12 +1942,10 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                 <div className="flex-1 space-y-1">
                   <Label className="text-xs text-muted-foreground">运费金额（元）</Label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    min={0}
+                    type="number" step="0.01" min={0}
                     value={extras.shippingFee || ""}
                     onChange={e => updateExtra("shippingFee", parseFloat(e.target.value) || 0)}
-                    placeholder="0.00（不含运费则留空）"
+                    placeholder="0.00（无运费则留空）"
                     className="h-8 text-sm"
                   />
                 </div>
@@ -1458,12 +1963,12 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
               <p className="text-xs font-semibold text-foreground/70 mb-2">价格汇总</p>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">箱子小计</span>
+                  <span className="text-muted-foreground">产品小计</span>
                   <span>¥{boxSubtotal.toFixed(2)}</span>
                 </div>
                 {extras.hasLiner && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">内衬{extras.hasLinerTemplate ? "（含模板费）" : ""}</span>
+                    <span className="text-muted-foreground">内衬{extras.hasLinerTemplate ? "（含开模）" : ""}</span>
                     <span>¥{linerTotal.toFixed(2)}</span>
                   </div>
                 )}
@@ -1475,13 +1980,13 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                 )}
                 {extras.hasSilkPrint && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">丝印{extras.hasSilkPrintTemplate ? "（含模板费）" : ""}</span>
+                    <span className="text-muted-foreground">丝印{extras.hasSilkPrintTemplate ? "（含开版）" : ""}</span>
                     <span>¥{silkPrintTotal.toFixed(2)}</span>
                   </div>
                 )}
                 {extras.hasCustomColor && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">定制颜色</span>
+                    <span className="text-muted-foreground">定制颜色费</span>
                     <span>¥{customColorTotal.toFixed(2)}</span>
                   </div>
                 )}
@@ -1491,8 +1996,14 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                     <span>¥{shippingTotal.toFixed(2)}</span>
                   </div>
                 )}
+                {needInvoice && (
+                  <div className="flex justify-between text-amber-700">
+                    <span>增值税（×1.13）</span>
+                    <span>¥{round2(subtotalBeforeTax * (VAT_RATE - 1)).toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t-2 border-primary/30 pt-2 mt-1">
-                  <span className="font-bold text-base">最终总价{needInvoice ? "（含税）" : ""}</span>
+                  <span className="font-bold text-base">合同总价{needInvoice ? "（含税）" : ""}</span>
                   <span className="font-bold text-base text-primary">¥{finalTotalAmount.toFixed(2)}</span>
                 </div>
               </div>
@@ -1515,248 +2026,38 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           <TabsContent value="pi" className="space-y-4 mt-4">
             <PiCiFields
               buyerName={buyerName}
+              buyerAttn={buyerAttn}
+              buyerCompany={buyerCompany}
               buyerAddress={buyerAddress}
+              buyerTel={buyerTel}
+              buyerEmail={buyerEmail}
               currency={currency}
               bankChoice={bankChoice}
               incoterms={incoterms}
               portOfLoading={portOfLoading}
+              transitDays={transitDays}
               onBuyerNameChange={setBuyerName}
+              onBuyerAttnChange={setBuyerAttn}
+              onBuyerCompanyChange={setBuyerCompany}
               onBuyerAddressChange={setBuyerAddress}
+              onBuyerTelChange={setBuyerTel}
+              onBuyerEmailChange={setBuyerEmail}
               onCurrencyChange={setCurrency}
               onBankChoiceChange={setBankChoice}
               onIncotermsChange={setIncoterms}
               onPortOfLoadingChange={setPortOfLoading}
+              onTransitDaysChange={setTransitDays}
             />
 
             <Separator />
             <p className="text-xs font-semibold text-foreground/70">I. Product Details</p>
             <LineItemsTable
-              items={lineItems}
+              items={piLineItems}
               currency={currency}
-              onChange={setLineItems}
+              onChange={setPiLineItems}
             />
 
-            {/* II. Lining */}
-            <Separator />
-            <div className="flex items-center gap-3">
-              <Switch id="pi-hasLiner" checked={piExtras.hasLiner} onCheckedChange={v => updatePiExtra("hasLiner", v)} />
-              <label htmlFor="pi-hasLiner" className="text-xs font-semibold text-foreground/70 cursor-pointer">II. Lining Details</label>
-            </div>
-            {piExtras.hasLiner && (
-              <div className="space-y-3 pl-2">
-                <ExtraFeeRow
-                  label="Lining Cost"
-                  showMaterial
-                  material={piExtras.linerMaterial}
-                  materialOptions={LINER_MATERIAL_OPTIONS}
-                  onMaterialChange={v => updatePiExtra("linerMaterial", v)}
-                  showDescription
-                  description={piExtras.linerDescription}
-                  onDescriptionChange={v => updatePiExtra("linerDescription", v)}
-                  descriptionPlaceholder="e.g. Top & Bottom lining"
-                  quantity={piExtras.linerQuantity}
-                  unitPrice={piExtras.linerUnitPrice}
-                  amount={piExtras.linerAmount}
-                  onQuantityChange={qty => updatePiExtraWithCalc("linerQuantity", "linerUnitPrice", "linerAmount", qty, piExtras.linerUnitPrice)}
-                  onUnitPriceChange={price => updatePiExtraWithCalc("linerQuantity", "linerUnitPrice", "linerAmount", piExtras.linerQuantity, price)}
-                  subtotal={!piExtras.hasLinerTemplate ? piExtras.linerAmount : undefined}
-                  subtotalLabel="Lining Subtotal"
-                  currency={currency}
-                />
-                <div className="flex items-center gap-3">
-                  <Switch id="pi-hasLinerTemplate" checked={piExtras.hasLinerTemplate} onCheckedChange={v => updatePiExtra("hasLinerTemplate", v)} />
-                  <label htmlFor="pi-hasLinerTemplate" className="text-xs text-muted-foreground cursor-pointer">Include Lining Mold Fee</label>
-                </div>
-                {piExtras.hasLinerTemplate && (
-                  <ExtraFeeRow
-                    label="Lining Mold Fee"
-                    quantity={piExtras.linerTemplateQuantity}
-                    unitPrice={piExtras.linerTemplateUnitPrice}
-                    amount={piExtras.linerTemplateAmount}
-                    onQuantityChange={qty => updatePiExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", qty, piExtras.linerTemplateUnitPrice)}
-                    onUnitPriceChange={price => updatePiExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", piExtras.linerTemplateQuantity, price)}
-                    subtotal={round2(piExtras.linerAmount + piExtras.linerTemplateAmount)}
-                    subtotalLabel="Lining Total (incl. Mold)"
-                    currency={currency}
-                  />
-                )}
-              </div>
-            )}
-
-            {/* III. Custom LOGO */}
-            <Separator />
-            <div className="flex items-center gap-3">
-              <Switch id="pi-hasLogo" checked={piExtras.hasLogo} onCheckedChange={v => updatePiExtra("hasLogo", v)} />
-              <label htmlFor="pi-hasLogo" className="text-xs font-semibold text-foreground/70 cursor-pointer">III. Custom LOGO</label>
-            </div>
-            {piExtras.hasLogo && (
-              <div className="pl-2">
-                <ExtraFeeRow
-                  label="LOGO Cost"
-                  showMaterial
-                  material={piExtras.logoMaterial}
-                  materialOptions={LOGO_MATERIAL_OPTIONS}
-                  onMaterialChange={v => updatePiExtra("logoMaterial", v)}
-                  showDescription
-                  description={piExtras.logoDescription}
-                  onDescriptionChange={v => updatePiExtra("logoDescription", v)}
-                  descriptionPlaceholder="e.g. Front gold-stamped LOGO"
-                  quantity={piExtras.logoQuantity}
-                  unitPrice={piExtras.logoUnitPrice}
-                  amount={piExtras.logoAmount}
-                  onQuantityChange={qty => updatePiExtraWithCalc("logoQuantity", "logoUnitPrice", "logoAmount", qty, piExtras.logoUnitPrice)}
-                  onUnitPriceChange={price => updatePiExtraWithCalc("logoQuantity", "logoUnitPrice", "logoAmount", piExtras.logoQuantity, price)}
-                  subtotal={piExtras.logoAmount}
-                  subtotalLabel="LOGO Subtotal"
-                  currency={currency}
-                />
-              </div>
-            )}
-
-            {/* IV. Silk Print */}
-            <Separator />
-            <div className="flex items-center gap-3">
-              <Switch id="pi-hasSilkPrint" checked={piExtras.hasSilkPrint} onCheckedChange={v => updatePiExtra("hasSilkPrint", v)} />
-              <label htmlFor="pi-hasSilkPrint" className="text-xs font-semibold text-foreground/70 cursor-pointer">IV. Silk Screen Printing</label>
-            </div>
-            {piExtras.hasSilkPrint && (
-              <div className="space-y-3 pl-2">
-                <ExtraFeeRow
-                  label="Silk Print Cost"
-                  showDescription
-                  description={piExtras.silkPrintDescription}
-                  onDescriptionChange={v => updatePiExtra("silkPrintDescription", v)}
-                  descriptionPlaceholder="e.g. Single-color silk print, front"
-                  quantity={piExtras.silkPrintQuantity}
-                  unitPrice={piExtras.silkPrintUnitPrice}
-                  amount={piExtras.silkPrintAmount}
-                  onQuantityChange={qty => updatePiExtraWithCalc("silkPrintQuantity", "silkPrintUnitPrice", "silkPrintAmount", qty, piExtras.silkPrintUnitPrice)}
-                  onUnitPriceChange={price => updatePiExtraWithCalc("silkPrintQuantity", "silkPrintUnitPrice", "silkPrintAmount", piExtras.silkPrintQuantity, price)}
-                  subtotal={!piExtras.hasSilkPrintTemplate ? piExtras.silkPrintAmount : undefined}
-                  subtotalLabel="Silk Print Subtotal"
-                  currency={currency}
-                />
-                <div className="flex items-center gap-3">
-                  <Switch id="pi-hasSilkPrintTemplate" checked={piExtras.hasSilkPrintTemplate} onCheckedChange={v => updatePiExtra("hasSilkPrintTemplate", v)} />
-                  <label htmlFor="pi-hasSilkPrintTemplate" className="text-xs text-muted-foreground cursor-pointer">Include Silk Print Screen Fee</label>
-                </div>
-                {piExtras.hasSilkPrintTemplate && (
-                  <ExtraFeeRow
-                    label="Screen Fee"
-                    quantity={piExtras.silkPrintTemplateQuantity}
-                    unitPrice={piExtras.silkPrintTemplateUnitPrice}
-                    amount={piExtras.silkPrintTemplateAmount}
-                    onQuantityChange={qty => updatePiExtraWithCalc("silkPrintTemplateQuantity", "silkPrintTemplateUnitPrice", "silkPrintTemplateAmount", qty, piExtras.silkPrintTemplateUnitPrice)}
-                    onUnitPriceChange={price => updatePiExtraWithCalc("silkPrintTemplateQuantity", "silkPrintTemplateUnitPrice", "silkPrintTemplateAmount", piExtras.silkPrintTemplateQuantity, price)}
-                    subtotal={round2(piExtras.silkPrintAmount + piExtras.silkPrintTemplateAmount)}
-                    subtotalLabel="Silk Print Total (incl. Screen)"
-                    currency={currency}
-                  />
-                )}
-              </div>
-            )}
-
-            {/* V. Custom Color */}
-            <Separator />
-            <div className="flex items-center gap-3">
-              <Switch id="pi-hasCustomColor" checked={piExtras.hasCustomColor} onCheckedChange={v => updatePiExtra("hasCustomColor", v)} />
-              <label htmlFor="pi-hasCustomColor" className="text-xs font-semibold text-foreground/70 cursor-pointer">V. Custom Color</label>
-            </div>
-            {piExtras.hasCustomColor && (
-              <div className="pl-2">
-                <ExtraFeeRow
-                  label="Custom Color Fee"
-                  quantity={piExtras.customColorQuantity}
-                  unitPrice={piExtras.customColorUnitPrice}
-                  amount={piExtras.customColorAmount}
-                  onQuantityChange={qty => updatePiExtraWithCalc("customColorQuantity", "customColorUnitPrice", "customColorAmount", qty, piExtras.customColorUnitPrice)}
-                  onUnitPriceChange={price => updatePiExtraWithCalc("customColorQuantity", "customColorUnitPrice", "customColorAmount", piExtras.customColorQuantity, price)}
-                  subtotal={piExtras.customColorAmount}
-                  subtotalLabel="Color Subtotal"
-                  currency={currency}
-                />
-              </div>
-            )}
-
-            {/* VI. Shipping */}
-            <Separator />
-            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-              <p className="text-xs font-semibold text-foreground/70">VI. Shipping Fee</p>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Freight Amount ({currency})</Label>
-                  <Input
-                    type="number" step="0.01" min={0}
-                    value={piExtras.shippingFee || ""}
-                    onChange={e => updatePiExtra("shippingFee", parseFloat(e.target.value) || 0)}
-                    placeholder="0.00 (leave blank if no freight)"
-                    className="h-8 text-sm"
-                  />
-                </div>
-                {piExtras.shippingFee > 0 && (
-                  <div className="text-sm font-semibold text-foreground pt-5">
-                    {currency === "USD" ? "$" : "€"}{piExtras.shippingFee.toFixed(2)}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Price Summary */}
-            <Separator />
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
-              <p className="text-xs font-semibold text-foreground/70 mb-2">Price Summary</p>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Product Subtotal</span>
-                  <span>{currency === "USD" ? "$" : "€"}{round2(lineItems.reduce((s, i) => s + (i.amount || 0), 0)).toFixed(2)}</span>
-                </div>
-                {piExtras.hasLiner && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lining{piExtras.hasLinerTemplate ? " (incl. Mold)" : ""}</span>
-                    <span>{currency === "USD" ? "$" : "€"}{round2(piExtras.linerAmount + (piExtras.hasLinerTemplate ? piExtras.linerTemplateAmount : 0)).toFixed(2)}</span>
-                  </div>
-                )}
-                {piExtras.hasLogo && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Custom LOGO</span>
-                    <span>{currency === "USD" ? "$" : "€"}{piExtras.logoAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                {piExtras.hasSilkPrint && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Silk Print{piExtras.hasSilkPrintTemplate ? " (incl. Screen)" : ""}</span>
-                    <span>{currency === "USD" ? "$" : "€"}{round2(piExtras.silkPrintAmount + (piExtras.hasSilkPrintTemplate ? piExtras.silkPrintTemplateAmount : 0)).toFixed(2)}</span>
-                  </div>
-                )}
-                {piExtras.hasCustomColor && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Custom Color</span>
-                    <span>{currency === "USD" ? "$" : "€"}{piExtras.customColorAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                {piExtras.shippingFee > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shipping Fee</span>
-                    <span>{currency === "USD" ? "$" : "€"}{piExtras.shippingFee.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t-2 border-primary/30 pt-2 mt-1">
-                  <span className="font-bold text-base">Grand Total</span>
-                  <span className="font-bold text-base text-primary">{currency === "USD" ? "$" : "€"}{piCiTotalAmount.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-            <p className="text-xs font-semibold text-foreground/70">Payment Terms</p>
-            <PaymentTerms
-              depositPct={depositPct}
-              balancePct={balancePct}
-              totalAmount={piCiTotalAmount}
-              currency={currency}
-              onDepositChange={setDepositPct}
-              onBalanceChange={setBalancePct}
-            />
+            {renderPiExtras("pi")}
           </TabsContent>
 
           {/* ─── CI ─── */}
@@ -1793,270 +2094,50 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
             <PiCiFields
               buyerName={buyerName}
+              buyerAttn={buyerAttn}
+              buyerCompany={buyerCompany}
               buyerAddress={buyerAddress}
+              buyerTel={buyerTel}
+              buyerEmail={buyerEmail}
               currency={currency}
               bankChoice={bankChoice}
               incoterms={incoterms}
               portOfLoading={portOfLoading}
+              transitDays={transitDays}
               onBuyerNameChange={setBuyerName}
+              onBuyerAttnChange={setBuyerAttn}
+              onBuyerCompanyChange={setBuyerCompany}
               onBuyerAddressChange={setBuyerAddress}
+              onBuyerTelChange={setBuyerTel}
+              onBuyerEmailChange={setBuyerEmail}
               onCurrencyChange={setCurrency}
               onBankChoiceChange={setBankChoice}
               onIncotermsChange={setIncoterms}
               onPortOfLoadingChange={setPortOfLoading}
+              onTransitDaysChange={setTransitDays}
             />
 
             <Separator />
             <p className="text-xs font-semibold text-foreground/70">I. Product Details (Actual Shipped Qty &amp; Price)</p>
             <LineItemsTable
-              items={lineItems}
+              items={piLineItems}
               currency={currency}
-              onChange={setLineItems}
+              onChange={setPiLineItems}
             />
 
-            {/* II. Lining */}
-            <Separator />
-            <div className="flex items-center gap-3">
-              <Switch id="ci-hasLiner" checked={piExtras.hasLiner} onCheckedChange={v => updatePiExtra("hasLiner", v)} />
-              <label htmlFor="ci-hasLiner" className="text-xs font-semibold text-foreground/70 cursor-pointer">II. Lining Details</label>
-            </div>
-            {piExtras.hasLiner && (
-              <div className="space-y-3 pl-2">
-                <ExtraFeeRow
-                  label="Lining Cost"
-                  showMaterial
-                  material={piExtras.linerMaterial}
-                  materialOptions={LINER_MATERIAL_OPTIONS}
-                  onMaterialChange={v => updatePiExtra("linerMaterial", v)}
-                  showDescription
-                  description={piExtras.linerDescription}
-                  onDescriptionChange={v => updatePiExtra("linerDescription", v)}
-                  descriptionPlaceholder="e.g. Top & Bottom lining"
-                  quantity={piExtras.linerQuantity}
-                  unitPrice={piExtras.linerUnitPrice}
-                  amount={piExtras.linerAmount}
-                  onQuantityChange={qty => updatePiExtraWithCalc("linerQuantity", "linerUnitPrice", "linerAmount", qty, piExtras.linerUnitPrice)}
-                  onUnitPriceChange={price => updatePiExtraWithCalc("linerQuantity", "linerUnitPrice", "linerAmount", piExtras.linerQuantity, price)}
-                  subtotal={!piExtras.hasLinerTemplate ? piExtras.linerAmount : undefined}
-                  subtotalLabel="Lining Subtotal"
-                  currency={currency}
-                />
-                <div className="flex items-center gap-3">
-                  <Switch id="ci-hasLinerTemplate" checked={piExtras.hasLinerTemplate} onCheckedChange={v => updatePiExtra("hasLinerTemplate", v)} />
-                  <label htmlFor="ci-hasLinerTemplate" className="text-xs text-muted-foreground cursor-pointer">Include Lining Mold Fee</label>
-                </div>
-                {piExtras.hasLinerTemplate && (
-                  <ExtraFeeRow
-                    label="Lining Mold Fee"
-                    quantity={piExtras.linerTemplateQuantity}
-                    unitPrice={piExtras.linerTemplateUnitPrice}
-                    amount={piExtras.linerTemplateAmount}
-                    onQuantityChange={qty => updatePiExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", qty, piExtras.linerTemplateUnitPrice)}
-                    onUnitPriceChange={price => updatePiExtraWithCalc("linerTemplateQuantity", "linerTemplateUnitPrice", "linerTemplateAmount", piExtras.linerTemplateQuantity, price)}
-                    subtotal={round2(piExtras.linerAmount + piExtras.linerTemplateAmount)}
-                    subtotalLabel="Lining Total (incl. Mold)"
-                    currency={currency}
-                  />
-                )}
-              </div>
-            )}
-
-            {/* III. Custom LOGO */}
-            <Separator />
-            <div className="flex items-center gap-3">
-              <Switch id="ci-hasLogo" checked={piExtras.hasLogo} onCheckedChange={v => updatePiExtra("hasLogo", v)} />
-              <label htmlFor="ci-hasLogo" className="text-xs font-semibold text-foreground/70 cursor-pointer">III. Custom LOGO</label>
-            </div>
-            {piExtras.hasLogo && (
-              <div className="pl-2">
-                <ExtraFeeRow
-                  label="LOGO Cost"
-                  showMaterial
-                  material={piExtras.logoMaterial}
-                  materialOptions={LOGO_MATERIAL_OPTIONS}
-                  onMaterialChange={v => updatePiExtra("logoMaterial", v)}
-                  showDescription
-                  description={piExtras.logoDescription}
-                  onDescriptionChange={v => updatePiExtra("logoDescription", v)}
-                  descriptionPlaceholder="e.g. Front gold-stamped LOGO"
-                  quantity={piExtras.logoQuantity}
-                  unitPrice={piExtras.logoUnitPrice}
-                  amount={piExtras.logoAmount}
-                  onQuantityChange={qty => updatePiExtraWithCalc("logoQuantity", "logoUnitPrice", "logoAmount", qty, piExtras.logoUnitPrice)}
-                  onUnitPriceChange={price => updatePiExtraWithCalc("logoQuantity", "logoUnitPrice", "logoAmount", piExtras.logoQuantity, price)}
-                  subtotal={piExtras.logoAmount}
-                  subtotalLabel="LOGO Subtotal"
-                  currency={currency}
-                />
-              </div>
-            )}
-
-            {/* IV. Silk Print */}
-            <Separator />
-            <div className="flex items-center gap-3">
-              <Switch id="ci-hasSilkPrint" checked={piExtras.hasSilkPrint} onCheckedChange={v => updatePiExtra("hasSilkPrint", v)} />
-              <label htmlFor="ci-hasSilkPrint" className="text-xs font-semibold text-foreground/70 cursor-pointer">IV. Silk Screen Printing</label>
-            </div>
-            {piExtras.hasSilkPrint && (
-              <div className="space-y-3 pl-2">
-                <ExtraFeeRow
-                  label="Silk Print Cost"
-                  showDescription
-                  description={piExtras.silkPrintDescription}
-                  onDescriptionChange={v => updatePiExtra("silkPrintDescription", v)}
-                  descriptionPlaceholder="e.g. Single-color silk print, front"
-                  quantity={piExtras.silkPrintQuantity}
-                  unitPrice={piExtras.silkPrintUnitPrice}
-                  amount={piExtras.silkPrintAmount}
-                  onQuantityChange={qty => updatePiExtraWithCalc("silkPrintQuantity", "silkPrintUnitPrice", "silkPrintAmount", qty, piExtras.silkPrintUnitPrice)}
-                  onUnitPriceChange={price => updatePiExtraWithCalc("silkPrintQuantity", "silkPrintUnitPrice", "silkPrintAmount", piExtras.silkPrintQuantity, price)}
-                  subtotal={!piExtras.hasSilkPrintTemplate ? piExtras.silkPrintAmount : undefined}
-                  subtotalLabel="Silk Print Subtotal"
-                  currency={currency}
-                />
-                <div className="flex items-center gap-3">
-                  <Switch id="ci-hasSilkPrintTemplate" checked={piExtras.hasSilkPrintTemplate} onCheckedChange={v => updatePiExtra("hasSilkPrintTemplate", v)} />
-                  <label htmlFor="ci-hasSilkPrintTemplate" className="text-xs text-muted-foreground cursor-pointer">Include Silk Print Screen Fee</label>
-                </div>
-                {piExtras.hasSilkPrintTemplate && (
-                  <ExtraFeeRow
-                    label="Screen Fee"
-                    quantity={piExtras.silkPrintTemplateQuantity}
-                    unitPrice={piExtras.silkPrintTemplateUnitPrice}
-                    amount={piExtras.silkPrintTemplateAmount}
-                    onQuantityChange={qty => updatePiExtraWithCalc("silkPrintTemplateQuantity", "silkPrintTemplateUnitPrice", "silkPrintTemplateAmount", qty, piExtras.silkPrintTemplateUnitPrice)}
-                    onUnitPriceChange={price => updatePiExtraWithCalc("silkPrintTemplateQuantity", "silkPrintTemplateUnitPrice", "silkPrintTemplateAmount", piExtras.silkPrintTemplateQuantity, price)}
-                    subtotal={round2(piExtras.silkPrintAmount + piExtras.silkPrintTemplateAmount)}
-                    subtotalLabel="Silk Print Total (incl. Screen)"
-                    currency={currency}
-                  />
-                )}
-              </div>
-            )}
-
-            {/* V. Custom Color */}
-            <Separator />
-            <div className="flex items-center gap-3">
-              <Switch id="ci-hasCustomColor" checked={piExtras.hasCustomColor} onCheckedChange={v => updatePiExtra("hasCustomColor", v)} />
-              <label htmlFor="ci-hasCustomColor" className="text-xs font-semibold text-foreground/70 cursor-pointer">V. Custom Color</label>
-            </div>
-            {piExtras.hasCustomColor && (
-              <div className="pl-2">
-                <ExtraFeeRow
-                  label="Custom Color Fee"
-                  quantity={piExtras.customColorQuantity}
-                  unitPrice={piExtras.customColorUnitPrice}
-                  amount={piExtras.customColorAmount}
-                  onQuantityChange={qty => updatePiExtraWithCalc("customColorQuantity", "customColorUnitPrice", "customColorAmount", qty, piExtras.customColorUnitPrice)}
-                  onUnitPriceChange={price => updatePiExtraWithCalc("customColorQuantity", "customColorUnitPrice", "customColorAmount", piExtras.customColorQuantity, price)}
-                  subtotal={piExtras.customColorAmount}
-                  subtotalLabel="Color Subtotal"
-                  currency={currency}
-                />
-              </div>
-            )}
-
-            {/* VI. Shipping */}
-            <Separator />
-            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-              <p className="text-xs font-semibold text-foreground/70">VI. Shipping Fee</p>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Freight Amount ({currency})</Label>
-                  <Input
-                    type="number" step="0.01" min={0}
-                    value={piExtras.shippingFee || ""}
-                    onChange={e => updatePiExtra("shippingFee", parseFloat(e.target.value) || 0)}
-                    placeholder="0.00 (leave blank if no freight)"
-                    className="h-8 text-sm"
-                  />
-                </div>
-                {piExtras.shippingFee > 0 && (
-                  <div className="text-sm font-semibold text-foreground pt-5">
-                    {currency === "USD" ? "$" : "€"}{piExtras.shippingFee.toFixed(2)}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Price Summary */}
-            <Separator />
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
-              <p className="text-xs font-semibold text-foreground/70 mb-2">Price Summary</p>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Product Subtotal</span>
-                  <span>{currency === "USD" ? "$" : "€"}{round2(lineItems.reduce((s, i) => s + (i.amount || 0), 0)).toFixed(2)}</span>
-                </div>
-                {piExtras.hasLiner && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lining{piExtras.hasLinerTemplate ? " (incl. Mold)" : ""}</span>
-                    <span>{currency === "USD" ? "$" : "€"}{round2(piExtras.linerAmount + (piExtras.hasLinerTemplate ? piExtras.linerTemplateAmount : 0)).toFixed(2)}</span>
-                  </div>
-                )}
-                {piExtras.hasLogo && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Custom LOGO</span>
-                    <span>{currency === "USD" ? "$" : "€"}{piExtras.logoAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                {piExtras.hasSilkPrint && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Silk Print{piExtras.hasSilkPrintTemplate ? " (incl. Screen)" : ""}</span>
-                    <span>{currency === "USD" ? "$" : "€"}{round2(piExtras.silkPrintAmount + (piExtras.hasSilkPrintTemplate ? piExtras.silkPrintTemplateAmount : 0)).toFixed(2)}</span>
-                  </div>
-                )}
-                {piExtras.hasCustomColor && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Custom Color</span>
-                    <span>{currency === "USD" ? "$" : "€"}{piExtras.customColorAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                {piExtras.shippingFee > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shipping Fee</span>
-                    <span>{currency === "USD" ? "$" : "€"}{piExtras.shippingFee.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t-2 border-primary/30 pt-2 mt-1">
-                  <span className="font-bold text-base">Grand Total</span>
-                  <span className="font-bold text-base text-primary">{currency === "USD" ? "$" : "€"}{piCiTotalAmount.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-            <p className="text-xs font-semibold text-foreground/70">Payment Terms</p>
-            <PaymentTerms
-              depositPct={depositPct}
-              balancePct={balancePct}
-              totalAmount={piCiTotalAmount}
-              currency={currency}
-              onDepositChange={setDepositPct}
-              onBalanceChange={setBalancePct}
-            />
+            {renderPiExtras("ci")}
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="gap-2 pt-2">
+        <DialogFooter className="mt-4 flex items-center gap-3">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             取消
           </Button>
-          <Button
-            onClick={handleGenerate}
-            disabled={isLoading || !isPaymentValid}
-            className="gap-2"
-          >
+          <Button onClick={handleGenerate} disabled={isLoading} className="gap-2">
             {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                生成中...
-              </>
+              <><Loader2 className="w-4 h-4 animate-spin" />生成中...</>
             ) : (
-              <>
-                <Download className="w-4 h-4" />
-                生成 PDF 并下载
-              </>
+              <><Download className="w-4 h-4" />生成 PDF</>
             )}
           </Button>
         </DialogFooter>

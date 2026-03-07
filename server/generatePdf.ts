@@ -96,7 +96,11 @@ export interface PiCiExtras {
   customColorQuantity: number;
   customColorUnitPrice: number;
   customColorAmount: number;
-  shippingFee: number;
+  // 运费拆分（PI/CI 专用）
+  domesticFreight: number;
+  internationalFreightType?: string;  // "air" | "sea" | ""
+  internationalFreight: number;
+  freightDescription?: string;
 }
 
 export interface PiCiData {
@@ -104,8 +108,13 @@ export interface PiCiData {
   docNo: string;
   docDate: string;
   deliveryDate: string;
-  buyerName: string;
-  buyerAddress?: string;
+  buyerName: string;          // Contact name (TO)
+  buyerAttn?: string;          // Attn
+  buyerCompany?: string;       // Company name
+  buyerAddress?: string;       // Address
+  buyerTel?: string;           // Tel
+  buyerEmail?: string;         // Email
+  transitDays?: string;        // Estimated transit days
   lineItems: LineItem[];
   totalAmount: number;
   currency: string;
@@ -462,10 +471,10 @@ function buildContractCnHtml(data: ContractCnData): string {
 function buildPiCiHtml(data: PiCiData): string {
   const {
     docType, docNo, docDate, deliveryDate,
-    buyerName, buyerAddress,
+    buyerName, buyerAttn, buyerCompany, buyerAddress, buyerTel, buyerEmail,
     lineItems, totalAmount, currency,
     depositPct, balancePct,
-    incoterms, portOfLoading, bankChoice,
+    incoterms, portOfLoading, transitDays, bankChoice,
     extras
   } = data;
 
@@ -516,8 +525,12 @@ function buildPiCiHtml(data: PiCiData): string {
     if (extras.hasCustomColor && extras.customColorAmount > 0) {
       extraRows.push(`<tr><td colspan="3" style="text-align:left">Custom Color Fee</td><td>${extras.customColorQuantity}</td><td>${extras.customColorUnitPrice > 0 ? currencySymbol + extras.customColorUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.customColorAmount.toFixed(2)}</td></tr>`);
     }
-    if (extras.shippingFee > 0) {
-      extraRows.push(`<tr><td colspan="5" style="text-align:left">Shipping &amp; Freight</td><td>${currencySymbol}${extras.shippingFee.toFixed(2)}</td></tr>`);
+    if (extras.domesticFreight > 0) {
+      extraRows.push(`<tr><td colspan="5" style="text-align:left">Domestic Freight (China Inland)</td><td>${currencySymbol}${extras.domesticFreight.toFixed(2)}</td></tr>`);
+    }
+    if (extras.internationalFreight > 0) {
+      const freightMode = extras.internationalFreightType === "air" ? " (Air Freight)" : extras.internationalFreightType === "sea" ? " (Sea Freight)" : "";
+      extraRows.push(`<tr><td colspan="5" style="text-align:left">International Freight${freightMode}</td><td>${currencySymbol}${extras.internationalFreight.toFixed(2)}</td></tr>`);
     }
   }
 
@@ -591,18 +604,23 @@ function buildPiCiHtml(data: PiCiData): string {
     <p>Email: ${ENV.companyContactEmail}</p>
   </div>
   <div class="info-block">
-    <h3>Buyer</h3>
+    <h3>TO (Buyer)</h3>
     <p><strong>${buyerName}</strong></p>
-    ${buyerAddress ? `<p>${buyerAddress}</p>` : ""}
+    ${buyerAttn ? `<p>Attn: ${buyerAttn}</p>` : ""}
+    ${buyerCompany ? `<p>Company: ${buyerCompany}</p>` : ""}
+    ${buyerAddress ? `<p>Add: ${buyerAddress}</p>` : ""}
+    ${buyerTel ? `<p>Tel: ${buyerTel}</p>` : ""}
+    ${buyerEmail ? `<p>Email: ${buyerEmail}</p>` : ""}
   </div>
   <div class="info-block">
     <h3>Invoice Date</h3>
     <p>${docDate}</p>
   </div>
   <div class="info-block">
-    <h3>Delivery Date</h3>
-    <p>${deliveryDate}</p>
-    ${incoterms ? `<p>Terms: ${incoterms}${portOfLoading ? " " + portOfLoading : ""}</p>` : ""}
+    <h3>Shipment Terms</h3>
+    ${incoterms ? `<p>Incoterms: ${incoterms}${portOfLoading ? ", " + portOfLoading : ""}</p>` : ""}
+    ${transitDays ? `<p>Est. Transit: ${transitDays}</p>` : ""}
+    ${extras?.freightDescription ? `<p>Logistics: ${extras.freightDescription}</p>` : ""}
   </div>
 </div>
 
@@ -653,7 +671,7 @@ function buildPiCiHtml(data: PiCiData): string {
     </div>
   </div>
   <div class="sign-block">
-    <h4>Buyer: ${buyerName}</h4>
+    <h4>Buyer: ${buyerCompany || buyerName}</h4>
     <div class="sign-line"></div>
     <div class="sign-label">Authorized Signature &amp; Date</div>
     <div class="date-row">

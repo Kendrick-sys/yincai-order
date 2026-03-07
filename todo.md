@@ -327,3 +327,14 @@
 - [x] generatePdf.ts：PI/CI HTML 模板同步附加明细行
 - [x] routers.ts：generatePiCi tRPC schema 同步 piExtras 字段
 - [x] TypeScript 0 错误，10 个测试全部通过
+
+## 新功能（第四十二批）
+
+- [x] PI/CI：新增 Buyer 信息区块（联系人/公司名/地址/电话/邮箱），打印时对应 TO 区域
+- [x] PI/CI：去掉到达日期，改为「预计运输天数」（Estimated Transit Days）
+- [x] PI/CI：打印输出全部纯英文，无中文
+- [x] PI/CI：产品名称改为下拉选择（Plastic Case / Other-手动输入）
+- [x] PI/CI：运费拆分为国内运输费（Domestic Freight）+ 国外运输费（International Freight，含空运/海运选项 + 物流描述）
+- [x] generatePdf.ts：PI/CI HTML 模板同步 Buyer 信息区块、运输天数、产品名称、运费拆分（纯英文）
+- [x] routers.ts：PI/CI tRPC schema 同步所有新字段
+- [x] TypeScript 0 错误，测试全部通过，数学算法验证
