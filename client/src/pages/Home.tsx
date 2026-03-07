@@ -8,7 +8,7 @@ import {
   ClipboardList, Package, CheckCircle2, XCircle,
   Clock, Factory, ChevronRight, Copy, Printer,
   Users, Trash, Eye, ArrowUpDown, ArrowUp, ArrowDown,
-  CalendarRange, Loader2, X, AlertTriangle, MessageSquare
+  CalendarRange, Loader2, X, AlertTriangle, MessageSquare, Settings
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useState, useEffect, useMemo } from "react";
@@ -361,6 +361,12 @@ export default function Home() {
               <Button variant="outline" size="sm" className="gap-1.5 text-gray-500 border-gray-200 hover:text-[#1A3C5E] hover:border-[#1A3C5E]/30">
                 <Users className="w-3.5 h-3.5" />
                 客户管理
+              </Button>
+            </Link>
+            <Link href="/settings">
+              <Button variant="outline" size="sm" className="gap-1.5 text-gray-500 border-gray-200 hover:text-[#1A3C5E] hover:border-[#1A3C5E]/30">
+                <Settings className="w-3.5 h-3.5" />
+                系统设置
               </Button>
             </Link>
             <Button onClick={() => navigate("/order/new")} className="bg-[#1A3C5E] hover:bg-[#15304d] gap-2">

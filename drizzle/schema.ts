@@ -164,9 +164,24 @@ export const documents = mysqlTable("documents", {
   pdfUrl:         text("pdfUrl"),                                    // 生成的PDF下载URL
   pdfKey:         varchar("pdfKey", { length: 512 }),                // S3 key
 
+  // 状态
+  status: mysqlEnum("status", ["active", "voided"]).default("active").notNull(), // active=有效, voided=已作废
+
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type Document = typeof documents.$inferSelect;
 export type InsertDocument = typeof documents.$inferInsert;
+
+// ─── 系统设置表 ────────────────────────────────────────────────────────────────
+export const settings = mysqlTable("settings", {
+  id:    int("id").autoincrement().primaryKey(),
+  key:   varchar("key", { length: 128 }).notNull().unique(),  // 设置键名
+  value: text("value").notNull(),                             // 设置值（JSON字符串）
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Setting = typeof settings.$inferSelect;
+export type InsertSetting = typeof settings.$inferInsert;

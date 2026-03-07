@@ -7,7 +7,19 @@ import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, ExternalLink, Clock } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { FileText, ExternalLink, Clock, Ban } from "lucide-react";
+import { toast } from "sonner";
 
 interface Props {
   orderId: number;
@@ -20,7 +32,18 @@ const DOC_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function DocumentHistory({ orderId }: Props) {
+  const utils = trpc.useUtils();
   const { data: docs, isLoading } = trpc.documents.listByOrder.useQuery({ orderId });
+
+  const voidMutation = trpc.documents.void.useMutation({
+    onSuccess: () => {
+      toast.success("单据已作废");
+      utils.documents.listByOrder.invalidate({ orderId });
+    },
+    onError: (err) => {
+      toast.error(`作废失败：${err.message}`);
+    },
+  });
 
   if (isLoading) {
     return (
@@ -45,6 +68,7 @@ export default function DocumentHistory({ orderId }: Props) {
     <div className="space-y-2">
       {docs.map((doc) => {
         const typeInfo = DOC_TYPE_LABELS[doc.docType] ?? { label: doc.docType, color: "" };
+        const isVoided = doc.status === "voided";
         const createdAt = new Date(doc.createdAt).toLocaleString("zh-CN", {
           year: "numeric", month: "2-digit", day: "2-digit",
           hour: "2-digit", minute: "2-digit",
@@ -53,20 +77,31 @@ export default function DocumentHistory({ orderId }: Props) {
         return (
           <div
             key={doc.id}
-            className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors"
+            className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
+              isVoided
+                ? "border-border bg-muted/20 opacity-60"
+                : "border-border bg-card hover:bg-muted/30"
+            }`}
           >
             <div className="flex items-center gap-3 min-w-0">
-              <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <FileText className={`w-4 h-4 flex-shrink-0 ${isVoided ? "text-muted-foreground/50" : "text-muted-foreground"}`} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-foreground">{doc.docNo}</span>
+                  <span className={`text-sm font-medium ${isVoided ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                    {doc.docNo}
+                  </span>
                   <Badge
                     variant="outline"
-                    className={`text-xs px-1.5 py-0 ${typeInfo.color}`}
+                    className={`text-xs px-1.5 py-0 ${isVoided ? "opacity-50" : typeInfo.color}`}
                   >
                     {typeInfo.label}
                   </Badge>
-                  {doc.currency && doc.currency !== "CNY" && (
+                  {isVoided && (
+                    <Badge variant="outline" className="text-xs px-1.5 py-0 bg-red-50 text-red-500 border-red-200">
+                      已作废
+                    </Badge>
+                  )}
+                  {!isVoided && doc.currency && doc.currency !== "CNY" && (
                     <Badge variant="outline" className="text-xs px-1.5 py-0">
                       {doc.currency}
                     </Badge>
@@ -89,17 +124,51 @@ export default function DocumentHistory({ orderId }: Props) {
                 </div>
               </div>
             </div>
-            {doc.pdfUrl && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-shrink-0 gap-1.5 text-xs h-7"
-                onClick={() => window.open(doc.pdfUrl!, "_blank")}
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                下载 PDF
-              </Button>
-            )}
+
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {doc.pdfUrl && !isVoided && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs h-7"
+                  onClick={() => window.open(doc.pdfUrl!, "_blank")}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  下载
+                </Button>
+              )}
+              {!isVoided && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs h-7 text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 bg-transparent"
+                    >
+                      <Ban className="w-3.5 h-3.5" />
+                      作废
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>确认作废单据？</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        单据 <strong>{doc.docNo}</strong> 将被标记为「已作废」，无法再下载或使用。此操作不可撤销。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>取消</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-red-500 hover:bg-red-600 text-white"
+                        onClick={() => voidMutation.mutate({ id: doc.id })}
+                      >
+                        确认作废
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </div>
         );
       })}

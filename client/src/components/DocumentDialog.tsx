@@ -2,6 +2,7 @@
  * DocumentDialog.tsx
  * 生成单据弹窗：国内采购合同（中文）/ PI / CI（英文）
  * 从订单数据自动填充，用户补充单价、付款比例等字段后一键生成 PDF
+ * CI Tab 支持「从PI创建」：选择已有PI单据自动填充数据
  */
 
 import { useState, useEffect } from "react";
@@ -19,7 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileText, Download, AlertCircle } from "lucide-react";
+import { Loader2, FileText, Download, AlertCircle, Copy } from "lucide-react";
 
 // ─── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -256,6 +257,107 @@ function PaymentTerms({
   );
 }
 
+// ─── PI/CI 共用字段组件 ────────────────────────────────────────────────────────
+
+function PiCiFields({
+  buyerName,
+  buyerAddress,
+  currency,
+  bankChoice,
+  incoterms,
+  portOfLoading,
+  onBuyerNameChange,
+  onBuyerAddressChange,
+  onCurrencyChange,
+  onBankChoiceChange,
+  onIncotermsChange,
+  onPortOfLoadingChange,
+}: {
+  buyerName: string;
+  buyerAddress: string;
+  currency: "USD" | "EUR";
+  bankChoice: "icbc" | "citi";
+  incoterms: string;
+  portOfLoading: string;
+  onBuyerNameChange: (v: string) => void;
+  onBuyerAddressChange: (v: string) => void;
+  onCurrencyChange: (v: "USD" | "EUR") => void;
+  onBankChoiceChange: (v: "icbc" | "citi") => void;
+  onIncotermsChange: (v: string) => void;
+  onPortOfLoadingChange: (v: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-1.5">
+        <Label className="text-xs">Buyer Name <span className="text-destructive ml-1">*</span></Label>
+        <Input
+          value={buyerName}
+          onChange={e => onBuyerNameChange(e.target.value)}
+          placeholder="Customer / Company Name"
+          className="h-8 text-sm"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Buyer Address</Label>
+        <Input
+          value={buyerAddress}
+          onChange={e => onBuyerAddressChange(e.target.value)}
+          placeholder="Optional"
+          className="h-8 text-sm"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Currency</Label>
+        <Select value={currency} onValueChange={v => onCurrencyChange(v as "USD" | "EUR")}>
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="USD">USD（美元）</SelectItem>
+            <SelectItem value="EUR">EUR（欧元）</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Bank Account</Label>
+        <Select value={bankChoice} onValueChange={v => onBankChoiceChange(v as "icbc" | "citi")}>
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="icbc">工商银行（ICBC）</SelectItem>
+            <SelectItem value="citi">花旗银行（Citibank，阿里巴巴收汇）</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Incoterms</Label>
+        <Select value={incoterms} onValueChange={onIncotermsChange}>
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="FOB">FOB</SelectItem>
+            <SelectItem value="CIF">CIF</SelectItem>
+            <SelectItem value="EXW">EXW</SelectItem>
+            <SelectItem value="DDP">DDP</SelectItem>
+            <SelectItem value="CFR">CFR</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Port of Loading</Label>
+        <Input
+          value={portOfLoading}
+          onChange={e => onPortOfLoadingChange(e.target.value)}
+          placeholder="e.g. Shenzhen"
+          className="h-8 text-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─── 主组件 ────────────────────────────────────────────────────────────────────
 
 export default function DocumentDialog({ open, onClose, order }: Props) {
@@ -281,17 +383,73 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   const [depositPct, setDepositPct] = useState(30);
   const [balancePct, setBalancePct] = useState(70);
 
+  // CI 从 PI 创建
+  const [selectedPiId, setSelectedPiId] = useState<string>("");
+
+  // 查询订单下的有效 PI 列表（仅在 CI Tab 激活时查询）
+  const { data: activePiList } = trpc.documents.getActivePi.useQuery(
+    { orderId: order.id },
+    { enabled: open && activeTab === "ci" }
+  );
+
   // 初始化行项目
   useEffect(() => {
     if (open) {
       setLineItems(buildInitialLineItems(order.models ?? []));
       setBuyerName(order.customer ?? "");
       setActiveTab(defaultTab);
+      setSelectedPiId("");
     }
   }, [open, order]);
 
+  // 切换到 CI Tab 时重置 PI 选择
+  useEffect(() => {
+    if (activeTab !== "ci") {
+      setSelectedPiId("");
+    }
+  }, [activeTab]);
+
   const totalAmount = lineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
   const isPaymentValid = depositPct + balancePct === 100;
+
+  // 从选中的 PI 单据填充 CI 数据
+  const handleLoadFromPi = (piId: string) => {
+    setSelectedPiId(piId);
+    if (!piId || !activePiList) return;
+    const pi = activePiList.find(p => String(p.id) === piId);
+    if (!pi) return;
+
+    // 填充买方信息
+    if (pi.counterpartyName) setBuyerName(pi.counterpartyName);
+    if (pi.counterpartyAddress) setBuyerAddress(pi.counterpartyAddress);
+    if (pi.currency && (pi.currency === "USD" || pi.currency === "EUR")) {
+      setCurrency(pi.currency as "USD" | "EUR");
+    }
+    if (pi.bankChoice) setBankChoice(pi.bankChoice as "icbc" | "citi");
+    if (pi.incoterms) setIncoterms(pi.incoterms);
+    if (pi.portOfLoading) setPortOfLoading(pi.portOfLoading);
+    if (pi.depositPct) setDepositPct(pi.depositPct);
+    if (pi.balancePct) setBalancePct(pi.balancePct);
+
+    // 填充行项目
+    try {
+      const piItems = JSON.parse(pi.lineItems ?? "[]");
+      if (Array.isArray(piItems) && piItems.length > 0) {
+        setLineItems(piItems.map((item: any) => ({
+          modelName: item.modelName ?? "",
+          material: item.material ?? "",
+          spec: item.spec ?? "",
+          quantity: Number(item.quantity) || 0,
+          unitPrice: Number(item.unitPrice) || 0,
+          amount: Number(item.amount) || 0,
+        })));
+      }
+    } catch {
+      // ignore parse error
+    }
+
+    toast.success(`已从 PI ${pi.docNo} 填充数据`);
+  };
 
   // Mutations
   const generateContractMutation = trpc.documents.generateContractCn.useMutation({
@@ -372,6 +530,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         portOfLoading: portOfLoading || undefined,
         bankChoice,
         deliveryDate: order.deliveryDate ?? undefined,
+        piDocId: selectedPiId ? Number(selectedPiId) : undefined,
       });
     }
   };
@@ -443,74 +602,20 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
           {/* ─── PI ─── */}
           <TabsContent value="pi" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Buyer Name <span className="text-destructive ml-1">*</span></Label>
-                <Input
-                  value={buyerName}
-                  onChange={e => setBuyerName(e.target.value)}
-                  placeholder="Customer / Company Name"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Buyer Address</Label>
-                <Input
-                  value={buyerAddress}
-                  onChange={e => setBuyerAddress(e.target.value)}
-                  placeholder="Optional"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Currency</Label>
-                <Select value={currency} onValueChange={v => setCurrency(v as "USD" | "EUR")}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD（美元）</SelectItem>
-                    <SelectItem value="EUR">EUR（欧元）</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Bank Account</Label>
-                <Select value={bankChoice} onValueChange={v => setBankChoice(v as "icbc" | "citi")}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="icbc">工商银行（ICBC）</SelectItem>
-                    <SelectItem value="citi">花旗银行（Citibank，阿里巴巴收汇）</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Incoterms</Label>
-                <Select value={incoterms} onValueChange={setIncoterms}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FOB">FOB</SelectItem>
-                    <SelectItem value="CIF">CIF</SelectItem>
-                    <SelectItem value="EXW">EXW</SelectItem>
-                    <SelectItem value="DDP">DDP</SelectItem>
-                    <SelectItem value="CFR">CFR</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Port of Loading</Label>
-                <Input
-                  value={portOfLoading}
-                  onChange={e => setPortOfLoading(e.target.value)}
-                  placeholder="e.g. Shenzhen"
-                  className="h-8 text-sm"
-                />
-              </div>
-            </div>
+            <PiCiFields
+              buyerName={buyerName}
+              buyerAddress={buyerAddress}
+              currency={currency}
+              bankChoice={bankChoice}
+              incoterms={incoterms}
+              portOfLoading={portOfLoading}
+              onBuyerNameChange={setBuyerName}
+              onBuyerAddressChange={setBuyerAddress}
+              onCurrencyChange={setCurrency}
+              onBankChoiceChange={setBankChoice}
+              onIncotermsChange={setIncoterms}
+              onPortOfLoadingChange={setPortOfLoading}
+            />
 
             <Separator />
             <p className="text-xs font-semibold text-foreground/70">Product Details（请填写单价）</p>
@@ -534,74 +639,50 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
           {/* ─── CI ─── */}
           <TabsContent value="ci" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Buyer Name <span className="text-destructive ml-1">*</span></Label>
-                <Input
-                  value={buyerName}
-                  onChange={e => setBuyerName(e.target.value)}
-                  placeholder="Customer / Company Name"
-                  className="h-8 text-sm"
-                />
+            {/* 从 PI 创建 */}
+            {activePiList && activePiList.length > 0 && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                <Copy className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-blue-700 mb-1.5">从已有 PI 创建</p>
+                  <Select value={selectedPiId} onValueChange={handleLoadFromPi}>
+                    <SelectTrigger className="h-8 text-xs bg-white border-blue-200">
+                      <SelectValue placeholder="选择 PI 单据自动填充数据..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activePiList.map(pi => (
+                        <SelectItem key={pi.id} value={String(pi.id)}>
+                          <span className="font-medium">{pi.docNo}</span>
+                          {pi.counterpartyName && (
+                            <span className="text-muted-foreground ml-2">· {pi.counterpartyName}</span>
+                          )}
+                          {pi.totalAmount && (
+                            <span className="text-muted-foreground ml-2">
+                              · {pi.currency === "USD" ? "$" : "€"}{parseFloat(pi.totalAmount).toFixed(2)}
+                            </span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Buyer Address</Label>
-                <Input
-                  value={buyerAddress}
-                  onChange={e => setBuyerAddress(e.target.value)}
-                  placeholder="Optional"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Currency</Label>
-                <Select value={currency} onValueChange={v => setCurrency(v as "USD" | "EUR")}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD（美元）</SelectItem>
-                    <SelectItem value="EUR">EUR（欧元）</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Bank Account</Label>
-                <Select value={bankChoice} onValueChange={v => setBankChoice(v as "icbc" | "citi")}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="icbc">工商银行（ICBC）</SelectItem>
-                    <SelectItem value="citi">花旗银行（Citibank，阿里巴巴收汇）</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Incoterms</Label>
-                <Select value={incoterms} onValueChange={setIncoterms}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FOB">FOB</SelectItem>
-                    <SelectItem value="CIF">CIF</SelectItem>
-                    <SelectItem value="EXW">EXW</SelectItem>
-                    <SelectItem value="DDP">DDP</SelectItem>
-                    <SelectItem value="CFR">CFR</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Port of Loading</Label>
-                <Input
-                  value={portOfLoading}
-                  onChange={e => setPortOfLoading(e.target.value)}
-                  placeholder="e.g. Shenzhen"
-                  className="h-8 text-sm"
-                />
-              </div>
-            </div>
+            )}
+
+            <PiCiFields
+              buyerName={buyerName}
+              buyerAddress={buyerAddress}
+              currency={currency}
+              bankChoice={bankChoice}
+              incoterms={incoterms}
+              portOfLoading={portOfLoading}
+              onBuyerNameChange={setBuyerName}
+              onBuyerAddressChange={setBuyerAddress}
+              onCurrencyChange={setCurrency}
+              onBankChoiceChange={setBankChoice}
+              onIncotermsChange={setIncoterms}
+              onPortOfLoadingChange={setPortOfLoading}
+            />
 
             <Separator />
             <p className="text-xs font-semibold text-foreground/70">Product Details（请填写实际发货数量和单价）</p>

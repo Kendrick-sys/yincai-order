@@ -220,3 +220,15 @@
 - [x] 前端：订单详情页「生成单据」按钮 + 弹窗表单
 - [x] 前端：历史单据列表（可重新下载）
 - [x] 代码审查和性能优化
+
+## 新功能（第三十二批）
+
+- [x] 数据库 documents 表增加 status 字段（active/voided）
+- [x] 数据库新增 settings 表（存储编号前缀等系统配置）
+- [x] 后端：tRPC documents.void 路由（作废单据）
+- [x] 后端：tRPC settings.getDocPrefixes / settings.saveDocPrefixes 路由
+- [x] 后端：generateDocNo 改为读取 settings 表中的前缀
+- [x] 前端：DocumentHistory 增加「作废」按钮，已作废单据显示灰色删除线
+- [x] 前端：DocumentDialog CI Tab 增加「从PI创建」选项，选择后自动填充数据
+- [x] 前端：设置页面新增「单据编号前缀」配置表单
+- [x] 代码审查和性能优化

@@ -11,7 +11,8 @@ import {
 } from "./db";
 import {
   generateDocNo, createDocument, updateDocumentPdf,
-  getDocumentsByOrderId, getDocumentById,
+  getDocumentsByOrderId, getDocumentById, voidDocument,
+  getActivePiByOrderId, getDocPrefixes, saveDocPrefixes,
 } from "./db.documents";
 import { generateContractCnPdf, generatePiCiPdf } from "./generatePdf";
 import { storagePut } from "./storage";
@@ -229,6 +230,19 @@ export const appRouter = router({
         return { docNo, pdfUrl: url };
       }),
 
+    // 作废单据
+    void: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await voidDocument(input.id);
+        return { success: true };
+      }),
+
+    // 获取订单下的有效 PI 列表（供 CI 选择）
+    getActivePi: publicProcedure
+      .input(z.object({ orderId: z.number() }))
+      .query(async ({ input }) => getActivePiByOrderId(input.orderId)),
+
     // 生成 PI / CI
     generatePiCi: publicProcedure
       .input(z.object({
@@ -297,6 +311,25 @@ export const appRouter = router({
         });
 
         return { docNo, pdfUrl: url };
+      }),
+  }),
+
+  // ─── 系统设置 ───────────────────────────────────────────────────────────────
+  settings: router({
+    // 获取单据编号前缀
+    getDocPrefixes: publicProcedure
+      .query(async () => getDocPrefixes()),
+
+    // 保存单据编号前缀
+    saveDocPrefixes: publicProcedure
+      .input(z.object({
+        contract_cn: z.string().min(1).max(16),
+        pi: z.string().min(1).max(16),
+        ci: z.string().min(1).max(16),
+      }))
+      .mutation(async ({ input }) => {
+        await saveDocPrefixes(input);
+        return { success: true };
       }),
   }),
 
