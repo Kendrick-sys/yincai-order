@@ -338,9 +338,11 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           {/* Logo */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A3C5E] flex items-center justify-center">
-              <span className="text-white font-bold text-sm" style={{ fontFamily: "'Noto Serif SC', serif" }}>吟</span>
-            </div>
+            <img
+              src="https://d2xsxph8kpxj0f.cloudfront.net/310519663275986025/MnhiE9LdbgqX24MUwA2SN8/logo-192_cb43ed67.png"
+              alt="吟彩 Logo"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-contain"
+            />
             <div className="hidden sm:block">
               <h1 className="font-bold text-gray-900 text-base leading-tight" style={{ fontFamily: "'Noto Serif SC', serif" }}>吟彩销售订单系统</h1>
               <p className="text-xs text-gray-400">Sales Order Management</p>

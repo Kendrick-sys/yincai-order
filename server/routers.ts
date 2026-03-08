@@ -62,7 +62,7 @@ const modelSchema = z.object({
   modelRemarks:    z.string().optional(),
 });
 
-const orderHeaderSchema = z.object({
+const orderHeaderSchemaBase = z.object({
   orderNo:          z.string().optional(),
   orderDescription: z.string().optional(),
   customer:         z.string().optional(),
@@ -91,7 +91,8 @@ const orderHeaderSchema = z.object({
   recipientAddress: z.string().optional(),
   factoryShipNo:    z.string().optional(),
   status:           z.enum(["draft", "submitted", "in_production", "completed", "cancelled"]).optional(),
-}).superRefine((data, ctx) => {
+});
+const orderHeaderSchema = orderHeaderSchemaBase.superRefine((data, ctx) => {
   // 阿里巴巴订单时，订单号必填
   if (data.isAlibaba && !data.alibabaOrderNo?.trim()) {
     ctx.addIssue({
@@ -111,7 +112,7 @@ const orderHeaderSchema = z.object({
   // 亚马逊订单：订单号为可选，无需必填验证
 });
 
-const customerSchema = z.object({
+const customerSchemaBase = z.object({
   name:      z.string().min(1, "客户名称不能为空"),
   code:      z.string().optional(),      // 客户地址（兼容旧字段）
   address:   z.string().optional(),      // 客户地址（新字段）
@@ -129,7 +130,8 @@ const customerSchema = z.object({
   bankName:    z.string().optional(),     // 对公开户行
   remarks:   z.string().optional(),
   sortOrder: z.number().optional(),
-}).superRefine((data, ctx) => {
+});
+const customerSchema = customerSchemaBase.superRefine((data, ctx) => {
   // 国外客户地址必填
   if (data.country === "overseas" && !data.address?.trim()) {
     ctx.addIssue({
@@ -295,7 +297,7 @@ export const appRouter = router({
       }),
 
     update: protectedProcedure
-      .input(z.object({ id: z.number(), data: customerSchema.partial() }))
+      .input(z.object({ id: z.number(), data: customerSchemaBase.partial() }))
       .mutation(async ({ input, ctx }) => {
         // 业务员只能修改自己的客户
         if (ctx.user.role !== "admin") {

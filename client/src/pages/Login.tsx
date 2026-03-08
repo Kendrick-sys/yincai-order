@@ -55,14 +55,11 @@ export default function Login() {
       <div className="relative w-full max-w-sm">
         {/* Logo 区域 */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#1A3C5E] shadow-lg mb-4">
-            <span
-              className="text-white font-bold text-xl"
-              style={{ fontFamily: "'Noto Serif SC', serif" }}
-            >
-              吟
-            </span>
-          </div>
+          <img
+            src="https://d2xsxph8kpxj0f.cloudfront.net/310519663275986025/MnhiE9LdbgqX24MUwA2SN8/logo-192_cb43ed67.png"
+            alt="吟彩 Logo"
+            className="w-14 h-14 rounded-2xl object-contain shadow-lg mb-4 inline-block"
+          />
           <h1
             className="text-2xl font-bold text-[#1A3C5E]"
             style={{ fontFamily: "'Noto Serif SC', serif" }}
