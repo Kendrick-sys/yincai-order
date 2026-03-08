@@ -401,3 +401,8 @@
 - [x] PDF 标题居中修复：PI/CI 的 PROFORMA INVOICE / COMMERCIAL INVOICE 及国内合同“采购合同”标题真正居中
 - [x] 订单编辑页图片上传支持拖拽（drag & drop）
 - [x] DocumentHistory 新增“已发送”标记和发送时间记录（schema + router + UI）
+
+## 第五十批
+
+- [x] generatePdf.ts：删除国内合同底部签字栏实线和“年_月_日”行
+- [x] generatePdf.ts：删除 PI/CI 底部签字栏实线和“年_月_日”行

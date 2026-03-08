@@ -389,9 +389,7 @@ function buildContractCnHtml(data: ContractCnData): string {
   .clause-num { font-weight: 600; }
   .sign-area { display: flex; justify-content: space-between; margin-top: 40px; }
   .sign-block { width: 45%; }
-  .sign-line { border-bottom: 1px solid #333; margin: 20px 0 6px; height: 30px; }
-  .date-line { display: flex; gap: 16px; margin-top: 8px; }
-  .date-unit { flex: 1; border-bottom: 1px solid #333; }
+
   @media print {
     body { padding: 20px 30px; }
   }
@@ -475,23 +473,11 @@ function buildContractCnHtml(data: ContractCnData): string {
 <div class="sign-area">
   <div class="sign-block">
     <p>甲方：${counterpartyName}</p>
-    <div class="sign-line"></div>
     <p>签字：</p>
-    <div class="date-line">
-      <span>年</span><div class="date-unit"></div>
-      <span>月</span><div class="date-unit"></div>
-      <span>日</span>
-    </div>
   </div>
   <div class="sign-block">
     <p>乙方：${ENV.companyCnName}</p>
-    <div class="sign-line"></div>
     <p>签字：</p>
-    <div class="date-line">
-      <span>年</span><div class="date-unit"></div>
-      <span>月</span><div class="date-unit"></div>
-      <span>日</span>
-    </div>
   </div>
 </div>
 
@@ -603,10 +589,7 @@ function buildPiCiHtml(data: PiCiData): string {
   .sign-area { display: flex; justify-content: space-between; margin-top: 36px; }
   .sign-block { width: 44%; }
   .sign-block h4 { font-size: 11px; font-weight: 700; margin-bottom: 8px; }
-  .sign-line { border-bottom: 1px solid #333; margin: 24px 0 6px; }
   .sign-label { font-size: 10px; color: #555; }
-  .date-row { display: flex; gap: 8px; margin-top: 6px; font-size: 11px; }
-  .date-unit { flex: 1; border-bottom: 1px solid #333; }
 </style>
 </head>
 <body>
@@ -688,23 +671,11 @@ function buildPiCiHtml(data: PiCiData): string {
 <div class="sign-area">
   <div class="sign-block">
     <h4>Seller: ${ENV.companyEnName}</h4>
-    <div class="sign-line"></div>
     <div class="sign-label">Authorized Signature &amp; Date</div>
-    <div class="date-row">
-      <span>Year</span><div class="date-unit"></div>
-      <span>Month</span><div class="date-unit"></div>
-      <span>Day</span>
-    </div>
   </div>
   <div class="sign-block">
     <h4>Buyer: ${buyerCompany || buyerName}</h4>
-    <div class="sign-line"></div>
     <div class="sign-label">Authorized Signature &amp; Date</div>
-    <div class="date-row">
-      <span>Year</span><div class="date-unit"></div>
-      <span>Month</span><div class="date-unit"></div>
-      <span>Day</span>
-    </div>
   </div>
 </div>
 
