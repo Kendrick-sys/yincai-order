@@ -1013,37 +1013,9 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     setActiveTab(defaultTab);
     setSelectedPiId("");
 
-    // 自动从客户列表填入客户信息
-    const piSavedCheck = localStorage.getItem(`yincai_pi_${order.id}`);
-    const cnSavedCheck = localStorage.getItem(storageKey);
-    if (order.customer) {
-      const matchedCustomer = customerList?.find(
-        (c: any) => c.name === order.customer
-      );
-      if (matchedCustomer) {
-        // 国外客户：自动填入 PI/CI Buyer 信息（仅当无缓存时）
-        if (!piSavedCheck) {
-          if (matchedCustomer.attn) setBuyerAttn(matchedCustomer.attn);
-          if (matchedCustomer.company) setBuyerCompany(matchedCustomer.company);
-          if (matchedCustomer.phone) setBuyerTel(matchedCustomer.phone);
-          if (matchedCustomer.email) setBuyerEmail(matchedCustomer.email);
-          // 优先使用英文地址，如无英文地址则回退到中文地址
-          if (matchedCustomer.enAddress) setBuyerAddress(matchedCustomer.enAddress);
-          else if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
-        }
-        // 国内客户：自动填入甲方信息（仅当无缓存时）
-        if (!cnSavedCheck && matchedCustomer.country === "domestic") {
-          if (matchedCustomer.cnCompany) setBuyerCnCompany(matchedCustomer.cnCompany);
-          if (matchedCustomer.taxNo) setBuyerTaxNo(matchedCustomer.taxNo);
-          if (matchedCustomer.bankAccount) setBuyerBankAccount(matchedCustomer.bankAccount);
-          if (matchedCustomer.bankName) setBuyerBankName(matchedCustomer.bankName);
-          if (matchedCustomer.name) setCounterpartyName(matchedCustomer.name);
-          if (matchedCustomer.address) setCounterpartyAddress(matchedCustomer.address);
-        }
-      }
-    }
-
-    // 尝试从 localStorage 恢复国内合同内容
+    // 先尝试从 localStorage 恢复国内合同内容
+    let cnRestoredFromCache = false;
+    let piRestoredFromCache = false;
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
@@ -1059,6 +1031,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         if (parsed.extras) setExtras({ ...defaultExtras(), ...parsed.extras });
         if (parsed.depositPct) setDepositPct(parsed.depositPct);
         if (parsed.balancePct) setBalancePct(parsed.balancePct);
+        cnRestoredFromCache = true;
       } else {
         setLineItems(buildInitialLineItems(order.models ?? []));
         setExtras(defaultExtras());
@@ -1068,6 +1041,34 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
       }
     } catch {
       setLineItems(buildInitialLineItems(order.models ?? []));
+    }
+
+    // 再从客户档案自动补全空字段（不覆盖用户已修改的内容）
+    if (order.customer) {
+      const matchedCustomer = customerList?.find(
+        (c: any) => c.name === order.customer
+      );
+      if (matchedCustomer) {
+        // 国外客户：自动填入 PI/CI Buyer 信息（空字段才填）
+        if (!piRestoredFromCache) {
+          if (matchedCustomer.attn) setBuyerAttn(matchedCustomer.attn);
+          if (matchedCustomer.company) setBuyerCompany(matchedCustomer.company);
+          if (matchedCustomer.phone) setBuyerTel(matchedCustomer.phone);
+          if (matchedCustomer.email) setBuyerEmail(matchedCustomer.email);
+          if (matchedCustomer.enAddress) setBuyerAddress(matchedCustomer.enAddress);
+          else if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
+        }
+        // 国内客户：自动填入甲方信息（空字段才填，不覆盖用户已修改的内容）
+        if (matchedCustomer.country === "domestic") {
+          // 使用函数式 setState，只补全空字段
+          if (matchedCustomer.cnCompany) setBuyerCnCompany(prev => prev || (matchedCustomer.cnCompany ?? ""));
+          if (matchedCustomer.taxNo) setBuyerTaxNo(prev => prev || (matchedCustomer.taxNo ?? ""));
+          if (matchedCustomer.bankAccount) setBuyerBankAccount(prev => prev || (matchedCustomer.bankAccount ?? ""));
+          if (matchedCustomer.bankName) setBuyerBankName(prev => prev || (matchedCustomer.bankName ?? ""));
+          if (matchedCustomer.name) setCounterpartyName(prev => prev || (matchedCustomer.name ?? ""));
+          if (matchedCustomer.address) setCounterpartyAddress(prev => prev || (matchedCustomer.address ?? ""));
+        }
+      }
     }
 
     // 尝试从 localStorage 恢复 PI/CI 内容
@@ -1802,6 +1803,39 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
           {/* ─── 国内采购合同 ─── */}
           <TabsContent value="contract_cn" className="space-y-4 mt-4">
+
+            {/* 客户档案快速选择 */}
+            {customerList && customerList.filter((c: any) => c.country === "domestic").length > 0 && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                <span className="text-xs text-blue-700 dark:text-blue-300 font-medium whitespace-nowrap">从客户档案选择：</span>
+                <Select
+                  value=""
+                  onValueChange={(customerId) => {
+                    const c = customerList?.find((x: any) => String(x.id) === customerId);
+                    if (!c) return;
+                    setCounterpartyName(c.name ?? "");
+                    setBuyerCnCompany(c.cnCompany ?? "");
+                    setBuyerTaxNo(c.taxNo ?? "");
+                    setBuyerBankAccount(c.bankAccount ?? "");
+                    setBuyerBankName(c.bankName ?? "");
+                    setCounterpartyAddress(c.address ?? "");
+                  }}
+                >
+                  <SelectTrigger className="h-7 text-xs flex-1 bg-white dark:bg-background">
+                    <SelectValue placeholder="选择国内客户自动填充甲方信息..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customerList
+                      .filter((c: any) => c.country === "domestic")
+                      .map((c: any) => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.name}{c.cnCompany ? ` · ${c.cnCompany}` : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* 甲乙方信息 */}
             <div className="grid grid-cols-2 gap-4">

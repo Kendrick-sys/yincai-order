@@ -427,3 +427,8 @@
 
 - [x] generatePdf.ts：国内合同甲方税号/銀行信息为空时自动隐藏对应行
 - [x] Customers.tsx：搜索框支持按 cnCompany（公司名）搜索国内客户
+
+## 第五十四批
+
+- [x] DocumentDialog：国内合同 Tab 打开时，根据订单客户名称自动匹配客户档案并填充甲方全部信息（cnCompany/taxNo/bankAccount/bankName/address）
+- [x] DocumentDialog：国内合同 Tab 顶部增加“从客户档案选择”下拉框，手动切换客户后重新填充甲方信息
