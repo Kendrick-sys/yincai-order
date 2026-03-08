@@ -512,3 +512,10 @@
 ### 用户体验细节
 - [ ] 订单列表/客户列表：空状态提示优化（区分"无数据"和"加载中"）
 - [ ] 全局：页面标题（document.title）随路由动态更新
+
+## 最终生产优化（第六十二批）
+
+- [x] 修复 clearCookie maxAge 废弃警告（改用 expires: new Date(0)）
+- [x] 验证文档路由安全性（全部使用 protectedProcedure）
+- [x] 更新 auth.logout.test.ts 测试（适配新 cookie 清除方式）
+- [x] 创建 NAS 部署指南（NAS-DEPLOYMENT.md）
