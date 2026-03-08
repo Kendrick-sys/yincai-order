@@ -75,6 +75,13 @@ export async function listCustomers() {
   return db.select().from(customers).orderBy(customers.sortOrder, customers.createdAt);
 }
 
+/** 根据 ID 获取客户 */
+export async function getCustomerById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
 /** 创建客户 */
 export async function createCustomer(data: Omit<InsertCustomer, 'id' | 'createdAt' | 'updatedAt'>) {
   const db = await getDb();

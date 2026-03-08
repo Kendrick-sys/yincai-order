@@ -474,3 +474,12 @@
 - [x] 离职转移：后端 userManagement.transferCustomers 路由（批量更新 createdBy）
 - [x] 离职转移：账号管理页停用账号时弹出“转移客户”对话框（选择目标业务员或设为公共）
 - [x] 离职标注：orders 和 customers 列表中，createdBy 对应账号 isActive=false 时显示“（已离职）”标注
+
+## 第五十九批（权限隔离 + 客户排序 + 离职自动转移）
+
+- [x] 权限隔离：确认 orders.list / customers.list 对业务员严格过滤（createdBy = 当前用户 id）
+- [x] 权限隔离：确认 orders.create / customers.create 自动设置 createdBy = 当前用户 id
+- [x] 权限隔离：customers.update / customers.delete 加入 createdBy 校验（业务员只能操作自己的客户）
+- [x] 权限隔离：新增 getCustomerById 函数并导入 TRPCError
+- [x] 客户排序：Customers.tsx 搜索框旁增加「最后下单」排序按鈕（点击循环：默认→最近在前→最早在前）
+- [x] 离职自动转移：userManagement.update 路由停用账号时自动将其所有客户 createdBy 设为 null（公共客户）

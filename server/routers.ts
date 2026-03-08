@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME, ONE_YEAR_MS, THIRTY_DAYS_MS, EIGHT_HOURS_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -7,7 +8,7 @@ import {
   createOrder, updateOrder, listOrders, getOrderById,
   softDeleteOrder, restoreOrder, hardDeleteOrder, listTrashedOrders,
   updateOrderStatus,
-  listCustomers, listCustomersWithStats, createCustomer, updateCustomer, deleteCustomer,
+  listCustomers, listCustomersWithStats, createCustomer, updateCustomer, deleteCustomer, getCustomerById,
   transferCustomers, transferOrders,
 } from "./db";
 import {
@@ -224,6 +225,10 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
         await updateAppUser(id, data);
+        // 停用账号时，自动将其客户转为公共（createdBy = null）
+        if (data.isActive === false) {
+          await transferCustomers(id, null);
+        }
         return { success: true };
       }),
 
@@ -290,14 +295,28 @@ export const appRouter = router({
 
     update: protectedProcedure
       .input(z.object({ id: z.number(), data: customerSchema.partial() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // 业务员只能修改自己的客户
+        if (ctx.user.role !== "admin") {
+          const existing = await getCustomerById(input.id);
+          if (!existing || existing.createdBy !== ctx.user.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "无权修改该客户" });
+          }
+        }
         await updateCustomer(input.id, input.data);
         return { success: true };
       }),
 
     delete: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // 业务员只能删除自己的客户
+        if (ctx.user.role !== "admin") {
+          const existing = await getCustomerById(input.id);
+          if (!existing || existing.createdBy !== ctx.user.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "无权删除该客户" });
+          }
+        }
         await deleteCustomer(input.id);
         return { success: true };
       }),

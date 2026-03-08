@@ -13,7 +13,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home, ExternalLink, Upload, FileSpreadsheet, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home, ExternalLink, Upload, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 
@@ -67,19 +67,34 @@ export default function Customers() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // 排序状态：null=默认（按添加时间）, 'asc'=最早下单在前, 'desc'=最近下单在前
+  const [lastOrderSort, setLastOrderSort] = useState<null | 'asc' | 'desc'>(null);
 
-  // 搜索过滤（useMemo 避免每次 render 重新计算）
+  const cycleSort = () => {
+    setLastOrderSort(prev => prev === null ? 'desc' : prev === 'desc' ? 'asc' : null);
+  };
+
+  // 搜索 + 排序（useMemo 避免每次 render 重新计算）
   const filteredCustomers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return customers;
-    return customers.filter((c: any) =>
-      (c.name ?? "").toLowerCase().includes(q) ||
-      (c.cnCompany ?? "").toLowerCase().includes(q) ||
-      (c.contact ?? "").toLowerCase().includes(q) ||
-      (c.email ?? "").toLowerCase().includes(q) ||
-      (c.company ?? "").toLowerCase().includes(q)
-    );
-  }, [customers, searchQuery]);
+    let list = q
+      ? customers.filter((c: any) =>
+          (c.name ?? "").toLowerCase().includes(q) ||
+          (c.cnCompany ?? "").toLowerCase().includes(q) ||
+          (c.contact ?? "").toLowerCase().includes(q) ||
+          (c.email ?? "").toLowerCase().includes(q) ||
+          (c.company ?? "").toLowerCase().includes(q)
+        )
+      : [...customers];
+    if (lastOrderSort) {
+      list = list.sort((a: any, b: any) => {
+        const da = a.lastOrderDate ? new Date(a.lastOrderDate).getTime() : 0;
+        const db = b.lastOrderDate ? new Date(b.lastOrderDate).getTime() : 0;
+        return lastOrderSort === 'desc' ? db - da : da - db;
+      });
+    }
+    return list;
+  }, [customers, searchQuery, lastOrderSort]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -256,14 +271,32 @@ export default function Customers() {
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                className="pl-9"
-                placeholder="搜索客户名称、公司名、联系人、邮箱..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
+            <div className="flex items-center gap-2 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="搜索客户名称、公司名、联系人、邮筱..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={cycleSort}
+                className={`gap-1.5 whitespace-nowrap flex-shrink-0 ${
+                  lastOrderSort ? "border-primary text-primary" : ""
+                }`}
+                title="按最后下单日期排序"
+              >
+                {lastOrderSort === null && <ArrowUpDown className="w-3.5 h-3.5" />}
+                {lastOrderSort === 'desc' && <ArrowDown className="w-3.5 h-3.5" />}
+                {lastOrderSort === 'asc' && <ArrowUp className="w-3.5 h-3.5" />}
+                最后下单
+                {lastOrderSort === 'desc' && <span className="text-xs text-muted-foreground">最近在前</span>}
+                {lastOrderSort === 'asc' && <span className="text-xs text-muted-foreground">最早在前</span>}
+              </Button>
             </div>
             {(() => {
               const q = searchQuery.trim().toLowerCase();
