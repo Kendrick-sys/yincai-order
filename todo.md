@@ -528,3 +528,13 @@
 
 - [x] ImageUploader：悬停区域精准粘贴（只对鼠标悬停的上传区生效）
 - [x] ImageUploader：粘贴上传专属加载动画（区别于点击/拖拽上传的加载状态）
+
+## 全面上线前把关（第六十六批）
+
+- [x] 修复 generatePdf.ts PI/CI 中 depositAmount/balanceAmount 浮点精度问题（Math.round × 100 / 100）
+- [x] 汉化 DashboardLayout.tsx 所有英文残留文案（Sign in / Sign out / Navigation / Menu / Page 1 / Page 2）
+- [x] 更新 DashboardLayout.tsx 菜单项为实际路由（订单管理 / 客户管理 / 系统设置）
+- [x] 确认权限控制完整（hardDelete/delete/restore 均有 createdBy 校验，adminProcedure 覆盖用户管理）
+- [x] 确认 listOrders 使用 JOIN 无 N+1 查询问题
+- [x] 确认 exportExcel.ts 数量计算有 isNaN 保护
+- [x] 确认合同条款文案无错别字（甲乙方、违约、付款、质量等条款）

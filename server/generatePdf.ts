@@ -564,8 +564,8 @@ function buildPiCiHtml(data: PiCiData): string {
     extras
   } = data;
 
-  const depositAmount = totalAmount * depositPct / 100;
-  const balanceAmount = totalAmount * balancePct / 100;
+  const depositAmount = Math.round(totalAmount * depositPct / 100 * 100) / 100;
+  const balanceAmount = Math.round(totalAmount * balancePct / 100 * 100) / 100;
   const currencySymbol = currency === "USD" ? "USD " : (currency === "EUR" ? "EUR " : "");
   const docTitle = docType === "pi" ? "PROFORMA INVOICE" : "COMMERCIAL INVOICE";
 
