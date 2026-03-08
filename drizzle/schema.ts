@@ -19,15 +19,20 @@ export type InsertUser = typeof users.$inferInsert;
 export const customers = mysqlTable("customers", {
   id: int("id").autoincrement().primaryKey(),
   name:     varchar("name", { length: 128 }).notNull(),           // 客户名称
-  code:     varchar("code", { length: 64 }),                      // 客户地址（沿用旧字段名兼容）
-  address:  text("address"),                                      // 客户地址（新字段）
-  country:  mysqlEnum("country", ["domestic", "overseas"]).default("domestic").notNull(), // 国家：国内/国外
+  code:     varchar("code", { length: 64 }),                      // 客户代码（沿用旧字段名兼容）
+  address:  text("address"),                                      // 客户地址
+  country:  mysqlEnum("country", ["domestic", "overseas"]).default("domestic").notNull(), // 国内/国外
   company:  varchar("company", { length: 256 }),                  // 公司名（英文，用于 PI/CI）
   attn:     varchar("attn", { length: 128 }),                     // 联系人（Attn，英文，用于 PI/CI）
-  enAddress: varchar("en_address", { length: 500 }),               // 英文地址（用于 PI/CI Buyer 区块）
+  enAddress: varchar("en_address", { length: 500 }),              // 英文地址（用于 PI/CI Buyer 区块）
   email:    varchar("email", { length: 320 }),                    // 邮箱
   contact:  varchar("contact", { length: 64 }),                   // 联系人（中文）
   phone:    varchar("phone", { length: 32 }),                     // 联系电话
+  // 国内客户专用字段（用于国内合同甲方信息）
+  cnCompany:   varchar("cnCompany", { length: 256 }),             // 公司全称
+  taxNo:       varchar("taxNo", { length: 64 }),                  // 统一社会信用代码（税号）
+  bankAccount: varchar("bankAccount", { length: 128 }),           // 对公账号
+  bankName:    varchar("bankName", { length: 256 }),              // 对公开户行
   remarks:  text("remarks"),                                      // 备注
   sortOrder: int("sortOrder").default(0).notNull(),               // 排序
   createdAt: timestamp("createdAt").defaultNow().notNull(),

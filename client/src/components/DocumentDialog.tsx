@@ -962,6 +962,11 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   const [counterpartyAddress, setCounterpartyAddress] = useState("");
   const [needInvoice, setNeedInvoice] = useState(false);
   const [extras, setExtras] = useState<DomesticExtras>(defaultExtras());
+  // 国内客户甲方信息（自动从客户档案填充）
+  const [buyerCnCompany, setBuyerCnCompany] = useState("");
+  const [buyerTaxNo, setBuyerTaxNo] = useState("");
+  const [buyerBankAccount, setBuyerBankAccount] = useState("");
+  const [buyerBankName, setBuyerBankName] = useState("");
 
   // PI/CI 专属
   const [piExtras, setPiExtras] = useState<PiExtras>(defaultPiExtras());
@@ -1008,20 +1013,33 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     setActiveTab(defaultTab);
     setSelectedPiId("");
 
-    // 自动从客户列表填入 Buyer 英文信息（仅当 localStorage 无缓存时）
+    // 自动从客户列表填入客户信息
     const piSavedCheck = localStorage.getItem(`yincai_pi_${order.id}`);
-    if (!piSavedCheck && order.customer) {
+    const cnSavedCheck = localStorage.getItem(storageKey);
+    if (order.customer) {
       const matchedCustomer = customerList?.find(
         (c: any) => c.name === order.customer
       );
       if (matchedCustomer) {
-        if (matchedCustomer.attn) setBuyerAttn(matchedCustomer.attn);
-        if (matchedCustomer.company) setBuyerCompany(matchedCustomer.company);
-        if (matchedCustomer.phone) setBuyerTel(matchedCustomer.phone);
-        if (matchedCustomer.email) setBuyerEmail(matchedCustomer.email);
-        // 优先使用英文地址，如无英文地址则回退到中文地址
-        if (matchedCustomer.enAddress) setBuyerAddress(matchedCustomer.enAddress);
-        else if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
+        // 国外客户：自动填入 PI/CI Buyer 信息（仅当无缓存时）
+        if (!piSavedCheck) {
+          if (matchedCustomer.attn) setBuyerAttn(matchedCustomer.attn);
+          if (matchedCustomer.company) setBuyerCompany(matchedCustomer.company);
+          if (matchedCustomer.phone) setBuyerTel(matchedCustomer.phone);
+          if (matchedCustomer.email) setBuyerEmail(matchedCustomer.email);
+          // 优先使用英文地址，如无英文地址则回退到中文地址
+          if (matchedCustomer.enAddress) setBuyerAddress(matchedCustomer.enAddress);
+          else if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
+        }
+        // 国内客户：自动填入甲方信息（仅当无缓存时）
+        if (!cnSavedCheck && matchedCustomer.country === "domestic") {
+          if (matchedCustomer.cnCompany) setBuyerCnCompany(matchedCustomer.cnCompany);
+          if (matchedCustomer.taxNo) setBuyerTaxNo(matchedCustomer.taxNo);
+          if (matchedCustomer.bankAccount) setBuyerBankAccount(matchedCustomer.bankAccount);
+          if (matchedCustomer.bankName) setBuyerBankName(matchedCustomer.bankName);
+          if (matchedCustomer.name) setCounterpartyName(matchedCustomer.name);
+          if (matchedCustomer.address) setCounterpartyAddress(matchedCustomer.address);
+        }
       }
     }
 
@@ -1033,6 +1051,10 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         if (parsed.lineItems) setLineItems(parsed.lineItems);
         if (parsed.counterpartyName !== undefined) setCounterpartyName(parsed.counterpartyName);
         if (parsed.counterpartyAddress !== undefined) setCounterpartyAddress(parsed.counterpartyAddress);
+        if (parsed.buyerCnCompany !== undefined) setBuyerCnCompany(parsed.buyerCnCompany);
+        if (parsed.buyerTaxNo !== undefined) setBuyerTaxNo(parsed.buyerTaxNo);
+        if (parsed.buyerBankAccount !== undefined) setBuyerBankAccount(parsed.buyerBankAccount);
+        if (parsed.buyerBankName !== undefined) setBuyerBankName(parsed.buyerBankName);
         if (parsed.needInvoice !== undefined) setNeedInvoice(parsed.needInvoice);
         if (parsed.extras) setExtras({ ...defaultExtras(), ...parsed.extras });
         if (parsed.depositPct) setDepositPct(parsed.depositPct);
@@ -1084,6 +1106,10 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         lineItems,
         counterpartyName,
         counterpartyAddress,
+        buyerCnCompany,
+        buyerTaxNo,
+        buyerBankAccount,
+        buyerBankName,
         needInvoice,
         extras,
         depositPct,
@@ -1092,7 +1118,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     } catch {
       // 存储失败（如隐私模式），静默忽略
     }
-  }, [open, lineItems, counterpartyName, counterpartyAddress, needInvoice, extras, depositPct, balancePct]);
+  }, [open, lineItems, counterpartyName, counterpartyAddress, buyerCnCompany, buyerTaxNo, buyerBankAccount, buyerBankName, needInvoice, extras, depositPct, balancePct]);
 
   // 每次 PI/CI 字段变化时，自动保存到 localStorage
   useEffect(() => {
@@ -1323,6 +1349,10 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         orderId: order.id,
         counterpartyName,
         counterpartyAddress: counterpartyAddress || undefined,
+        buyerCnCompany: buyerCnCompany || undefined,
+        buyerTaxNo: buyerTaxNo || undefined,
+        buyerBankAccount: buyerBankAccount || undefined,
+        buyerBankName: buyerBankName || undefined,
         lineItems: lineItems.map(item => ({
           modelName: item.modelName,
           material: item.material || undefined,
@@ -1798,11 +1828,51 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                 />
               </div>
               <div className="space-y-1.5">
+                <Label className="text-xs">甲方公司全称（合同封面显示）</Label>
+                <Input
+                  value={buyerCnCompany}
+                  onChange={e => setBuyerCnCompany(e.target.value)}
+                  placeholder="如与甲方全称相同可不填"
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">甲方税号</Label>
+                <Input
+                  value={buyerTaxNo}
+                  onChange={e => setBuyerTaxNo(e.target.value)}
+                  placeholder="18 位统一社会信用代码"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-xs">交货地址</Label>
                 <Input
                   value={counterpartyAddress}
                   onChange={e => setCounterpartyAddress(e.target.value)}
                   placeholder="可选，如：广东省深圳市..."
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">甲方对公账号</Label>
+                <Input
+                  value={buyerBankAccount}
+                  onChange={e => setBuyerBankAccount(e.target.value)}
+                  placeholder="可选"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">甲方对公开户行</Label>
+                <Input
+                  value={buyerBankName}
+                  onChange={e => setBuyerBankName(e.target.value)}
+                  placeholder="可选"
                   className="h-8 text-sm"
                 />
               </div>

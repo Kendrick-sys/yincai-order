@@ -27,13 +27,20 @@ type CustomerForm = {
   email: string;
   contact: string;
   phone: string;
+  // 国内客户专用字段
+  cnCompany: string;   // 公司全称
+  taxNo: string;       // 统一社会信用代码（税号）
+  bankAccount: string; // 对公账号
+  bankName: string;    // 对公开户行
   remarks: string;
 };
 
 const emptyForm: CustomerForm = {
   name: "", address: "", country: "domestic",
   company: "", attn: "", enAddress: "",
-  email: "", contact: "", phone: "", remarks: "",
+  email: "", contact: "", phone: "",
+  cnCompany: "", taxNo: "", bankAccount: "", bankName: "",
+  remarks: "",
 };
 
 export default function Customers() {
@@ -78,6 +85,10 @@ export default function Customers() {
       email: c.email ?? "",
       contact: c.contact ?? "",
       phone: c.phone ?? "",
+      cnCompany: c.cnCompany ?? "",
+      taxNo: c.taxNo ?? "",
+      bankAccount: c.bankAccount ?? "",
+      bankName: c.bankName ?? "",
       remarks: c.remarks ?? "",
     });
     setDialogOpen(true);
@@ -436,6 +447,54 @@ export default function Customers() {
                   />
                   <p className="text-xs text-muted-foreground mt-1">将自动填入 PI/CI 的 Buyer 地址字段</p>
                 </div>
+              </>
+            )}
+
+            {/* 国内客户专用字段（用于国内合同甲方信息） */}
+            {form.country === "domestic" && (
+              <>
+                <div className="border-t border-border pt-3">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">国内合同甲方信息（可选，用于自动填充合同）</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">公司全称</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="如：深圳市某某有限公司"
+                    value={form.cnCompany}
+                    onChange={e => setForm(f => ({ ...f, cnCompany: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">统一社会信用代码（税号）</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="18 位统一社会信用代码"
+                    value={form.taxNo}
+                    onChange={e => setForm(f => ({ ...f, taxNo: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <Label className="text-sm font-medium">对公账号</Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="如：1234 5678 9012 3456"
+                      value={form.bankAccount}
+                      onChange={e => setForm(f => ({ ...f, bankAccount: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">对公开户行</Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="如：中国工商银行深圳市某某支行"
+                      value={form.bankName}
+                      onChange={e => setForm(f => ({ ...f, bankName: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-1">以上信息将自动填入国内合同的甲方信息栏</p>
               </>
             )}
 

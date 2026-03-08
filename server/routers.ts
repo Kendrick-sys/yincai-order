@@ -115,6 +115,11 @@ const customerSchema = z.object({
   email:     z.string().email("邮箱格式不正确").optional().or(z.literal("")),
   contact:   z.string().min(1, "联系人不能为空"),
   phone:     z.string().min(1, "联系电话不能为空"),
+  // 国内客户专用字段
+  cnCompany:   z.string().optional(),     // 公司全称
+  taxNo:       z.string().optional(),     // 统一社会信用代码（税号）
+  bankAccount: z.string().optional(),     // 对公账号
+  bankName:    z.string().optional(),     // 对公开户行
   remarks:   z.string().optional(),
   sortOrder: z.number().optional(),
 }).superRefine((data, ctx) => {
@@ -185,6 +190,10 @@ export const appRouter = router({
         orderId: z.number(),
         counterpartyName: z.string().min(1, "甲方名称不能为空"),
         counterpartyAddress: z.string().optional(),
+        buyerCnCompany: z.string().optional(),
+        buyerTaxNo: z.string().optional(),
+        buyerBankAccount: z.string().optional(),
+        buyerBankName: z.string().optional(),
         lineItems: z.array(z.object({
           modelName: z.string(),
           material: z.string().optional(),
@@ -242,6 +251,10 @@ export const appRouter = router({
           orderDate: input.orderDate ?? today,
           counterpartyName: input.counterpartyName,
           counterpartyAddress: input.counterpartyAddress,
+          buyerCnCompany: input.buyerCnCompany,
+          buyerTaxNo: input.buyerTaxNo,
+          buyerBankAccount: input.buyerBankAccount,
+          buyerBankName: input.buyerBankName,
           lineItems: input.lineItems,
           totalAmount: input.totalAmount,
           depositPct: input.depositPct,

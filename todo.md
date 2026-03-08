@@ -412,3 +412,13 @@
 - [x] DocumentHistory：新增“预览”按鈕，弹窗内嵌 iframe 展示 PDF
 - [x] generatePdf.ts：国内合同和 PI/CI 签字标签下方增加 40px 空白留白
 - [x] 客户档案批量导入：Excel 模板下载 + 上传解析 + 写入数据库（tRPC + UI）
+
+## 第五十二批
+
+- [x] DocumentHistory：删除 PDF 预览功能（iframe 弹窗）
+- [x] generatePdf.ts / DocumentDialog.tsx：「一、筱子明细：」改为「一、产品明细：」
+- [x] Schema：customers 表新增 cnCompany / taxNo / bankAccount / bankName 字段并推送迁移
+- [x] DB + Router：同步新字段到 customerSchema 和 listCustomersWithStats
+- [x] 客户管理 UI：国内客户编辑弹窗新增公司名/税号/公账/銀行名称输入框
+- [x] DocumentDialog：国内合同甲方信息自动从客户档案填充（公司名/税号/公账/銀行名称）
+- [x] generatePdf.ts：优化国内合同甲乙方信息栏（双栏对比布局，展示公司名/地址/税号/銀行信息）

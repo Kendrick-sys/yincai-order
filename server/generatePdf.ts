@@ -98,6 +98,10 @@ export interface ContractCnData {
   orderDate: string;
   counterpartyName: string;       // 采购方（甲方）
   counterpartyAddress?: string;
+  buyerCnCompany?: string;         // 甲方公司全称
+  buyerTaxNo?: string;             // 甲方税号
+  buyerBankAccount?: string;       // 甲方对公账号
+  buyerBankName?: string;          // 甲方对公开户行
   lineItems: LineItem[];
   totalAmount: number;
   depositPct: number;
@@ -243,7 +247,7 @@ function formatAmount(amount: number, currency = "CNY"): string {
 // ─── HTML 模板：国内采购合同 ────────────────────────────────────────────────────
 
 function buildContractCnHtml(data: ContractCnData): string {
-  const { docNo, orderDate, counterpartyName, counterpartyAddress, lineItems, totalAmount, depositPct, balancePct, needInvoice, extras } = data;
+  const { docNo, orderDate, counterpartyName, counterpartyAddress, buyerCnCompany, buyerTaxNo, buyerBankAccount, buyerBankName, lineItems, totalAmount, depositPct, balancePct, needInvoice, extras } = data;
   const depositAmount = Math.round(totalAmount * depositPct) / 100;
   const balanceAmount = Math.round(totalAmount * balancePct) / 100;
   const totalChinese = numberToChinese(totalAmount);
@@ -377,7 +381,12 @@ function buildContractCnHtml(data: ContractCnData): string {
   .title-area { position: absolute; left: 0; right: 0; top: 0; text-align: center; pointer-events: none; }
   h1 { font-size: 26px; font-weight: 700; letter-spacing: 6px; margin-top: 8px; }
   .meta-row { display: flex; justify-content: space-between; margin: 16px 0 8px; font-size: 12px; }
-  .party-row { margin: 6px 0; font-size: 12px; }
+  .party-section { display: flex; gap: 16px; margin: 16px 0 12px; }
+  .party-card { flex: 1; border: 1px solid #ddd; border-radius: 4px; padding: 10px 14px; background: #fafafa; }
+  .party-card-title { font-weight: 700; font-size: 12px; color: #555; margin-bottom: 6px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
+  .party-card-name { font-weight: 700; font-size: 13px; color: #1a1a1a; margin-bottom: 4px; }
+  .party-card-row { font-size: 11px; color: #444; margin: 2px 0; line-height: 1.6; }
+  .party-card-row span { color: #888; margin-right: 4px; }
   .preamble { margin: 12px 0 16px; font-size: 12px; line-height: 1.8; }
   .section-title { font-weight: 700; margin: 16px 0 8px; font-size: 12px; }
   table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11.5px; }
@@ -409,14 +418,30 @@ function buildContractCnHtml(data: ContractCnData): string {
   <span>下单日期：${orderDate}</span>
 </div>
 
-<div class="party-row">甲方（采购方）：${counterpartyName}&nbsp;&nbsp;&nbsp;&nbsp;（以下简称甲方）</div>
-<div class="party-row">乙方（供货方）：${ENV.companyCnName}&nbsp;&nbsp;&nbsp;&nbsp;（以下简称乙方）</div>
+<div class="party-section">
+  <div class="party-card">
+    <div class="party-card-title">甲方（采购方）</div>
+    <div class="party-card-name">${buyerCnCompany || counterpartyName}</div>
+    ${counterpartyAddress ? `<div class="party-card-row"><span>地址：</span>${counterpartyAddress}</div>` : ''}
+    ${buyerTaxNo ? `<div class="party-card-row"><span>税号：</span>${buyerTaxNo}</div>` : ''}
+    ${buyerBankAccount ? `<div class="party-card-row"><span>开户行：</span>${buyerBankName || ''}</div>` : ''}
+    ${buyerBankAccount ? `<div class="party-card-row"><span>账号：</span>${buyerBankAccount}</div>` : ''}
+  </div>
+  <div class="party-card">
+    <div class="party-card-title">乙方（供货方）</div>
+    <div class="party-card-name">${ENV.companyCnName}</div>
+    <div class="party-card-row"><span>地址：</span>${ENV.companyCnAddress || ''}</div>
+    <div class="party-card-row"><span>税号：</span>${ENV.companyTaxNo || ''}</div>
+    <div class="party-card-row"><span>开户行：</span>${ENV.companyCnBankName || ''}</div>
+    <div class="party-card-row"><span>账号：</span>${ENV.companyCnBankAccount || ''}</div>
+  </div>
+</div>
 
 <p class="preamble">
 甲、乙双方为了实现各自的经营目的，本着自愿、公平和诚实守信的原则，经双方充分协商达成一致，甲方同意向乙方订购产品，特订立本合同，以资双方共同遵守。
 </p>
 
-<div class="section-title">一、箱子明细：</div>
+<div class="section-title">一、产品明细：</div>
 <p class="clause">1. 具体产品明细、单价及总金额详见下方表格或双方确认的《采购订单》。</p>
 
 <table>
@@ -472,7 +497,7 @@ function buildContractCnHtml(data: ContractCnData): string {
 
 <div class="sign-area">
   <div class="sign-block">
-    <p>甲方：${counterpartyName}</p>
+    <p>甲方：${buyerCnCompany || counterpartyName}</p>
     <p>签字：</p>
     <div style="height: 40px;"></div>
   </div>
