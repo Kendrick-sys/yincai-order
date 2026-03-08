@@ -1,7 +1,6 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { Upload, X, ZoomIn, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Upload, X, ZoomIn, Loader2, Clipboard } from "lucide-react";
 
 interface ImageUploaderProps {
   label: string;
@@ -15,11 +14,13 @@ export default function ImageUploader({
   label, category, images, onChange, maxCount = 5,
 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPasteHint, setIsPasteHint] = useState(false);
 
-  const handleFiles = async (files: FileList | File[] | null) => {
+  const handleFiles = useCallback(async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
     const remaining = maxCount - images.length;
     if (remaining <= 0) { toast.warning(`最多上传 ${maxCount} 张图片`); return; }
@@ -28,7 +29,7 @@ export default function ImageUploader({
     setUploading(true);
     const newUrls: string[] = [];
     for (const file of toUpload) {
-      if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name} 超过 10MB 限制`); continue; }
+      if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name || "图片"} 超过 10MB 限制`); continue; }
       try {
         const base64 = await fileToBase64(file);
         const res = await fetch("/api/upload/image", {
@@ -41,7 +42,7 @@ export default function ImageUploader({
         const { url } = await res.json();
         newUrls.push(url);
       } catch {
-        toast.error(`${file.name} 上传失败`);
+        toast.error(`${file.name || "图片"} 上传失败`);
       }
     }
     setUploading(false);
@@ -49,7 +50,46 @@ export default function ImageUploader({
       onChange([...images, ...newUrls]);
       toast.success(`成功上传 ${newUrls.length} 张图片`);
     }
-  };
+  }, [images, maxCount, onChange, category]);
+
+  // ── 全局粘贴事件监听 ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      // 如果焦点在文本输入框内，不拦截粘贴
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles: File[] = [];
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+
+      if (imageFiles.length === 0) return;
+      if (images.length >= maxCount) {
+        toast.warning(`最多上传 ${maxCount} 张图片`);
+        return;
+      }
+
+      // 闪烁提示
+      setIsPasteHint(true);
+      setTimeout(() => setIsPasteHint(false), 600);
+
+      handleFiles(imageFiles);
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [handleFiles, images.length, maxCount]);
 
   const removeImage = (idx: number) => {
     const next = [...images];
@@ -68,7 +108,6 @@ export default function ImageUploader({
   const onDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // 只有真正离开区域才取消高亮（避免子元素触发 leave）
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setIsDragging(false);
   }, []);
@@ -87,7 +126,6 @@ export default function ImageUploader({
       return;
     }
     const files = e.dataTransfer.files;
-    // 过滤只保留图片和 PDF
     const imageFiles = Array.from(files).filter(f =>
       f.type.startsWith("image/") || f.type === "application/pdf"
     );
@@ -96,12 +134,23 @@ export default function ImageUploader({
       return;
     }
     handleFiles(imageFiles);
-  }, [images.length, maxCount]);
+  }, [images.length, maxCount, handleFiles]);
 
   const canUpload = images.length < maxCount;
 
+  // 上传区域的动态样式
+  const uploadAreaClass = [
+    "flex items-center gap-3 px-3 py-2 rounded-lg border-2 border-dashed cursor-pointer transition-all duration-150 select-none",
+    isPasteHint
+      ? "border-green-500 bg-green-500/10 scale-[1.01]"
+      : isDragging
+        ? "border-primary bg-primary/5 scale-[1.01]"
+        : "border-border hover:border-primary/50 hover:bg-muted/40",
+    uploading ? "pointer-events-none opacity-60" : "",
+  ].join(" ");
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" ref={containerRef}>
       {/* 图片网格 */}
       {images.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -129,7 +178,7 @@ export default function ImageUploader({
         </div>
       )}
 
-      {/* 拖拽 + 点击上传区域 */}
+      {/* 拖拽 + 点击 + 粘贴上传区域 */}
       {canUpload && (
         <div
           onDragEnter={onDragEnter}
@@ -137,13 +186,7 @@ export default function ImageUploader({
           onDragOver={onDragOver}
           onDrop={onDrop}
           onClick={() => !uploading && inputRef.current?.click()}
-          className={[
-            "flex items-center gap-3 px-3 py-2 rounded-lg border-2 border-dashed cursor-pointer transition-all duration-150 select-none",
-            isDragging
-              ? "border-primary bg-primary/5 scale-[1.01]"
-              : "border-border hover:border-primary/50 hover:bg-muted/40",
-            uploading ? "pointer-events-none opacity-60" : "",
-          ].join(" ")}
+          className={uploadAreaClass}
         >
           <input
             ref={inputRef}
@@ -155,19 +198,26 @@ export default function ImageUploader({
           />
           {uploading ? (
             <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+          ) : isPasteHint ? (
+            <Clipboard className="w-4 h-4 flex-shrink-0 text-green-500" />
           ) : (
             <Upload className={`w-4 h-4 flex-shrink-0 transition-colors ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
           )}
           <div className="flex flex-col">
-            <span className={`text-xs font-medium transition-colors ${isDragging ? "text-primary" : "text-foreground/70"}`}>
+            <span className={`text-xs font-medium transition-colors ${isPasteHint ? "text-green-600" : isDragging ? "text-primary" : "text-foreground/70"}`}>
               {uploading
                 ? "上传中..."
-                : isDragging
-                  ? "松开鼠标即可上传"
-                  : `上传${label}图片（点击或拖拽）`}
+                : isPasteHint
+                  ? "正在上传粘贴的图片..."
+                  : isDragging
+                    ? "松开鼠标即可上传"
+                    : `上传${label}图片（点击或拖拽）`}
             </span>
             <span className="text-xs text-muted-foreground">
               支持 JPG/PNG/PDF，最多 {maxCount} 张，单张 ≤10MB
+              {!uploading && !isDragging && (
+                <span className="ml-1 text-muted-foreground/60">· 截图后可直接 Ctrl+V 粘贴</span>
+              )}
             </span>
           </div>
         </div>

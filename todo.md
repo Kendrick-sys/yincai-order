@@ -519,3 +519,7 @@
 - [x] 验证文档路由安全性（全部使用 protectedProcedure）
 - [x] 更新 auth.logout.test.ts 测试（适配新 cookie 清除方式）
 - [x] 创建 NAS 部署指南（NAS-DEPLOYMENT.md）
+
+## 新功能（第六十四批）
+
+- [x] ImageUploader：支持截图后 Ctrl+V/Cmd+V 粘贴直接上传图片
