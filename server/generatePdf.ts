@@ -424,7 +424,7 @@ function buildContractCnHtml(data: ContractCnData): string {
     <div class="party-card-name">${buyerCnCompany || counterpartyName}</div>
     ${counterpartyAddress ? `<div class="party-card-row"><span>地址：</span>${counterpartyAddress}</div>` : ''}
     ${buyerTaxNo ? `<div class="party-card-row"><span>税号：</span>${buyerTaxNo}</div>` : ''}
-    ${buyerBankAccount ? `<div class="party-card-row"><span>开户行：</span>${buyerBankName || ''}</div>` : ''}
+    ${buyerBankName ? `<div class="party-card-row"><span>开户行：</span>${buyerBankName}</div>` : ''}
     ${buyerBankAccount ? `<div class="party-card-row"><span>账号：</span>${buyerBankAccount}</div>` : ''}
   </div>
   <div class="party-card">

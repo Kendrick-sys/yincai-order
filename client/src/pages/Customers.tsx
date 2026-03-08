@@ -13,7 +13,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home, ExternalLink, Upload, FileSpreadsheet } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home, ExternalLink, Upload, FileSpreadsheet, Search } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 
@@ -66,6 +66,7 @@ export default function Customers() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const openCreate = () => {
     setEditingId(null);
@@ -242,8 +243,35 @@ export default function Customers() {
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground mb-4">共 {customers.length} 个预设客户，下单时可在客户字段直接选择</p>
-            {customers.map((c: any) => (
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="搜索客户名称、公司名、联系人、邮箱..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {(() => {
+              const q = searchQuery.trim().toLowerCase();
+              const filtered = q
+                ? customers.filter((c: any) =>
+                    (c.name ?? "").toLowerCase().includes(q) ||
+                    (c.cnCompany ?? "").toLowerCase().includes(q) ||
+                    (c.contact ?? "").toLowerCase().includes(q) ||
+                    (c.email ?? "").toLowerCase().includes(q) ||
+                    (c.company ?? "").toLowerCase().includes(q)
+                  )
+                : customers;
+              return (
+                <>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {q ? `搜索到 ${filtered.length} / ${customers.length} 个客户` : `共 ${customers.length} 个预设客户，下单时可在客户字段直接选择`}
+                  </p>
+                  {filtered.length === 0 && q && (
+                    <div className="text-center py-12 text-muted-foreground text-sm">未找到匹配“{searchQuery}”的客户</div>
+                  )}
+            {filtered.map((c: any) => (
               <div
                 key={c.id}
                 className="flex items-center gap-4 bg-card border border-border rounded-xl px-5 py-4 hover:border-primary/30 transition-colors group"
@@ -306,6 +334,9 @@ export default function Customers() {
                 </div>
               </div>
             ))}
+                </>
+              );
+            })()}
           </div>
         )}
       </main>
