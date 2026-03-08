@@ -190,7 +190,8 @@ export const appRouter = router({
     // 登出
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      // 使用 expires: new Date(0) 代替 clearCookie，避免 Express v5 废弃警告
+      ctx.res.cookie(COOKIE_NAME, "", { ...cookieOptions, expires: new Date(0) });
       return { success: true } as const;
     }),
   }),
@@ -333,20 +334,20 @@ export const appRouter = router({
       }),
   }),
 
-  // ─── 单据管理（合同/PI/CI）──────────────────────────────────────────────────
+  // ─── 单据管理（合同/PI/CI）────────────────────────────────────────────────
   documents: router({
     // 获取订单下的所有单据
-    listByOrder: publicProcedure
+    listByOrder: protectedProcedure
       .input(z.object({ orderId: z.number() }))
       .query(async ({ input }) => getDocumentsByOrderId(input.orderId)),
 
     // 获取单个单据
-    get: publicProcedure
+    get: protectedProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => getDocumentById(input.id)),
 
     // 生成国内采购合同
-    generateContractCn: publicProcedure
+    generateContractCn: protectedProcedure
       .input(z.object({
         orderId: z.number(),
         counterpartyName: z.string().min(1, "甲方名称不能为空"),
@@ -448,21 +449,21 @@ export const appRouter = router({
       }),
 
     // 作废单据
-    void: publicProcedure
+    void: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await voidDocument(input.id);
         return { success: true };
       }),
     // 标记单据为已发送
-    markSent: publicProcedure
+    markSent: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await markDocumentSent(input.id);
         return { success: true };
       }),
     // 取消已发送标记
-    unmarkSent: publicProcedure
+    unmarkSent: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await unmarkDocumentSent(input.id);
@@ -470,7 +471,7 @@ export const appRouter = router({
       }),
 
     // 重新生成单据 PDF（版本号+1）
-    regenerate: publicProcedure
+    regenerate: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         const doc = await getDocumentById(input.id);
@@ -522,12 +523,12 @@ export const appRouter = router({
       }),
 
     // 获取订单下的有效 PI 列表（供 CI 选择）
-    getActivePi: publicProcedure
+    getActivePi: protectedProcedure
       .input(z.object({ orderId: z.number() }))
       .query(async ({ input }) => getActivePiByOrderId(input.orderId)),
 
     // 生成 PI / CI
-    generatePiCi: publicProcedure
+    generatePiCi: protectedProcedure
       .input(z.object({
         orderId: z.number(),
         docType: z.enum(["pi", "ci"]),
@@ -655,11 +656,11 @@ export const appRouter = router({
   // ─── 系统设置 ───────────────────────────────────────────────────────────────
   settings: router({
     // 获取单据编号前缀
-    getDocPrefixes: publicProcedure
+    getDocPrefixes: protectedProcedure
       .query(async () => getDocPrefixes()),
 
     // 保存单据编号前缀
-    saveDocPrefixes: publicProcedure
+    saveDocPrefixes: adminProcedure
       .input(z.object({
         contract_cn: z.string().min(1).max(16),
         pi: z.string().min(1).max(16),
@@ -688,7 +689,14 @@ export const appRouter = router({
     // 获取单个订单
     get: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => getOrderById(input.id)),
+      .query(async ({ input, ctx }) => {
+        const order = await getOrderById(input.id);
+        if (!order) return null;
+        if (ctx.user.role !== "admin" && order.createdBy !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "无权查看该订单" });
+        }
+        return order;
+      }),
 
     // 创建订单（自动设置 createdBy）
     create: protectedProcedure

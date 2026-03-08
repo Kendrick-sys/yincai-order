@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -15,6 +15,7 @@ import archiver from "archiver";
 import { getDocumentsByOrderId } from "../db.documents";
 import https from "https";
 import http from "http";
+import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -35,6 +36,16 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
   throw new Error(`No available port found starting from ${startPort}`);
 }
 
+/** 认证中间件：验证 Cookie，未登录返回 401 */
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  try {
+    await sdk.authenticateRequest(req);
+    next();
+  } catch {
+    res.status(401).json({ error: "请先登录" });
+  }
+}
+
 async function startServer() {
   const app = express();
   const server = createServer(app);
@@ -43,8 +54,9 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
-  // Excel 导出路由
-  app.get("/api/export/order/:id", async (req, res) => {
+
+  // Excel 导出路由（需登录）
+  app.get("/api/export/order/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) { res.status(400).json({ error: "无效的订单ID" }); return; }
@@ -57,8 +69,8 @@ async function startServer() {
     }
   });
 
-  // 按年月批量导出订单 Excel 路由
-  app.get("/api/export/orders/monthly", async (req, res) => {
+  // 按年月批量导出订单 Excel 路由（需登录）
+  app.get("/api/export/orders/monthly", requireAuth, async (req, res) => {
     try {
       const year = parseInt(req.query.year as string);
       const month = parseInt(req.query.month as string);
@@ -81,8 +93,8 @@ async function startServer() {
     }
   });
 
-  // 客户导入模板下载
-  app.get("/api/export/customers/template", async (_req, res) => {
+  // 客户导入模板下载（需登录）
+  app.get("/api/export/customers/template", requireAuth, async (_req, res) => {
     try {
       const buffer = await generateCustomersTemplate();
       const filename = encodeURIComponent("吟彩客户导入模板.xlsx");
@@ -94,8 +106,8 @@ async function startServer() {
     }
   });
 
-  // 客户批量导入（接收 raw buffer）
-  app.post("/api/import/customers", async (req, res) => {
+  // 客户批量导入（需登录）
+  app.post("/api/import/customers", requireAuth, async (req, res) => {
     try {
       const chunks: Buffer[] = [];
       req.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -124,8 +136,8 @@ async function startServer() {
     }
   });
 
-  // 客户档案 Excel 导出路由
-  app.get("/api/export/customers", async (_req, res) => {
+  // 客户档案 Excel 导出路由（需登录）
+  app.get("/api/export/customers", requireAuth, async (_req, res) => {
     try {
       const buffer = await generateCustomersExcel();
       const filename = encodeURIComponent(`吟彩客户档案_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '')}.xlsx`);
@@ -137,8 +149,8 @@ async function startServer() {
     }
   });
 
-  // 图片上传路由（base64 → S3）
-  app.post("/api/upload/image", async (req, res) => {
+  // 图片上传路由（需登录）
+  app.post("/api/upload/image", requireAuth, async (req, res) => {
     try {
       const { base64, mimeType, category } = req.body as { base64: string; mimeType: string; category?: string };
       if (!base64 || !mimeType) { res.status(400).json({ error: "缺少 base64 或 mimeType" }); return; }
@@ -152,8 +164,8 @@ async function startServer() {
     }
   });
 
-  // 单据 ZIP 批量导出路由
-  app.get("/api/export/documents/:orderId/zip", async (req, res) => {
+  // 单据 ZIP 批量导出路由（需登录）
+  app.get("/api/export/documents/:orderId/zip", requireAuth, async (req, res) => {
     try {
       const orderId = parseInt(req.params.orderId);
       if (isNaN(orderId)) { res.status(400).json({ error: "无效的订单ID" }); return; }

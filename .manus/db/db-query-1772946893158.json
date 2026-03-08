@@ -1,0 +1,9 @@
+{
+  "query": "DELETE FROM orderModels;\nDELETE FROM documents;\nDELETE FROM orders;\nDELETE FROM customers;\nDELETE FROM settings;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4S6fBAUfucGeUZk.root --database MnhiE9LdbgqX24MUwA2SN8 --execute DELETE FROM orderModels;\nDELETE FROM documents;\nDELETE FROM orders;\nDELETE FROM customers;\nDELETE FROM settings;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 100
+}

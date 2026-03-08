@@ -5,13 +5,14 @@ import type { TrpcContext } from "./_core/context";
 
 type CookieCall = {
   name: string;
+  value: string;
   options: Record<string, unknown>;
 };
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
-function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] } {
-  const clearedCookies: CookieCall[] = [];
+function createAuthContext(): { ctx: TrpcContext; setCookies: CookieCall[] } {
+  const setCookies: CookieCall[] = [];
 
   const user: AuthenticatedUser = {
     id: 1,
@@ -32,31 +33,36 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
       headers: {},
     } as TrpcContext["req"],
     res: {
-      clearCookie: (name: string, options: Record<string, unknown>) => {
-        clearedCookies.push({ name, options });
+      cookie: (name: string, value: string, options: Record<string, unknown>) => {
+        setCookies.push({ name, value, options });
       },
-    } as TrpcContext["res"],
+    } as unknown as TrpcContext["res"],
   };
 
-  return { ctx, clearedCookies };
+  return { ctx, setCookies };
 }
 
 describe("auth.logout", () => {
   it("clears the session cookie and reports success", async () => {
-    const { ctx, clearedCookies } = createAuthContext();
+    const { ctx, setCookies } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.auth.logout();
 
     expect(result).toEqual({ success: true });
-    expect(clearedCookies).toHaveLength(1);
-    expect(clearedCookies[0]?.name).toBe(COOKIE_NAME);
-    expect(clearedCookies[0]?.options).toMatchObject({
-      maxAge: -1,
+    // 登出时应设置一个空内容、已过期的 cookie
+    expect(setCookies).toHaveLength(1);
+    expect(setCookies[0]?.name).toBe(COOKIE_NAME);
+    expect(setCookies[0]?.value).toBe("");
+    expect(setCookies[0]?.options).toMatchObject({
       secure: true,
       sameSite: "none",
       httpOnly: true,
       path: "/",
     });
+    // expires 应为过去时间（即立即过期）
+    const expires = setCookies[0]?.options?.expires as Date | undefined;
+    expect(expires instanceof Date).toBe(true);
+    expect(expires!.getTime()).toBeLessThanOrEqual(0);
   });
 });

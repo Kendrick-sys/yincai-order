@@ -1,0 +1,25 @@
+{
+  "query": "SELECT COUNT(*) as orders_count FROM orders;\nSELECT COUNT(*) as customers_count FROM customers;\nSELECT id, username, role, isActive FROM users;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4S6fBAUfucGeUZk.root --database MnhiE9LdbgqX24MUwA2SN8 --execute SELECT COUNT(*) as orders_count FROM orders;\nSELECT COUNT(*) as customers_count FROM customers;\nSELECT id, username, role, isActive FROM users;",
+  "rows": [
+    {
+      "orders_count": "0"
+    },
+    {
+      "orders_count": "customers_count"
+    },
+    {
+      "orders_count": "0"
+    },
+    {
+      "orders_count": "id\tusername\trole\tisActive"
+    },
+    {
+      "orders_count": "1\tKendrick\tadmin\t1"
+    }
+  ],
+  "messages": [],
+  "stdout": "orders_count\n0\ncustomers_count\n0\nid\tusername\trole\tisActive\n1\tKendrick\tadmin\t1\n",
+  "stderr": "",
+  "execution_time_ms": 69
+}

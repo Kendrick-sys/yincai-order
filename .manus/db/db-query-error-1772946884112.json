@@ -1,0 +1,8 @@
+{
+  "query": "\n-- 先删除有外键依赖的表\nDELETE FROM order_models;\nDELETE FROM documents;\nDELETE FROM orders;\nDELETE FROM customers;\nDELETE FROM settings;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4S6fBAUfucGeUZk.root --database MnhiE9LdbgqX24MUwA2SN8 --execute \n-- 先删除有外键依赖的表\nDELETE FROM order_models;\nDELETE FROM documents;\nDELETE FROM orders;\nDELETE FROM customers;\nDELETE FROM settings;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 3: Table 'mnhie9ldbgqx24muwa2sn8.order_models' doesn't exist"
+  ]
+}
