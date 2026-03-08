@@ -8,11 +8,18 @@ import {
   ClipboardList, Package, CheckCircle2, XCircle,
   Clock, Factory, ChevronRight, Copy, Printer,
   Users, Trash, Eye, ArrowUpDown, ArrowUp, ArrowDown,
-  CalendarRange, Loader2, X, AlertTriangle, MessageSquare, Settings
+  CalendarRange, Loader2, X, AlertTriangle, MessageSquare, Settings,
+  User
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LogOut, KeyRound, ShieldCheck } from "lucide-react";
 
 function downloadOrderExcel(orderId: number) {
   const a = document.createElement("a");
@@ -84,6 +91,7 @@ function SortableHeader({
 
 export default function Home() {
   const [, navigate] = useLocation();
+  const { user, logout } = useAuth();
   const [search, setSearch]         = useState("");
   const [activeTab, setActiveTab]   = useState<StatusKey | "all">("all");
   const [channelFilter, setChannelFilter] = useState<"all" | "alibaba" | "1688" | "amazon">("all");
@@ -373,6 +381,39 @@ export default function Home() {
               <Plus className="w-4 h-4" />
               新建订单
             </Button>
+
+            {/* 用户下拉菜单 */}
+            {user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-gray-500 border-gray-200 hover:text-[#1A3C5E] hover:border-[#1A3C5E]/30">
+                    <User className="w-3.5 h-3.5" />
+                    <span className="max-w-[80px] truncate">{(user as any).displayName ?? user.name ?? "用户"}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <div className="px-3 py-2 text-xs text-slate-400">
+                    {(user as any).role === "admin" ? "管理员" : "业务员"}
+                  </div>
+                  <DropdownMenuSeparator />
+                  {(user as any).role === "admin" && (
+                    <DropdownMenuItem onClick={() => navigate("/admin/users")} className="gap-2 cursor-pointer">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      账号管理
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => navigate("/change-password")} className="gap-2 cursor-pointer">
+                    <KeyRound className="w-3.5 h-3.5" />
+                    修改密码
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => logout()} className="gap-2 cursor-pointer text-red-500 focus:text-red-500">
+                    <LogOut className="w-3.5 h-3.5" />
+                    退出登录
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </header>

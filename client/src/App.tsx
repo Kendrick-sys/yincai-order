@@ -7,13 +7,16 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 
 // 非首屏页面懒加载，减少首屏 JS 体积
-const OrderForm    = lazy(() => import("./pages/OrderForm"));
-const PrintPreview = lazy(() => import("./pages/PrintPreview"));
-const Customers    = lazy(() => import("./pages/Customers"));
-const Trash        = lazy(() => import("./pages/Trash"));
-const OrderView    = lazy(() => import("./pages/OrderView"));
-const Settings     = lazy(() => import("./pages/Settings"));
-const NotFound     = lazy(() => import("./pages/NotFound"));
+const OrderForm      = lazy(() => import("./pages/OrderForm"));
+const PrintPreview   = lazy(() => import("./pages/PrintPreview"));
+const Customers      = lazy(() => import("./pages/Customers"));
+const Trash          = lazy(() => import("./pages/Trash"));
+const OrderView      = lazy(() => import("./pages/OrderView"));
+const Settings       = lazy(() => import("./pages/Settings"));
+const NotFound       = lazy(() => import("./pages/NotFound"));
+const Login          = lazy(() => import("./pages/Login"));
+const UserManagement = lazy(() => import("./pages/UserManagement"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 
 // 通用加载占位（轻量，避免布局抖动）
 function PageLoader() {
@@ -40,6 +43,9 @@ function Router() {
         <Route path={"/trash"} component={Trash} />
         <Route path={"/settings"} component={Settings} />
         <Route path={"/404"} component={NotFound} />
+        <Route path={"/login"} component={Login} />
+        <Route path={"/admin/users"} component={UserManagement} />
+        <Route path={"/change-password"} component={ChangePassword} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

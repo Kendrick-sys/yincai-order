@@ -134,6 +134,13 @@
       "when": 1772938328863,
       "tag": "0018_cute_black_bird",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1772943359704,
+      "tag": "0019_wealthy_gargoyle",
+      "breakpoints": true
     }
   ]
 }

@@ -257,7 +257,6 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<User> {
-    // Regular authentication flow
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = cookies.get(COOKIE_NAME);
     const session = await this.verifySession(sessionCookie);
@@ -266,11 +265,22 @@ class SDKServer {
       throw ForbiddenError("Invalid session cookie");
     }
 
-    const sessionUserId = session.openId;
     const signedInAt = new Date();
+
+    // ── 自建账号优先：openId 以 "local:" 开头 ──────────────────────────────
+    if (session.openId.startsWith("local:")) {
+      const user = await db.getUserByOpenId(session.openId);
+      if (!user) throw ForbiddenError("User not found");
+      if (!user.isActive) throw ForbiddenError("Account is disabled");
+      // 更新最后登录时间（非阻塞）
+      db.upsertUser({ openId: user.openId, lastSignedIn: signedInAt }).catch(() => {});
+      return user;
+    }
+
+    // ── Manus OAuth 兼容路径 ───────────────────────────────────────────────
+    const sessionUserId = session.openId;
     let user = await db.getUserByOpenId(sessionUserId);
 
-    // If user not in DB, sync from OAuth server automatically
     if (!user) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
@@ -288,15 +298,9 @@ class SDKServer {
       }
     }
 
-    if (!user) {
-      throw ForbiddenError("User not found");
-    }
+    if (!user) throw ForbiddenError("User not found");
 
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
-
+    await db.upsertUser({ openId: user.openId, lastSignedIn: signedInAt });
     return user;
   }
 }

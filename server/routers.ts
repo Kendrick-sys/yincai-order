@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import {
   createOrder, updateOrder, listOrders, getOrderById,
   softDeleteOrder, restoreOrder, hardDeleteOrder, listTrashedOrders,
@@ -17,6 +17,11 @@ import {
 } from "./db.documents";
 import { generateContractCnPdf, generatePiCiPdf } from "./generatePdf";
 import { storagePut } from "./storage";
+import {
+  getUserByUsername, verifyPassword,
+  createAppUser, updateAppUser, deactivateAppUser, listAppUsers,
+} from "./auth";
+import { sdk } from "./_core/sdk";
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
 
@@ -138,7 +143,46 @@ const customerSchema = z.object({
 export const appRouter = router({
   system: systemRouter,
   auth: router({
+    // 获取当前登录用户
     me: publicProcedure.query(opts => opts.ctx.user),
+
+    // 自建账号登录
+    login: publicProcedure
+      .input(z.object({
+        username: z.string().min(1, "用户名不能为空"),
+        password: z.string().min(1, "密码不能为空"),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const user = await getUserByUsername(input.username);
+        if (!user || !user.passwordHash) {
+          throw new Error("用户名或密码错误");
+        }
+        if (!user.isActive) {
+          throw new Error("该账号已被停用，请联系管理员");
+        }
+        const valid = await verifyPassword(input.password, user.passwordHash);
+        if (!valid) {
+          throw new Error("用户名或密码错误");
+        }
+        // 签发 JWT Session
+        const sessionToken = await sdk.createSessionToken(user.openId, {
+          name: user.displayName ?? user.name ?? user.username ?? "",
+          expiresInMs: ONE_YEAR_MS,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        return {
+          success: true,
+          user: {
+            id: user.id,
+            username: user.username,
+            displayName: user.displayName ?? user.name,
+            role: user.role,
+          },
+        };
+      }),
+
+    // 登出
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -146,25 +190,97 @@ export const appRouter = router({
     }),
   }),
 
-  // ─── 客户管理 ───────────────────────────────────────────────────────────────
-  customers: router({
-    list: publicProcedure.query(async () => listCustomersWithStats()),
+  // ─── 账号管理（管理员专属）───────────────────────────────────────────────
+  userManagement: router({
+    // 获取所有账号列表
+    list: adminProcedure.query(async () => listAppUsers()),
 
-    create: publicProcedure
-      .input(customerSchema)
+    // 创建新账号
+    create: adminProcedure
+      .input(z.object({
+        username: z.string().min(2, "用户名至少2个字符").max(32),
+        password: z.string().min(6, "密码至少6个字符"),
+        displayName: z.string().min(1, "姓名不能为空").max(32),
+        role: z.enum(["user", "admin"]),
+      }))
       .mutation(async ({ input }) => {
-        const id = await createCustomer(input);
+        const id = await createAppUser(input);
         return { id };
       }),
 
-    update: publicProcedure
+    // 更新账号（修改姓名/角色/状态/密码）
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        displayName: z.string().min(1).max(32).optional(),
+        role: z.enum(["user", "admin"]).optional(),
+        isActive: z.boolean().optional(),
+        password: z.string().min(6).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updateAppUser(id, data);
+        return { success: true };
+      }),
+
+    // 停用账号（移除登录权限）
+    deactivate: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deactivateAppUser(input.id);
+        return { success: true };
+      }),
+
+    // 重置密码（管理员重置业务员密码）
+    resetPassword: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        newPassword: z.string().min(6, "密码至少6个字符"),
+      }))
+      .mutation(async ({ input }) => {
+        await updateAppUser(input.id, { password: input.newPassword });
+        return { success: true };
+      }),
+
+    // 业务员修改自己的密码
+    changeMyPassword: protectedProcedure
+      .input(z.object({
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(6, "新密码至少6个字符"),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const user = await getUserByUsername(ctx.user.username ?? "");
+        if (!user || !user.passwordHash) throw new Error("账号不存在");
+        const valid = await verifyPassword(input.currentPassword, user.passwordHash);
+        if (!valid) throw new Error("当前密码错误");
+        await updateAppUser(user.id, { password: input.newPassword });
+        return { success: true };
+      }),
+  }),
+
+  // ─── 客户管理 ───────────────────────────────────────────────────────────────
+  customers: router({
+    // 管理员看全部，业务员只看自己创建的
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+      return listCustomersWithStats(userId);
+    }),
+
+    create: protectedProcedure
+      .input(customerSchema)
+      .mutation(async ({ input, ctx }) => {
+        const id = await createCustomer({ ...input, createdBy: ctx.user.id });
+        return { id };
+      }),
+
+    update: protectedProcedure
       .input(z.object({ id: z.number(), data: customerSchema.partial() }))
       .mutation(async ({ input }) => {
         await updateCustomer(input.id, input.data);
         return { success: true };
       }),
 
-    delete: publicProcedure
+    delete: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await deleteCustomer(input.id);
@@ -512,30 +628,36 @@ export const appRouter = router({
 
   // ─── 订单管理 ───────────────────────────────────────────────────────────────
   orders: router({
-    // 正常订单列表
-    list: publicProcedure.query(async () => listOrders()),
+    // 正常订单列表（管理员看全部，业务员只看自己的）
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+      return listOrders(userId);
+    }),
 
     // 回收站列表
-    listTrashed: publicProcedure.query(async () => listTrashedOrders()),
+    listTrashed: protectedProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+      return listTrashedOrders(userId);
+    }),
 
     // 获取单个订单
-    get: publicProcedure
+    get: protectedProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => getOrderById(input.id)),
 
-    // 创建订单
-    create: publicProcedure
+    // 创建订单（自动设置 createdBy）
+    create: protectedProcedure
       .input(z.object({ order: orderHeaderSchema, models: z.array(modelSchema) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const id = await createOrder(
-          { ...input.order, status: input.order.status ?? "draft" },
+          { ...input.order, status: input.order.status ?? "draft", createdBy: ctx.user.id },
           input.models
         );
         return { id };
       }),
 
     // 更新订单
-    update: publicProcedure
+    update: protectedProcedure
       .input(z.object({ id: z.number(), order: orderHeaderSchema, models: z.array(modelSchema) }))
       .mutation(async ({ input }) => {
         await updateOrder(input.id, input.order, input.models);
@@ -543,7 +665,7 @@ export const appRouter = router({
       }),
 
     // 仅更新状态
-    updateStatus: publicProcedure
+    updateStatus: protectedProcedure
       .input(z.object({
         id: z.number(),
         status: z.enum(["draft", "submitted", "in_production", "completed", "cancelled"]),
@@ -554,7 +676,7 @@ export const appRouter = router({
       }),
 
     // 软删除（移入回收站）
-    delete: publicProcedure
+    delete: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await softDeleteOrder(input.id);
@@ -562,7 +684,7 @@ export const appRouter = router({
       }),
 
     // 从回收站恢复
-    restore: publicProcedure
+    restore: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await restoreOrder(input.id);
@@ -570,7 +692,7 @@ export const appRouter = router({
       }),
 
     // 彻底删除（不可恢复）
-    hardDelete: publicProcedure
+    hardDelete: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await hardDeleteOrder(input.id);
@@ -578,9 +700,9 @@ export const appRouter = router({
       }),
 
     // 复制订单
-    duplicate: publicProcedure
+    duplicate: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const original = await getOrderById(input.id);
         if (!original) throw new Error("订单不存在");
         const today = new Date().toISOString().slice(0, 10);
@@ -595,6 +717,7 @@ export const appRouter = router({
             deliveryDate: original.deliveryDate ?? undefined,
             remarks: original.remarks ?? undefined,
             status: "draft",
+            createdBy: ctx.user.id,
           },
           (original.models ?? []).map((m: any) => ({
             modelName:       m.modelName ?? undefined,

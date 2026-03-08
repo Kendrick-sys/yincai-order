@@ -7,6 +7,11 @@ export const users = mysqlTable("users", {
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  // 自建账号密码登录
+  username: varchar("username", { length: 64 }).unique(),           // 登录用户名
+  passwordHash: varchar("passwordHash", { length: 256 }),           // bcrypt 密码哈希
+  displayName: varchar("displayName", { length: 64 }),              // 显示名称（姓名）
+  isActive: boolean("isActive").default(true).notNull(),            // 是否启用（停用则无法登录）
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -35,6 +40,8 @@ export const customers = mysqlTable("customers", {
   bankName:    varchar("bankName", { length: 256 }),              // 对公开户行
   remarks:  text("remarks"),                                      // 备注
   sortOrder: int("sortOrder").default(0).notNull(),               // 排序
+  // 归属业务员（null 表示公共客户，管理员可见所有）
+  createdBy: int("createdBy"),                                      // 关联 users.id
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -83,6 +90,9 @@ export const orders = mysqlTable("orders", {
 
   // 软删除：deletedAt 不为 null 表示已删除（进入回收站）
   deletedAt: timestamp("deletedAt"),
+
+  // 归属业务员（null 表示历史数据，管理员可见所有）
+  createdBy: int("createdBy"),                                      // 关联 users.id
 
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

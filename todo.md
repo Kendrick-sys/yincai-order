@@ -450,3 +450,18 @@
 - [x] generatePdf.ts：Puppeteer 浏览器实例复用（单例模式）
 - [x] generatePdf.ts：executablePath 读取 process.env 而非硬编码
 - [x] vite.config.ts：增加 manualChunks 代码分割（react-core/radix-ui/framer-motion/lucide-react/trpc-query/vendor 独立 chunk）
+
+## 第五十七批（多账号登录系统）
+
+- [x] Schema：users 表新增 passwordHash、isActive 字段；orders/customers 表新增 createdBy 字段
+- [x] pnpm db:push 推送 Schema 变更
+- [x] 后端：新增 bcrypt 密码哈希工具函数
+- [x] 后端：替换 Manus OAuth 为自建账号密码登录（/api/auth/login、/api/auth/logout）
+- [x] 后端：修改 context.ts 认证逻辑（从 JWT Cookie 读取 appUserId）
+- [x] 后端：orders/customers 查询加 createdBy 权限过滤（业务员只看自己的）
+- [x] 后端：账号管理 tRPC 路由（管理员增删改账号、停用/启用）
+- [x] 前端：登录页（用户名+密码表单，替换 Manus OAuth 跳转）
+- [x] 前端：账号管理页（管理员专属，增删改账号）
+- [x] 前端：订单列表管理员视图显示"制单员"列
+- [x] 前端：客户列表管理员视图显示归属业务员
+- [x] 前端：DashboardLayout 侧边栏增加"账号管理"入口（管理员可见）

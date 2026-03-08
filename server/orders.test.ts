@@ -1,10 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import type { User } from "../drizzle/schema";
 
+/** 模拟管理员用户（用于 protectedProcedure 测试） */
 function createCtx(): TrpcContext {
+  const mockAdmin: User = {
+    id: 1,
+    openId: "local:admin",
+    username: "admin",
+    displayName: "测试管理员",
+    name: "测试管理员",
+    email: null,
+    role: "admin",
+    isActive: true,
+    passwordHash: null,
+    loginMethod: "password",
+    lastSignedIn: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
   return {
-    user: null,
+    user: mockAdmin,
     req: { protocol: "https", headers: {} } as TrpcContext["req"],
     res: { clearCookie: () => {} } as unknown as TrpcContext["res"],
   };

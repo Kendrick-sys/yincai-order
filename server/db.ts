@@ -1,4 +1,4 @@
-import { desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -59,6 +59,13 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
 // ─── 客户相关 ─────────────────────────────────────────────────────────────────
 
 /** 获取所有客户（按 sortOrder 排序） */
@@ -91,12 +98,12 @@ export async function deleteCustomer(id: number) {
 }
 
 /** 获取客户列表（含订单统计：数量 + 最近下单日期） */
-export async function listCustomersWithStats() {
+export async function listCustomersWithStats(userId?: number) {
   const db = await getDb();
   if (!db) return [];
 
   // 左连接 orders 表，按客户名称分组统计
-  const result = await db
+  const query = db
     .select({
       id: customers.id,
       name: customers.name,
@@ -116,34 +123,42 @@ export async function listCustomersWithStats() {
       remarks: customers.remarks,
       sortOrder: customers.sortOrder,
       createdAt: customers.createdAt,
+      createdBy: customers.createdBy,
       orderCount: sql<number>`COUNT(CASE WHEN ${orders.deletedAt} IS NULL THEN 1 END)`,
       lastOrderDate: sql<string | null>`MAX(CASE WHEN ${orders.deletedAt} IS NULL THEN ${orders.orderDate} END)`,
     })
     .from(customers)
     .leftJoin(orders, eq(orders.customer, customers.name))
+    .where(userId !== undefined ? eq(customers.createdBy, userId) : undefined)
     .groupBy(customers.id)
     .orderBy(customers.sortOrder, customers.createdAt);
 
-  return result;
+  return query;
 }
 
 // ─── 订单相关 ─────────────────────────────────────────────────────────────────
 
 /** 获取正常订单列表（未删除） */
-export async function listOrders() {
+export async function listOrders(userId?: number) {
   const db = await getDb();
   if (!db) return [];
+  const condition = userId !== undefined
+    ? and(isNull(orders.deletedAt), eq(orders.createdBy, userId))
+    : isNull(orders.deletedAt);
   return db.select().from(orders)
-    .where(isNull(orders.deletedAt))
+    .where(condition)
     .orderBy(desc(orders.createdAt));
 }
 
 /** 获取回收站订单列表（已软删除） */
-export async function listTrashedOrders() {
+export async function listTrashedOrders(userId?: number) {
   const db = await getDb();
   if (!db) return [];
+  const condition = userId !== undefined
+    ? and(isNotNull(orders.deletedAt), eq(orders.createdBy, userId))
+    : isNotNull(orders.deletedAt);
   return db.select().from(orders)
-    .where(isNotNull(orders.deletedAt))
+    .where(condition)
     .orderBy(desc(orders.deletedAt));
 }
 
