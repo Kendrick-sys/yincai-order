@@ -212,9 +212,9 @@ class SDKServer {
       });
       const { openId, appId, name } = payload as Record<string, unknown>;
 
+      // appId may be empty in local NAS deployments where VITE_APP_ID is not set
       if (
         !isNonEmptyString(openId) ||
-        !isNonEmptyString(appId) ||
         !isNonEmptyString(name)
       ) {
         console.warn("[Auth] Session payload missing required fields");
@@ -223,7 +223,7 @@ class SDKServer {
 
       return {
         openId,
-        appId,
+        appId: (appId as string) || "",
         name,
       };
     } catch (error) {
