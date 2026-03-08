@@ -146,9 +146,9 @@ export async function listCustomersWithStats(userId?: number) {
       createdBy: customers.createdBy,
       orderCount: sql<number>`COUNT(CASE WHEN ${orders.deletedAt} IS NULL THEN 1 END)`,
       lastOrderDate: sql<string | null>`MAX(CASE WHEN ${orders.deletedAt} IS NULL THEN ${orders.orderDate} END)`,
-      // 创建者信息
-      creatorName: creatorUser.displayName,
-      creatorIsActive: creatorUser.isActive,
+      // 创建者信息（用 MAX 聚合避免 ONLY_FULL_GROUP_BY 限制）
+      creatorName: sql<string | null>`MAX(${creatorUser.displayName})`,
+      creatorIsActive: sql<boolean | null>`MAX(CAST(${creatorUser.isActive} AS UNSIGNED))`,
     })
     .from(customers)
     .leftJoin(orders, eq(orders.customer, customers.name))
