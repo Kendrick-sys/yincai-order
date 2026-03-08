@@ -491,3 +491,7 @@
 - [x] 分配业务员：Customers.tsx 客户列表每行增加「分配业务员」按鈕（管理员可见，弹出对话框选择在职业务员或设为公共）
 - [x] 创建订单快捷按鈕：客户列表每行增加「创建订单」图标按鈕，点击跳转 /order/new?customer=客户名
 - [x] OrderForm.tsx：读取 URL 参数 customer，自动预填客户名字段
+
+## 第六十一批（退出登录立即清除缓存）
+
+- [x] 退出登录时调用 queryClient.clear() 清除全部 React Query 缓存，防止数据残留

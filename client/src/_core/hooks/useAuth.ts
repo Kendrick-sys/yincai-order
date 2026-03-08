@@ -1,6 +1,7 @@
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 
 type UseAuthOptions = {
@@ -12,6 +13,7 @@ export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl(window.location.pathname) } =
     options ?? {};
   const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
@@ -32,14 +34,17 @@ export function useAuth(options?: UseAuthOptions) {
         error instanceof TRPCClientError &&
         error.data?.code === "UNAUTHORIZED"
       ) {
-        return;
+        // already logged out, proceed
+      } else {
+        throw error;
       }
-      throw error;
     } finally {
-      utils.auth.me.setData(undefined, null);
-      await utils.auth.me.invalidate();
+      // 立即清除全部 React Query 缓存，防止退出后数据残留
+      queryClient.clear();
+      // 跳转到登录页
+      window.location.href = getLoginUrl();
     }
-  }, [logoutMutation, utils]);
+  }, [logoutMutation, queryClient]);
 
   const state = useMemo(() => {
     localStorage.setItem(
