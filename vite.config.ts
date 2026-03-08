@@ -167,36 +167,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        manualChunks: (id) => {
-          // React 核心
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'react-core';
-          }
-          // Radix UI 组件库（shadcn/ui 依赖）
-          if (id.includes('node_modules/@radix-ui')) {
-            return 'radix-ui';
-          }
-          // framer-motion 动画库
-          if (id.includes('node_modules/framer-motion')) {
-            return 'framer-motion';
-          }
-          // lucide-react 图标库
-          if (id.includes('node_modules/lucide-react')) {
-            return 'lucide-react';
-          }
-          // tRPC + tanstack-query
-          if (id.includes('node_modules/@trpc') || id.includes('node_modules/@tanstack')) {
-            return 'trpc-query';
-          }
-          // 其余 node_modules 合并为 vendor
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-        },
-      },
-    },
+
   },
   server: {
     host: true,
