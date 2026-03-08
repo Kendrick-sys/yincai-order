@@ -9,7 +9,7 @@ import {
   Clock, Factory, ChevronRight, Copy, Printer,
   Users, Trash, Eye, ArrowUpDown, ArrowUp, ArrowDown,
   CalendarRange, Loader2, X, AlertTriangle, MessageSquare, Settings,
-  User
+  User, Menu
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useState, useEffect, useMemo } from "react";
@@ -20,18 +20,14 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, KeyRound, ShieldCheck } from "lucide-react";
+import {
+  Sheet, SheetContent, SheetTrigger,
+} from "@/components/ui/sheet";
 
 function downloadOrderExcel(orderId: number) {
   const a = document.createElement("a");
   a.href = `/api/export/order/${orderId}`;
   a.download = `吟彩订单_${orderId}.xlsx`;
-  a.click();
-}
-
-function downloadMonthlyExcel(year: number, month: number) {
-  const a = document.createElement("a");
-  a.href = `/api/export/orders/monthly?year=${year}&month=${month}`;
-  a.download = `吟彩订单_${year}年${month}月.xlsx`;
   a.click();
 }
 
@@ -242,21 +238,118 @@ export default function Home() {
     cancelled: null,
   };
 
+  // 月导出面板内容（桌面端下拉 + 移动端 Sheet 共用）
+  const MonthExportPanel = () => (
+    <div className="p-4 w-full">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-gray-700">选择导出年月</p>
+        <button onClick={() => setShowMonthExport(false)} className="text-gray-400 hover:text-gray-600">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex gap-2 mb-3">
+        <div className="flex-1">
+          <label className="text-xs text-gray-500 mb-1 block">年份</label>
+          <select
+            value={exportYear}
+            onChange={e => setExportYear(Number(e.target.value))}
+            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30"
+          >
+            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+              <option key={y} value={y}>{y}年</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="text-xs text-gray-500 mb-1 block">月份</label>
+          <select
+            value={exportMonth}
+            onChange={e => setExportMonth(Number(e.target.value))}
+            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30"
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+              <option key={m} value={m}>{m}月</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="mb-3">
+        <label className="text-xs text-gray-500 mb-1 block">订单状态</label>
+        <select
+          value={exportStatus}
+          onChange={e => setExportStatus(e.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30"
+        >
+          <option value="">全部状态</option>
+          <option value="draft">草稿</option>
+          <option value="submitted">已提交</option>
+          <option value="in_production">生产中</option>
+          <option value="completed">已完成</option>
+          <option value="cancelled">已取消</option>
+        </select>
+      </div>
+      <Button
+        className="w-full bg-[#1A3C5E] hover:bg-[#15304d] gap-2 text-sm"
+        disabled={exporting}
+        onClick={async () => {
+          setExporting(true);
+          try {
+            const statusParam = exportStatus ? `&status=${exportStatus}` : "";
+            const res = await fetch(`/api/export/orders/monthly?year=${exportYear}&month=${exportMonth}${statusParam}`);
+            if (!res.ok) {
+              const err = await res.json();
+              toast.error(err.error ?? "导出失败");
+              return;
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const statusNames: Record<string, string> = {
+              draft: "草稿", submitted: "已提交",
+              in_production: "生产中", completed: "已完成", cancelled: "已取消"
+            };
+            const statusSuffix = exportStatus ? `_${statusNames[exportStatus] ?? exportStatus}` : "";
+            a.download = `吟彩订单_${exportYear}年${exportMonth}月${statusSuffix}.xlsx`;
+            a.click();
+            URL.revokeObjectURL(url);
+            const statusLabel = exportStatus ? statusNames[exportStatus] ?? exportStatus : "全部";
+            toast.success(`${exportYear}年${exportMonth}月「${statusLabel}」订单导出成功`);
+            setShowMonthExport(false);
+          } catch {
+            toast.error("导出失败，请重试");
+          } finally {
+            setExporting(false);
+          }
+        }}
+      >
+        {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+        {exporting ? "导出中..." : `导出 ${exportYear}年${exportMonth}月${
+          exportStatus ? `·${{ draft: "草稿", submitted: "已提交", in_production: "生产中", completed: "已完成", cancelled: "已取消" }[exportStatus] ?? exportStatus}` : ""
+        }`}
+      </Button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
       {/* 顶部导航 */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#1A3C5E] flex items-center justify-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          {/* Logo */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A3C5E] flex items-center justify-center">
               <span className="text-white font-bold text-sm" style={{ fontFamily: "'Noto Serif SC', serif" }}>吟</span>
             </div>
-            <div>
+            <div className="hidden sm:block">
               <h1 className="font-bold text-gray-900 text-base leading-tight" style={{ fontFamily: "'Noto Serif SC', serif" }}>吟彩销售订单系统</h1>
               <p className="text-xs text-gray-400">Sales Order Management</p>
             </div>
+            <h1 className="sm:hidden font-bold text-gray-900 text-sm" style={{ fontFamily: "'Noto Serif SC', serif" }}>吟彩订单</h1>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* 桌面端操作区 */}
+          <div className="hidden md:flex items-center gap-2">
             {/* 按月导出面板 */}
             <div className="relative">
               <Button
@@ -268,94 +361,8 @@ export default function Home() {
                 按月导出
               </Button>
               {showMonthExport && (
-                <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-64">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-semibold text-gray-700">选择导出年月</p>
-                    <button onClick={() => setShowMonthExport(false)} className="text-gray-400 hover:text-gray-600">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="flex gap-2 mb-3">
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-500 mb-1 block">年份</label>
-                      <select
-                        value={exportYear}
-                        onChange={e => setExportYear(Number(e.target.value))}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30"
-                      >
-                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
-                          <option key={y} value={y}>{y}年</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-500 mb-1 block">月份</label>
-                      <select
-                        value={exportMonth}
-                        onChange={e => setExportMonth(Number(e.target.value))}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30"
-                      >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                          <option key={m} value={m}>{m}月</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="mb-3">
-                    <label className="text-xs text-gray-500 mb-1 block">订单状态</label>
-                    <select
-                      value={exportStatus}
-                      onChange={e => setExportStatus(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30"
-                    >
-                      <option value="">全部状态</option>
-                      <option value="draft">草稿</option>
-                      <option value="submitted">已提交</option>
-                      <option value="in_production">生产中</option>
-                      <option value="completed">已完成</option>
-                      <option value="cancelled">已取消</option>
-                    </select>
-                  </div>
-                  <Button
-                    className="w-full bg-[#1A3C5E] hover:bg-[#15304d] gap-2 text-sm"
-                    disabled={exporting}
-                    onClick={async () => {
-                      setExporting(true);
-                      try {
-                        const statusParam = exportStatus ? `&status=${exportStatus}` : "";
-                        const res = await fetch(`/api/export/orders/monthly?year=${exportYear}&month=${exportMonth}${statusParam}`);
-                        if (!res.ok) {
-                          const err = await res.json();
-                          toast.error(err.error ?? "导出失败");
-                          return;
-                        }
-                        const blob = await res.blob();
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        const statusNames: Record<string, string> = {
-                          draft: "草稿", submitted: "已提交",
-                          in_production: "生产中", completed: "已完成", cancelled: "已取消"
-                        };
-                        const statusSuffix = exportStatus ? `_${statusNames[exportStatus] ?? exportStatus}` : "";
-                        a.download = `吟彩订单_${exportYear}年${exportMonth}月${statusSuffix}.xlsx`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                        const statusLabel = exportStatus ? statusNames[exportStatus] ?? exportStatus : "全部";
-                        toast.success(`${exportYear}年${exportMonth}月「${statusLabel}」订单导出成功`);
-                        setShowMonthExport(false);
-                      } catch {
-                        toast.error("导出失败，请重试");
-                      } finally {
-                        setExporting(false);
-                      }
-                    }}
-                  >
-                    {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-                    {exporting ? "导出中..." : `导出 ${exportYear}年${exportMonth}月${
-                      exportStatus ? `·${{ draft: "草稿", submitted: "已提交", in_production: "生产中", completed: "已完成", cancelled: "已取消" }[exportStatus] ?? exportStatus}` : ""
-                    }`}
-                  </Button>
+                <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-lg w-64">
+                  <MonthExportPanel />
                 </div>
               )}
             </div>
@@ -381,7 +388,6 @@ export default function Home() {
               <Plus className="w-4 h-4" />
               新建订单
             </Button>
-
             {/* 用户下拉菜单 */}
             {user && (
               <DropdownMenu>
@@ -415,95 +421,195 @@ export default function Home() {
               </DropdownMenu>
             )}
           </div>
+
+          {/* 移动端操作区 */}
+          <div className="flex md:hidden items-center gap-2">
+            <Button
+              onClick={() => navigate("/order/new")}
+              size="sm"
+              className="bg-[#1A3C5E] hover:bg-[#15304d] gap-1.5 px-3"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden xs:inline">新建</span>
+            </Button>
+            {/* 移动端汉堡菜单 */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8 border-gray-200">
+                  <Menu className="w-4 h-4 text-gray-500" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-72 p-0">
+                <div className="flex flex-col h-full">
+                  {/* 用户信息 */}
+                  {user && (
+                    <div className="px-4 py-4 border-b border-gray-100 bg-gray-50">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-[#1A3C5E] flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{(user as any).displayName ?? user.name ?? "用户"}</p>
+                          <p className="text-xs text-gray-400">{(user as any).role === "admin" ? "管理员" : "业务员"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* 菜单项 */}
+                  <nav className="flex-1 px-3 py-3 space-y-1">
+                    <button
+                      onClick={() => setShowMonthExport(v => !v)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 text-left"
+                    >
+                      <CalendarRange className="w-4 h-4 text-gray-400" />
+                      按月导出 Excel
+                    </button>
+                    {showMonthExport && (
+                      <div className="mx-1 border border-gray-200 rounded-xl overflow-hidden">
+                        <MonthExportPanel />
+                      </div>
+                    )}
+                    <Link href="/trash">
+                      <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 text-left">
+                        <Trash className="w-4 h-4 text-gray-400" />
+                        回收站
+                      </button>
+                    </Link>
+                    <Link href="/customers">
+                      <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 text-left">
+                        <Users className="w-4 h-4 text-gray-400" />
+                        客户管理
+                      </button>
+                    </Link>
+                    <Link href="/settings">
+                      <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 text-left">
+                        <Settings className="w-4 h-4 text-gray-400" />
+                        系统设置
+                      </button>
+                    </Link>
+                    {(user as any)?.role === "admin" && (
+                      <button
+                        onClick={() => navigate("/admin/users")}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 text-left"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-gray-400" />
+                        账号管理
+                      </button>
+                    )}
+                    <button
+                      onClick={() => navigate("/change-password")}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 text-left"
+                    >
+                      <KeyRound className="w-4 h-4 text-gray-400" />
+                      修改密码
+                    </button>
+                  </nav>
+                  {/* 退出登录 */}
+                  <div className="px-3 py-3 border-t border-gray-100">
+                    <button
+                      onClick={() => logout()}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-500 hover:bg-red-50 text-left"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      退出登录
+                    </button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-6 space-y-4">
-        {/* 状态统计卡片（点击可筛选） */}
-        <div className="grid grid-cols-5 gap-3">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-3 sm:space-y-4">
+        {/* 状态统计卡片（点击可筛选）：移动端 2 列，桌面端 5 列 */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
           {stats.map(s => (
             <button
               key={s.key}
               onClick={() => setActiveTab(prev => prev === s.key ? "all" : s.key as StatusKey)}
-              className={`bg-white rounded-xl border px-4 py-3 shadow-sm text-left transition-all duration-150
+              className={`bg-white rounded-xl border px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm text-left transition-all duration-150
                 ${activeTab === s.key
                   ? "border-[#1A3C5E] ring-1 ring-[#1A3C5E]/20"
                   : "border-gray-100 hover:border-gray-200"
                 }`}
             >
               <div className="flex items-center gap-2 mb-1">
-                <span className={`w-2 h-2 rounded-full ${s.dot}`} />
-                <span className="text-xs text-gray-500">{s.label}</span>
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
+                <span className="text-xs text-gray-500 truncate">{s.label}</span>
               </div>
-              <p className="text-2xl font-bold text-gray-800">{s.count}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-800">{s.count}</p>
             </button>
           ))}
         </div>
 
         {/* 搜索栏 */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
           <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <Input
-            placeholder="搜索客户名称、订单描述、订单号、阿里巴巴/1688/亚马逊订单号..."
+            placeholder="搜索客户、订单描述、订单号..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="border-0 shadow-none focus-visible:ring-0 p-0 text-sm"
           />
           {search && (
             <button onClick={() => setSearch("")} className="text-xs text-gray-400 hover:text-gray-600 flex-shrink-0">
-              清除
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
         {/* 状态筛选 Tab + 渠道筛选 */}
-        <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
-          {STATUS_TABS.map(tab => {
-            const count = tab.key === "all"
-              ? channelFiltered.length
-              : channelFiltered.filter(o => o.status === tab.key).length;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150
-                  ${activeTab === tab.key
-                    ? "bg-[#1A3C5E] text-white"
-                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                  }`}
-              >
-                {tab.label}
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-normal
-                  ${activeTab === tab.key
-                    ? "bg-white/20 text-white"
-                    : "bg-gray-100 text-gray-400"
-                  }`}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-2 sm:px-3 py-2">
+          {/* 移动端：横向滚动 Tab */}
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-0.5">
+            {STATUS_TABS.map(tab => {
+              const count = tab.key === "all"
+                ? channelFiltered.length
+                : channelFiltered.filter(o => o.status === tab.key).length;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-150 flex-shrink-0
+                    ${activeTab === tab.key
+                      ? "bg-[#1A3C5E] text-white"
+                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                    }`}
                 >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-          {/* 渠道筛选下拉 */}
-          <div className="ml-auto flex items-center gap-1.5">
-            <select
-              value={channelFilter}
-              onChange={e => setChannelFilter(e.target.value as typeof channelFilter)}
-              className={`text-xs border rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30 transition-colors ${
-                channelFilter !== "all"
-                  ? "border-[#1A3C5E] text-[#1A3C5E] bg-[#1A3C5E]/5 font-medium"
-                  : "border-gray-200 text-gray-500 bg-white"
-              }`}
-            >
-              <option value="all">全部渠道</option>
-              <option value="alibaba">阿里巴巴</option>
-              <option value="1688">1688</option>
-              <option value="amazon">亚马逊</option>
-            </select>
+                  {tab.label}
+                  <span className={`text-xs px-1 sm:px-1.5 py-0.5 rounded-full font-normal
+                    ${activeTab === tab.key
+                      ? "bg-white/20 text-white"
+                      : "bg-gray-100 text-gray-400"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+            {/* 渠道筛选下拉 */}
+            <div className="ml-auto flex-shrink-0 pl-1">
+              <select
+                value={channelFilter}
+                onChange={e => setChannelFilter(e.target.value as typeof channelFilter)}
+                className={`text-xs border rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#1A3C5E]/30 transition-colors ${
+                  channelFilter !== "all"
+                    ? "border-[#1A3C5E] text-[#1A3C5E] bg-[#1A3C5E]/5 font-medium"
+                    : "border-gray-200 text-gray-500 bg-white"
+                }`}
+              >
+                <option value="all">全部渠道</option>
+                <option value="alibaba">阿里巴巴</option>
+                <option value="1688">1688</option>
+                <option value="amazon">亚马逊</option>
+              </select>
+            </div>
           </div>
           {/* 排序提示 */}
           {sortField && (
-            <div className="flex items-center gap-1.5 text-xs text-[#1A3C5E]">
+            <div className="flex items-center gap-1.5 text-xs text-[#1A3C5E] mt-1.5 pt-1.5 border-t border-gray-50">
               <span>
                 按{sortField === "deliveryDate" ? "交货日期" : sortField === "orderDate" ? "下单日期" : "状态"}
                 {sortDir === "asc" ? "升序" : "降序"}
@@ -520,32 +626,14 @@ export default function Home() {
 
         {/* 订单列表 */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {/* 表头（含可排序列） */}
-          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          {/* 桌面端表头（含可排序列）：md 以上显示 */}
+          <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
             <span>订单信息</span>
             <span className="text-center">客户</span>
-            <SortableHeader
-              label="下单日期"
-              field="orderDate"
-              sortField={sortField}
-              sortDir={sortDir}
-              onSort={handleSort}
-            />
-            <SortableHeader
-              label="交货日期"
-              field="deliveryDate"
-              sortField={sortField}
-              sortDir={sortDir}
-              onSort={handleSort}
-            />
+            <SortableHeader label="下单日期" field="orderDate" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+            <SortableHeader label="交货日期" field="deliveryDate" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
             <span className="text-center">制单员</span>
-            <SortableHeader
-              label="状态"
-              field="status"
-              sortField={sortField}
-              sortDir={sortDir}
-              onSort={handleSort}
-            />
+            <SortableHeader label="状态" field="status" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
             <span className="text-center">操作</span>
           </div>
 
@@ -586,162 +674,209 @@ export default function Home() {
                 const isOverdue = deliveryDiffDays !== null && deliveryDiffDays < 0;
                 const isUrgent  = deliveryDiffDays !== null && deliveryDiffDays >= 0 && deliveryDiffDays <= 7;
 
+                const urgencyClass = isOverdue
+                  ? "bg-red-50/60 border-l-4 border-l-red-400"
+                  : isUrgent
+                    ? "bg-orange-50/60 border-l-4 border-l-orange-400"
+                    : "";
+
                 return (
-                  <div key={order.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-4 items-center transition-colors ${
-                    isOverdue
-                      ? "bg-red-50/60 hover:bg-red-50 border-l-4 border-l-red-400"
-                      : isUrgent
-                        ? "bg-orange-50/60 hover:bg-orange-50 border-l-4 border-l-orange-400"
-                        : "hover:bg-gray-50/50"
-                  }`}>
-                    {/* 订单信息 */}
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-medium text-gray-800 text-sm leading-tight">
-                          {order.orderDescription || "（未填写描述）"}
+                  <div key={order.id}>
+                    {/* ── 桌面端行（md 以上） ── */}
+                    <div className={`hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_220px] gap-4 px-6 py-4 items-center transition-colors ${urgencyClass} ${!isOverdue && !isUrgent ? "hover:bg-gray-50/50" : ""}`}>
+                      {/* 订单信息 */}
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-medium text-gray-800 text-sm leading-tight">
+                            {order.orderDescription || "（未填写描述）"}
+                          </p>
+                          {(order as any).isAlibaba && (
+                            <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1.5 py-0.5 rounded flex-shrink-0">阿里巴巴</span>
+                          )}
+                          {(order as any).is1688 && (
+                            <span className="text-xs font-medium text-[#6D28D9] bg-[#F5F3FF] px-1.5 py-0.5 rounded flex-shrink-0">1688</span>
+                          )}
+                          {(order as any).isAmazon && (
+                            <span className="text-xs font-medium text-[#1D6FA4] bg-[#EFF6FF] px-1.5 py-0.5 rounded flex-shrink-0">亚马逊</span>
+                          )}
+                          {(order as any).customerType === "overseas" && (order as any).customsDeclared && (
+                            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-orange-500 px-1.5 py-0.5 rounded flex-shrink-0">
+                              <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                              </svg>
+                              报关
+                            </span>
+                          )}
+                          {order.remarks && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-default flex-shrink-0">
+                                  <MessageSquare className="w-3.5 h-3.5 text-gray-400 hover:text-[#1A3C5E] transition-colors" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                                <p className="font-medium text-foreground mb-1">备注</p>
+                                <p className="text-muted-foreground whitespace-pre-wrap">{order.remarks}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {order.orderNo ? `订单号：${order.orderNo}` : ""}
                         </p>
-                        {(order as any).isAlibaba && (
-                          <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1.5 py-0.5 rounded flex-shrink-0">
-                            阿里巴巴
+                      </div>
+                      {/* 客户 */}
+                      <span className="text-sm text-gray-600 text-center">{order.customer || "—"}</span>
+                      {/* 下单日期 */}
+                      <span className={`text-sm text-center ${sortField === "orderDate" ? "text-[#1A3C5E] font-medium" : "text-gray-600"}`}>
+                        {order.orderDate || "—"}
+                      </span>
+                      {/* 交货日期 */}
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className={`text-sm text-center ${isOverdue ? "text-red-600 font-semibold" : isUrgent ? "text-orange-600 font-semibold" : sortField === "deliveryDate" ? "text-[#1A3C5E] font-medium" : "text-gray-600"}`}>
+                          {order.deliveryDate || "—"}
+                        </span>
+                        {isOverdue && (
+                          <span className="text-xs text-red-500 flex items-center gap-0.5">
+                            <AlertTriangle className="w-3 h-3" />已超期
                           </span>
                         )}
-                        {(order as any).is1688 && (
-                          <span className="text-xs font-medium text-[#6D28D9] bg-[#F5F3FF] px-1.5 py-0.5 rounded flex-shrink-0">
-                            1688
+                        {!isOverdue && isUrgent && (
+                          <span className="text-xs text-orange-500 flex items-center gap-0.5">
+                            <AlertTriangle className="w-3 h-3" />还剩{deliveryDiffDays}天
                           </span>
-                        )}
-                        {(order as any).isAmazon && (
-                          <span className="text-xs font-medium text-[#1D6FA4] bg-[#EFF6FF] px-1.5 py-0.5 rounded flex-shrink-0">
-                            亚马逊
-                          </span>
-                        )}
-                        {(order as any).customerType === "overseas" && (order as any).customsDeclared && (
-                          <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-orange-500 px-1.5 py-0.5 rounded flex-shrink-0">
-                            <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                            </svg>
-                            报关
-                          </span>
-                        )}
-                        {order.remarks && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="cursor-default flex-shrink-0">
-                                <MessageSquare className="w-3.5 h-3.5 text-gray-400 hover:text-[#1A3C5E] transition-colors" />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
-                              <p className="font-medium text-foreground mb-1">备注</p>
-                              <p className="text-muted-foreground whitespace-pre-wrap">{order.remarks}</p>
-                            </TooltipContent>
-                          </Tooltip>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {order.orderNo ? `订单号：${order.orderNo}` : ""}
-                      </p>
+                      {/* 制单员 */}
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-sm text-gray-600 text-center">{order.maker || "—"}</span>
+                        {(order as any).creatorIsActive === false && (
+                          <span className="text-xs text-red-400">（已离职）</span>
+                        )}
+                      </div>
+                      {/* 状态 */}
+                      <div className="flex flex-col gap-1 items-center">
+                        <Badge className={`text-xs border ${statusCfg.color}`} variant="outline">
+                          {statusCfg.label}
+                        </Badge>
+                        {next && (
+                          <button
+                            onClick={() => updateStatusMutation.mutate({ id: order.id, status: next })}
+                            className="text-xs text-[#1A3C5E] hover:underline flex items-center gap-0.5"
+                          >
+                            推进至{STATUS_CONFIG[next].label}
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      {/* 操作 */}
+                      <div className="flex items-center gap-1 justify-center">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-[#1A3C5E]" onClick={() => navigate(`/order/${order.id}/view`)} title="预览">
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-[#1A3C5E]" onClick={() => navigate(`/order/${order.id}/edit`)} title="编辑">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-purple-600" onClick={() => navigate(`/order/${order.id}/print`)} title="打印预览">
+                          <Printer className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600" onClick={() => handleDuplicate(order.id, order.orderDescription ?? "")} title="复制订单" disabled={duplicateMutation.isPending}>
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-green-600" onClick={() => downloadOrderExcel(order.id)} title="导出 Excel">
+                          <FileDown className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500" onClick={() => handleDelete(order.id, order.orderDescription ?? "")} title="删除">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                    {/* 客户 */}
-                    <span className="text-sm text-gray-600 text-center">{order.customer || "—"}</span>
-                    {/* 下单日期 */}
-                    <span className={`text-sm text-center ${
-                      sortField === "orderDate" ? "text-[#1A3C5E] font-medium" : "text-gray-600"
-                    }`}>{order.orderDate || "—"}</span>
-                    {/* 交货日期 */}
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className={`text-sm text-center ${
-                        isOverdue ? "text-red-600 font-semibold" :
-                        isUrgent ? "text-orange-600 font-semibold" :
-                        sortField === "deliveryDate" ? "text-[#1A3C5E] font-medium" : "text-gray-600"
-                      }`}>
-                        {order.deliveryDate || "—"}
-                      </span>
-                      {isOverdue && (
-                        <span className="text-xs text-red-500 flex items-center gap-0.5">
-                          <AlertTriangle className="w-3 h-3" />
-                          已超期
-                        </span>
-                      )}
-                      {!isOverdue && isUrgent && (
-                        <span className="text-xs text-orange-500 flex items-center gap-0.5">
-                          <AlertTriangle className="w-3 h-3" />
-                          还剩{deliveryDiffDays}天
-                        </span>
-                      )}
-                    </div>
-                    {/* 制单员 */}
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-sm text-gray-600 text-center">{order.maker || "—"}</span>
-                      {(order as any).creatorIsActive === false && (
-                        <span className="text-xs text-red-400">（已离职）</span>
-                      )}
-                    </div>
-                    {/* 状态 */}
-                    <div className="flex flex-col gap-1 items-center">
-                      <Badge className={`text-xs border ${statusCfg.color}`} variant="outline">
-                        {statusCfg.label}
-                      </Badge>
-                      {next && (
-                        <button
-                          onClick={() => updateStatusMutation.mutate({ id: order.id, status: next })}
-                          className="text-xs text-[#1A3C5E] hover:underline flex items-center gap-0.5"
-                        >
-                          推进至{STATUS_CONFIG[next].label}
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                    {/* 操作 */}
-                    <div className="flex items-center gap-1 justify-center">
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-[#1A3C5E]"
-                        onClick={() => navigate(`/order/${order.id}/view`)}
-                        title="预览"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-[#1A3C5E]"
-                        onClick={() => navigate(`/order/${order.id}/edit`)}
-                        title="编辑"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-purple-600"
-                        onClick={() => navigate(`/order/${order.id}/print`)}
-                        title="打印预览"
-                      >
-                        <Printer className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-blue-600"
-                        onClick={() => handleDuplicate(order.id, order.orderDescription ?? "")}
-                        title="复制订单"
-                        disabled={duplicateMutation.isPending}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-green-600"
-                        onClick={() => downloadOrderExcel(order.id)}
-                        title="导出 Excel"
-                      >
-                        <FileDown className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-red-500"
-                        onClick={() => handleDelete(order.id, order.orderDescription ?? "")}
-                        title="删除"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+
+                    {/* ── 移动端卡片（md 以下） ── */}
+                    <div className={`md:hidden px-4 py-3 transition-colors ${urgencyClass}`}>
+                      {/* 第一行：订单描述 + 状态 */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-medium text-gray-800 text-sm leading-tight">
+                              {order.orderDescription || "（未填写描述）"}
+                            </p>
+                            {(order as any).isAlibaba && (
+                              <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1 py-0.5 rounded">阿里</span>
+                            )}
+                            {(order as any).is1688 && (
+                              <span className="text-xs font-medium text-[#6D28D9] bg-[#F5F3FF] px-1 py-0.5 rounded">1688</span>
+                            )}
+                            {(order as any).isAmazon && (
+                              <span className="text-xs font-medium text-[#1D6FA4] bg-[#EFF6FF] px-1 py-0.5 rounded">亚马逊</span>
+                            )}
+                            {(order as any).customerType === "overseas" && (order as any).customsDeclared && (
+                              <span className="text-xs font-semibold text-white bg-orange-500 px-1 py-0.5 rounded">报关</span>
+                            )}
+                          </div>
+                          {order.orderNo && (
+                            <p className="text-xs text-gray-400 mt-0.5">订单号：{order.orderNo}</p>
+                          )}
+                        </div>
+                        <div className="flex-shrink-0">
+                          <Badge className={`text-xs border ${statusCfg.color}`} variant="outline">
+                            {statusCfg.label}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* 第二行：客户 + 日期信息 */}
+                      <div className="flex items-center gap-3 text-xs text-gray-500 mb-2 flex-wrap">
+                        {order.customer && (
+                          <span className="flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {order.customer}
+                          </span>
+                        )}
+                        {order.orderDate && (
+                          <span>下单：{order.orderDate}</span>
+                        )}
+                        {order.deliveryDate && (
+                          <span className={isOverdue ? "text-red-500 font-semibold" : isUrgent ? "text-orange-500 font-semibold" : ""}>
+                            交货：{order.deliveryDate}
+                            {isOverdue && " ⚠ 已超期"}
+                            {!isOverdue && isUrgent && ` ⚠ 还剩${deliveryDiffDays}天`}
+                          </span>
+                        )}
+                        {order.maker && (
+                          <span>制单：{order.maker}</span>
+                        )}
+                      </div>
+
+                      {/* 第三行：操作按钮 + 推进状态 */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-0.5">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-[#1A3C5E]" onClick={() => navigate(`/order/${order.id}/view`)} title="预览">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-[#1A3C5E]" onClick={() => navigate(`/order/${order.id}/edit`)} title="编辑">
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-purple-600" onClick={() => navigate(`/order/${order.id}/print`)} title="打印预览">
+                            <Printer className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600" onClick={() => handleDuplicate(order.id, order.orderDescription ?? "")} title="复制" disabled={duplicateMutation.isPending}>
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500" onClick={() => handleDelete(order.id, order.orderDescription ?? "")} title="删除">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        {next && (
+                          <button
+                            onClick={() => updateStatusMutation.mutate({ id: order.id, status: next })}
+                            className="text-xs text-[#1A3C5E] hover:underline flex items-center gap-0.5 flex-shrink-0"
+                          >
+                            推进至{STATUS_CONFIG[next].label}
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
