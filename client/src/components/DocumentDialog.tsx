@@ -21,7 +21,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, FileText, Download, AlertCircle, Copy, RotateCcw } from "lucide-react";
+import { Loader2, FileText, Download, AlertCircle, Copy, RotateCcw, Check, ChevronsUpDown, UserRound } from "lucide-react";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -552,7 +559,112 @@ function ExtraFeeRow({
   );
 }
 
-// ─── 子组件：PI/CI 行项目表格 ────────────────────────────────────────────────────
+// ─── 子组件：客户档案可搜索选择器（国内合同 + PI/CI 通用） ─────────────────────────
+
+interface CustomerFillOption {
+  id: number;
+  name: string;
+  country?: string | null;
+  cnCompany?: string | null;
+  taxNo?: string | null;
+  bankAccount?: string | null;
+  bankName?: string | null;
+  address?: string | null;
+  enAddress?: string | null;
+  company?: string | null;
+  attn?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
+function CustomerFillCombobox({
+  customers,
+  label,
+  placeholder,
+  onSelect,
+  colorScheme = "blue",
+}: {
+  customers: CustomerFillOption[];
+  label: string;
+  placeholder: string;
+  onSelect: (c: CustomerFillOption) => void;
+  colorScheme?: "blue" | "indigo";
+}) {
+  const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const selected = customers.find(c => c.id === selectedId);
+
+  const bgClass = colorScheme === "indigo"
+    ? "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800"
+    : "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800";
+  const labelClass = colorScheme === "indigo"
+    ? "text-indigo-700 dark:text-indigo-300"
+    : "text-blue-700 dark:text-blue-300";
+
+  return (
+    <div className={`flex items-center gap-2 p-3 rounded-lg border ${bgClass}`}>
+      <UserRound className={`w-3.5 h-3.5 flex-shrink-0 ${labelClass}`} />
+      <span className={`text-xs font-medium whitespace-nowrap ${labelClass}`}>{label}</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="h-7 text-xs flex-1 justify-between font-normal bg-white dark:bg-background px-2"
+          >
+            <span className="truncate text-left">
+              {selected
+                ? <>{selected.name}{(selected.cnCompany || selected.company) ? <span className="text-muted-foreground ml-1">· {selected.cnCompany || selected.company}</span> : null}</>
+                : <span className="text-muted-foreground">{placeholder}</span>
+              }
+            </span>
+            <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="p-0 w-80" align="start">
+          <Command>
+            <CommandInput placeholder="搜索客户名称..." className="h-8 text-xs" />
+            <CommandList>
+              <CommandEmpty>
+                <div className="py-3 text-center text-xs text-muted-foreground">未找到匹配的客户</div>
+              </CommandEmpty>
+              <CommandGroup>
+                {customers.map(c => (
+                  <CommandItem
+                    key={c.id}
+                    value={`${c.name} ${c.cnCompany ?? ""} ${c.company ?? ""}`}
+                    onSelect={() => {
+                      setSelectedId(c.id);
+                      onSelect(c);
+                      setOpen(false);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer py-2"
+                  >
+                    <Check
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0",
+                        selectedId === c.id ? "opacity-100 text-primary" : "opacity-0"
+                      )}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{c.name}</div>
+                      {(c.cnCompany || c.company) && (
+                        <div className="text-xs text-muted-foreground truncate">{c.cnCompany || c.company}</div>
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+// ─── 子组件：PI/CI 行项目表格 ────────────────────────────────────────────
 
 function LineItemsTable({
   items,
@@ -1043,35 +1155,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
       setLineItems(buildInitialLineItems(order.models ?? []));
     }
 
-    // 再从客户档案自动补全空字段（不覆盖用户已修改的内容）
-    if (order.customer) {
-      const matchedCustomer = customerList?.find(
-        (c: any) => c.name === order.customer
-      );
-      if (matchedCustomer) {
-        // 国外客户：自动填入 PI/CI Buyer 信息（空字段才填）
-        if (!piRestoredFromCache) {
-          if (matchedCustomer.attn) setBuyerAttn(matchedCustomer.attn);
-          if (matchedCustomer.company) setBuyerCompany(matchedCustomer.company);
-          if (matchedCustomer.phone) setBuyerTel(matchedCustomer.phone);
-          if (matchedCustomer.email) setBuyerEmail(matchedCustomer.email);
-          if (matchedCustomer.enAddress) setBuyerAddress(matchedCustomer.enAddress);
-          else if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
-        }
-        // 国内客户：自动填入甲方信息（空字段才填，不覆盖用户已修改的内容）
-        if (matchedCustomer.country === "domestic") {
-          // 使用函数式 setState，只补全空字段
-          if (matchedCustomer.cnCompany) setBuyerCnCompany(prev => prev || (matchedCustomer.cnCompany ?? ""));
-          if (matchedCustomer.taxNo) setBuyerTaxNo(prev => prev || (matchedCustomer.taxNo ?? ""));
-          if (matchedCustomer.bankAccount) setBuyerBankAccount(prev => prev || (matchedCustomer.bankAccount ?? ""));
-          if (matchedCustomer.bankName) setBuyerBankName(prev => prev || (matchedCustomer.bankName ?? ""));
-          if (matchedCustomer.name) setCounterpartyName(prev => prev || (matchedCustomer.name ?? ""));
-          if (matchedCustomer.address) setCounterpartyAddress(prev => prev || (matchedCustomer.address ?? ""));
-        }
-      }
-    }
-
-    // 尝试从 localStorage 恢复 PI/CI 内容
+    // 尝试从 localStorage 恢复 PI/CI 内容（优先级高于客户档案自动填充）
     try {
       const piSaved = localStorage.getItem(piStorageKey);
       if (piSaved) {
@@ -1090,12 +1174,40 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         if (parsed.piExtras) setPiExtras({ ...defaultPiExtras(), ...parsed.piExtras });
         if (parsed.depositPct) setDepositPct(parsed.depositPct);
         if (parsed.balancePct) setBalancePct(parsed.balancePct);
+        piRestoredFromCache = true;
       } else {
         setPiLineItems(buildInitialPiLineItems(order.models ?? []));
         setPiExtras(defaultPiExtras());
       }
     } catch {
       setPiLineItems(buildInitialPiLineItems(order.models ?? []));
+    }
+
+    // 再从客户档案自动补全空字段（不覆盖用户已修改的内容）
+    if (order.customer) {
+      const matchedCustomer = customerList?.find(
+        (c: any) => c.name === order.customer
+      );
+      if (matchedCustomer) {
+        // 国外客户：自动填入 PI/CI Buyer 信息（缓存不存在时才填）
+        if (!piRestoredFromCache) {
+          if (matchedCustomer.attn) setBuyerAttn(matchedCustomer.attn);
+          if (matchedCustomer.company) setBuyerCompany(matchedCustomer.company);
+          if (matchedCustomer.phone) setBuyerTel(matchedCustomer.phone);
+          if (matchedCustomer.email) setBuyerEmail(matchedCustomer.email);
+          if (matchedCustomer.enAddress) setBuyerAddress(matchedCustomer.enAddress);
+          else if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
+        }
+        // 国内客户：自动填入甲方信息（空字段才填，不覆盖用户已修改的内容）
+        if (matchedCustomer.country === "domestic") {
+          if (matchedCustomer.cnCompany) setBuyerCnCompany(prev => prev || (matchedCustomer.cnCompany ?? ""));
+          if (matchedCustomer.taxNo) setBuyerTaxNo(prev => prev || (matchedCustomer.taxNo ?? ""));
+          if (matchedCustomer.bankAccount) setBuyerBankAccount(prev => prev || (matchedCustomer.bankAccount ?? ""));
+          if (matchedCustomer.bankName) setBuyerBankName(prev => prev || (matchedCustomer.bankName ?? ""));
+          if (matchedCustomer.name) setCounterpartyName(prev => prev || (matchedCustomer.name ?? ""));
+          if (matchedCustomer.address) setCounterpartyAddress(prev => prev || (matchedCustomer.address ?? ""));
+        }
+      }
     }
   }, [open, order]);
 
@@ -1263,6 +1375,11 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     setPortOfLoading("Shenzhen");
     setBankChoice("icbc");
     setTransitDays("");
+    // 国内合同甲方信息也一并清空
+    setBuyerCnCompany("");
+    setBuyerTaxNo("");
+    setBuyerBankAccount("");
+    setBuyerBankName("");
   };
 
   // ── 从 PI 填充 CI ─────────────────────────────────────────────────────────────
@@ -1804,37 +1921,22 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           {/* ─── 国内采购合同 ─── */}
           <TabsContent value="contract_cn" className="space-y-4 mt-4">
 
-            {/* 客户档案快速选择 */}
+            {/* 客户档案快速选择（可搜索 Combobox） */}
             {customerList && customerList.filter((c: any) => c.country === "domestic").length > 0 && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                <span className="text-xs text-blue-700 dark:text-blue-300 font-medium whitespace-nowrap">从客户档案选择：</span>
-                <Select
-                  value=""
-                  onValueChange={(customerId) => {
-                    const c = customerList?.find((x: any) => String(x.id) === customerId);
-                    if (!c) return;
-                    setCounterpartyName(c.name ?? "");
-                    setBuyerCnCompany(c.cnCompany ?? "");
-                    setBuyerTaxNo(c.taxNo ?? "");
-                    setBuyerBankAccount(c.bankAccount ?? "");
-                    setBuyerBankName(c.bankName ?? "");
-                    setCounterpartyAddress(c.address ?? "");
-                  }}
-                >
-                  <SelectTrigger className="h-7 text-xs flex-1 bg-white dark:bg-background">
-                    <SelectValue placeholder="选择国内客户自动填充甲方信息..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customerList
-                      .filter((c: any) => c.country === "domestic")
-                      .map((c: any) => (
-                        <SelectItem key={c.id} value={String(c.id)}>
-                          {c.name}{c.cnCompany ? ` · ${c.cnCompany}` : ""}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <CustomerFillCombobox
+                customers={customerList.filter((c: any) => c.country === "domestic")}
+                label="从客户档案选择："
+                placeholder="搜索国内客户自动填充甲方信息..."
+                onSelect={(c) => {
+                  setCounterpartyName(c.name ?? "");
+                  setBuyerCnCompany(c.cnCompany ?? "");
+                  setBuyerTaxNo(c.taxNo ?? "");
+                  setBuyerBankAccount(c.bankAccount ?? "");
+                  setBuyerBankName(c.bankName ?? "");
+                  setCounterpartyAddress(c.address ?? "");
+                  toast.success(`已填充客户「${c.name}」的甲方信息`);
+                }}
+              />
             )}
 
             {/* 甲乙方信息 */}
@@ -2157,6 +2259,25 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
           {/* ─── PI ─── */}
           <TabsContent value="pi" className="space-y-4 mt-4">
+            {/* 国外客户档案快速选择（可搜索 Combobox） */}
+            {customerList && customerList.filter((c: any) => c.country === "overseas").length > 0 && (
+              <CustomerFillCombobox
+                customers={customerList.filter((c: any) => c.country === "overseas")}
+                label="从客户档案选择："
+                placeholder="搜索国外客户自动填充 Buyer 信息..."
+                colorScheme="indigo"
+                onSelect={(c) => {
+                  if (c.name) setBuyerName(c.name);
+                  if (c.attn) setBuyerAttn(c.attn);
+                  if (c.company) setBuyerCompany(c.company);
+                  if (c.enAddress) setBuyerAddress(c.enAddress);
+                  else if (c.address) setBuyerAddress(c.address);
+                  if (c.phone) setBuyerTel(c.phone);
+                  if (c.email) setBuyerEmail(c.email);
+                  toast.success(`已填充客户「${c.name}」的 Buyer 信息`);
+                }}
+              />
+            )}
             <PiCiFields
               buyerName={buyerName}
               buyerAttn={buyerAttn}
@@ -2195,6 +2316,25 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
           {/* ─── CI ─── */}
           <TabsContent value="ci" className="space-y-4 mt-4">
+            {/* 国外客户档案快速选择（可搜索 Combobox） */}
+            {customerList && customerList.filter((c: any) => c.country === "overseas").length > 0 && (
+              <CustomerFillCombobox
+                customers={customerList.filter((c: any) => c.country === "overseas")}
+                label="从客户档案选择："
+                placeholder="搜索国外客户自动填充 Buyer 信息..."
+                colorScheme="indigo"
+                onSelect={(c) => {
+                  if (c.name) setBuyerName(c.name);
+                  if (c.attn) setBuyerAttn(c.attn);
+                  if (c.company) setBuyerCompany(c.company);
+                  if (c.enAddress) setBuyerAddress(c.enAddress);
+                  else if (c.address) setBuyerAddress(c.address);
+                  if (c.phone) setBuyerTel(c.phone);
+                  if (c.email) setBuyerEmail(c.email);
+                  toast.success(`已填充客户「${c.name}」的 Buyer 信息`);
+                }}
+              />
+            )}
             {/* 从 PI 创建 */}
             {activePiList && activePiList.length > 0 && (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
@@ -2262,17 +2402,33 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="mt-4 flex items-center gap-3">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            取消
-          </Button>
-          <Button onClick={handleGenerate} disabled={isLoading} className="gap-2">
-            {isLoading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" />生成中...</>
-            ) : (
-              <><Download className="w-4 h-4" />生成 PDF</>
+        <DialogFooter className="mt-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {!isPaymentValid && (
+              <span className="flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="w-3.5 h-3.5" />
+                定金 + 尾款必须等于 100%
+              </span>
             )}
-          </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={onClose} disabled={isLoading}>
+              取消
+            </Button>
+            <Button
+              onClick={handleGenerate}
+              disabled={isLoading || !isPaymentValid}
+              className="gap-2"
+            >
+              {isLoading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" />生成中...</>
+              ) : (
+                <><Download className="w-4 h-4" />
+                  {activeTab === "contract_cn" ? "生成国内合同" : activeTab === "pi" ? "生成 PI" : "生成 CI"}
+                </>
+              )}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

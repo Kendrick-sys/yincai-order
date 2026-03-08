@@ -522,10 +522,20 @@ export default function OrderForm() {
               <Label className="text-xs text-gray-500 mb-1 block">
                 客户名称 <span className="text-destructive">*</span>
               </Label>
-              {/* 第一行：客户选择器 */}
+              {/* 第一行：客户选择器（选中客户后自动同步地区类型） */}
               <CustomerCombobox
                 value={header.customer}
-                onChange={v => setHeader(h => ({ ...h, customer: v }))}
+                onChange={v => {
+                  // 根据客户档案自动同步 customerType
+                  const matched = customerList.find((c: any) => c.name === v);
+                  setHeader(h => ({
+                    ...h,
+                    customer: v,
+                    ...(matched && matched.country
+                      ? { customerType: matched.country as "domestic" | "overseas" }
+                      : {}),
+                  }));
+                }}
                 customers={customerList}
                 className="w-full"
               />

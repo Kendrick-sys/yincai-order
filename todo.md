@@ -432,3 +432,11 @@
 
 - [x] DocumentDialog：国内合同 Tab 打开时，根据订单客户名称自动匹配客户档案并填充甲方全部信息（cnCompany/taxNo/bankAccount/bankName/address）
 - [x] DocumentDialog：国内合同 Tab 顶部增加“从客户档案选择”下拉框，手动切换客户后重新填充甲方信息
+
+## 第五十五批
+
+- [x] DocumentDialog：国内合同“从客户档案选择”升级为可搜索 Combobox（支持按名称/公司名模糊搜索）
+- [x] DocumentDialog：PI/CI Tab 顶部增加“从客户档案选择” Combobox（国外客户，可搜索，选中后自动填充 Buyer 信息）
+- [x] OrderForm：客户选择后自动同步 customerType（国内/国外）到订单头部
+- [x] DocumentDialog：整体 UI 优化（Footer 增加付款校验提示、生成按鈕按 Tab 显示不同文字）
+- [x] DocumentDialog：PI/CI 自动填充逻辑优化（先恢复缓存再补全空字段，与国内合同保持一致）
