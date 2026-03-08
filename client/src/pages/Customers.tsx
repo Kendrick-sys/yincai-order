@@ -13,7 +13,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home, ExternalLink, Upload, FileSpreadsheet } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 
@@ -58,6 +58,7 @@ export default function Customers() {
   const [form, setForm] = useState<CustomerForm>(emptyForm);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const openCreate = () => {
     setEditingId(null);
@@ -117,6 +118,57 @@ export default function Customers() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const a = document.createElement("a");
+    a.href = "/api/export/customers/template";
+    a.download = "吟彩客户导入模板.xlsx";
+    a.click();
+    toast.success("模板已开始下载，请删除示例行后填写数据");
+  };
+
+  const handleImport = async (file: File) => {
+    if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
+      toast.error("请上传 Excel 文件（.xlsx 或 .xls）");
+      return;
+    }
+    setIsImporting(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const response = await fetch("/api/import/customers", {
+        method: "POST",
+        body: arrayBuffer,
+        headers: { "Content-Type": "application/octet-stream" },
+        credentials: "include",
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        toast.error(result.error ?? "导入失败");
+        return;
+      }
+      utils.customers.list.invalidate();
+      if (result.errors?.length) {
+        toast.warning(`导入完成：成功 ${result.created} 条，失败 ${result.errors.length} 条`);
+      } else {
+        toast.success(`成功导入 ${result.created} 个客户`);
+      }
+    } catch {
+      toast.error("导入失败，请重试");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const triggerImport = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".xlsx,.xls";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) handleImport(file);
+    };
+    input.click();
+  };
+
   const isSaving = createMut.isPending || updateMut.isPending;
 
   return (
@@ -142,6 +194,14 @@ export default function Customers() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2" title="下载导入模板">
+            <FileSpreadsheet className="w-4 h-4" />
+            下载模板
+          </Button>
+          <Button variant="outline" onClick={triggerImport} disabled={isImporting} className="gap-2" title="从 Excel 批量导入客户">
+            <Upload className="w-4 h-4" />
+            {isImporting ? "导入中..." : "批量导入"}
+          </Button>
           {customers.length > 0 && (
             <Button variant="outline" onClick={handleExport} disabled={isExporting} className="gap-2">
               <Download className="w-4 h-4" />

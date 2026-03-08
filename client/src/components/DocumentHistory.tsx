@@ -1,7 +1,7 @@
 /**
  * DocumentHistory.tsx
  * 订单详情页中展示历史生成的单据列表（合同/PI/CI）
- * 功能：下载、作废、重新生成（版本号+1）、PI→CI关联展示、ZIP批量导出、已发送标记
+ * 功能：预览、下载、作废、重新生成（版本号+1）、PI→CI关联展示、ZIP批量导出、已发送标记
  */
 
 import { trpc } from "@/lib/trpc";
@@ -20,11 +20,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { FileText, ExternalLink, Clock, Ban, RefreshCw, Download, ArrowRight, Send, SendHorizonal } from "lucide-react";
+import { FileText, ExternalLink, Clock, Ban, RefreshCw, Download, ArrowRight, Send, SendHorizonal, Eye, X } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -43,6 +49,9 @@ export default function DocumentHistory({ orderId }: Props) {
   const { data: docs, isLoading } = trpc.documents.listByOrder.useQuery({ orderId });
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  // PDF 预览弹窗状态
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>("");
 
   const voidMutation = trpc.documents.void.useMutation({
     onSuccess: () => {
@@ -112,6 +121,12 @@ export default function DocumentHistory({ orderId }: Props) {
     }
   };
 
+  const handlePreview = (pdfUrl: string, docNo: string, docType: string) => {
+    const typeInfo = DOC_TYPE_LABELS[docType] ?? { label: docType };
+    setPreviewTitle(`${typeInfo.label} · ${docNo}`);
+    setPreviewUrl(pdfUrl);
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -141,6 +156,37 @@ export default function DocumentHistory({ orderId }: Props) {
 
   return (
     <div className="space-y-3">
+      {/* PDF 预览弹窗 */}
+      <Dialog open={!!previewUrl} onOpenChange={(open) => { if (!open) setPreviewUrl(null); }}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-sm font-medium">{previewTitle}</DialogTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs h-7"
+                  onClick={() => previewUrl && window.open(previewUrl, "_blank")}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  在新标签页打开
+                </Button>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {previewUrl && (
+              <iframe
+                src={previewUrl}
+                className="w-full h-full border-0"
+                title={previewTitle}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* 批量下载 ZIP 按钮 */}
       {activeDocs.length > 0 && (
         <div className="flex justify-end">
@@ -279,6 +325,26 @@ export default function DocumentHistory({ orderId }: Props) {
               </div>
 
               <div className="flex items-center gap-1.5 flex-shrink-0">
+                {/* 预览按钮 */}
+                {doc.pdfUrl && !isVoided && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs h-7"
+                        onClick={() => handlePreview(doc.pdfUrl!, doc.docNo, doc.docType)}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        预览
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>在弹窗中预览 PDF，无需下载</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+
                 {doc.pdfUrl && !isVoided && (
                   <Button
                     variant="outline"

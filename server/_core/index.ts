@@ -8,7 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { generateOrderExcel, generateMonthlyOrdersExcel } from "../exportExcel";
-import { generateCustomersExcel } from "../exportCustomers";
+import { generateCustomersExcel, generateCustomersTemplate, parseCustomersImportBufferAsync } from "../exportCustomers";
 import { storagePut } from "../storage";
 import { nanoid } from "nanoid";
 import archiver from "archiver";
@@ -78,6 +78,49 @@ async function startServer() {
       res.send(buffer);
     } catch (err: any) {
       res.status(500).json({ error: err.message ?? "导出失败" });
+    }
+  });
+
+  // 客户导入模板下载
+  app.get("/api/export/customers/template", async (_req, res) => {
+    try {
+      const buffer = await generateCustomersTemplate();
+      const filename = encodeURIComponent("吟彩客户导入模板.xlsx");
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${filename}`);
+      res.send(buffer);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message ?? "下载失败" });
+    }
+  });
+
+  // 客户批量导入（接收 raw buffer）
+  app.post("/api/import/customers", async (req, res) => {
+    try {
+      const chunks: Buffer[] = [];
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      await new Promise<void>((resolve, reject) => {
+        req.on("end", resolve);
+        req.on("error", reject);
+      });
+      const buffer = Buffer.concat(chunks);
+      if (!buffer.length) { res.status(400).json({ error: "文件为空" }); return; }
+      const rows = await parseCustomersImportBufferAsync(buffer);
+      if (!rows.length) { res.status(400).json({ error: "未解析到有效数据，请检查模板格式" }); return; }
+      const { createCustomer } = await import("../db");
+      let created = 0;
+      const errors: string[] = [];
+      for (const row of rows) {
+        try {
+          await createCustomer(row);
+          created++;
+        } catch (e: any) {
+          errors.push(`${row.name}: ${e.message}`);
+        }
+      }
+      res.json({ created, total: rows.length, errors });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message ?? "导入失败" });
     }
   });
 

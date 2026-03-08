@@ -406,3 +406,9 @@
 
 - [x] generatePdf.ts：删除国内合同底部签字栏实线和“年_月_日”行
 - [x] generatePdf.ts：删除 PI/CI 底部签字栏实线和“年_月_日”行
+
+## 第五十一批
+
+- [x] DocumentHistory：新增“预览”按鈕，弹窗内嵌 iframe 展示 PDF
+- [x] generatePdf.ts：国内合同和 PI/CI 签字标签下方增加 40px 空白留白
+- [x] 客户档案批量导入：Excel 模板下载 + 上传解析 + 写入数据库（tRPC + UI）

@@ -474,10 +474,12 @@ function buildContractCnHtml(data: ContractCnData): string {
   <div class="sign-block">
     <p>甲方：${counterpartyName}</p>
     <p>签字：</p>
+    <div style="height: 40px;"></div>
   </div>
   <div class="sign-block">
     <p>乙方：${ENV.companyCnName}</p>
     <p>签字：</p>
+    <div style="height: 40px;"></div>
   </div>
 </div>
 
@@ -672,10 +674,12 @@ function buildPiCiHtml(data: PiCiData): string {
   <div class="sign-block">
     <h4>Seller: ${ENV.companyEnName}</h4>
     <div class="sign-label">Authorized Signature &amp; Date</div>
+    <div style="height: 40px;"></div>
   </div>
   <div class="sign-block">
     <h4>Buyer: ${buyerCompany || buyerName}</h4>
     <div class="sign-label">Authorized Signature &amp; Date</div>
+    <div style="height: 40px;"></div>
   </div>
 </div>
 
