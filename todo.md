@@ -440,3 +440,13 @@
 - [x] OrderForm：客户选择后自动同步 customerType（国内/国外）到订单头部
 - [x] DocumentDialog：整体 UI 优化（Footer 增加付款校验提示、生成按鈕按 Tab 显示不同文字）
 - [x] DocumentDialog：PI/CI 自动填充逻辑优化（先恢复缓存再补全空字段，与国内合同保持一致）
+
+## 第五十六批（最终性能优化）
+
+- [x] Customers.tsx：搜索过滤改为 useMemo 缓存
+- [x] DocumentDialog.tsx：国内/国外客户列表 filter 改为 useMemo 缓存
+- [x] DocumentDialog.tsx：updateExtra/updateExtraWithCalc/updatePiExtra 改为 useCallback
+- [x] Home.tsx：stats 数组改为 useMemo 缓存
+- [x] generatePdf.ts：Puppeteer 浏览器实例复用（单例模式）
+- [x] generatePdf.ts：executablePath 读取 process.env 而非硬编码
+- [x] vite.config.ts：增加 manualChunks 代码分割（react-core/radix-ui/framer-motion/lucide-react/trpc-query/vendor 独立 chunk）

@@ -6,8 +6,48 @@
  * - CI（商业发票，英文）
  */
 
-import puppeteer from "puppeteer-core";
+import puppeteer, { type Browser } from "puppeteer-core";
 import { ENV } from "./_core/env";
+
+// ── Puppeteer 浏览器单例（避免每次生成 PDF 都冷启动）──────────────────────────────────────
+let _browserInstance: Browser | null = null;
+let _browserLaunching: Promise<Browser> | null = null;
+
+async function getBrowser(): Promise<Browser> {
+  // 如果已有实例，先检测它是否仍在运行
+  if (_browserInstance) {
+    try {
+      await _browserInstance.pages(); // 如果崩溃会抛异常
+      return _browserInstance;
+    } catch {
+      _browserInstance = null;
+    }
+  }
+  // 如果正在启动中，等待完成（避免并发启动多个实例）
+  if (_browserLaunching) return _browserLaunching;
+
+  _browserLaunching = puppeteer.launch({
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? "/usr/bin/chromium-browser",
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+    ],
+    headless: true,
+  }).then(browser => {
+    _browserInstance = browser;
+    _browserLaunching = null;
+    // 监听崩溃事件，自动清除实例引用
+    browser.on("disconnected", () => { _browserInstance = null; });
+    return browser;
+  }).catch(err => {
+    _browserLaunching = null;
+    throw err;
+  });
+
+  return _browserLaunching;
+}
 
 // ─── 材质名称中英文映射（确保 PI/CI PDF 纯英文输出） ─────────────────────────────────────
 
@@ -715,18 +755,9 @@ function buildPiCiHtml(data: PiCiData): string {
 // ─── PDF 生成函数 ──────────────────────────────────────────────────────────────
 
 async function htmlToPdf(html: string): Promise<Buffer> {
-  const browser = await puppeteer.launch({
-    executablePath: "/usr/bin/chromium-browser",
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-    ],
-    headless: true,
-  });
+  const browser = await getBrowser();
+  const page = await browser.newPage();
   try {
-    const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
     const pdf = await page.pdf({
       format: "A4",
@@ -735,7 +766,8 @@ async function htmlToPdf(html: string): Promise<Buffer> {
     });
     return Buffer.from(pdf);
   } finally {
-    await browser.close();
+    // 关闭页面，但保留浏览器实例供下次复用
+    await page.close();
   }
 }
 

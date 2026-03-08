@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +67,19 @@ export default function Customers() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // 搜索过滤（useMemo 避免每次 render 重新计算）
+  const filteredCustomers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter((c: any) =>
+      (c.name ?? "").toLowerCase().includes(q) ||
+      (c.cnCompany ?? "").toLowerCase().includes(q) ||
+      (c.contact ?? "").toLowerCase().includes(q) ||
+      (c.email ?? "").toLowerCase().includes(q) ||
+      (c.company ?? "").toLowerCase().includes(q)
+    );
+  }, [customers, searchQuery]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -254,24 +267,15 @@ export default function Customers() {
             </div>
             {(() => {
               const q = searchQuery.trim().toLowerCase();
-              const filtered = q
-                ? customers.filter((c: any) =>
-                    (c.name ?? "").toLowerCase().includes(q) ||
-                    (c.cnCompany ?? "").toLowerCase().includes(q) ||
-                    (c.contact ?? "").toLowerCase().includes(q) ||
-                    (c.email ?? "").toLowerCase().includes(q) ||
-                    (c.company ?? "").toLowerCase().includes(q)
-                  )
-                : customers;
               return (
                 <>
                   <p className="text-sm text-muted-foreground mb-2">
-                    {q ? `搜索到 ${filtered.length} / ${customers.length} 个客户` : `共 ${customers.length} 个预设客户，下单时可在客户字段直接选择`}
+                    {q ? `搜索到 ${filteredCustomers.length} / ${customers.length} 个客户` : `共 ${customers.length} 个预设客户，下单时可在客户字段直接选择`}
                   </p>
-                  {filtered.length === 0 && q && (
-                    <div className="text-center py-12 text-muted-foreground text-sm">未找到匹配“{searchQuery}”的客户</div>
+                  {filteredCustomers.length === 0 && q && (
+                    <div className="text-center py-12 text-muted-foreground text-sm">未找到匹配"{searchQuery}"的客户</div>
                   )}
-            {filtered.map((c: any) => (
+            {filteredCustomers.map((c: any) => (
               <div
                 key={c.id}
                 className="flex items-center gap-4 bg-card border border-border rounded-xl px-5 py-4 hover:border-primary/30 transition-colors group"

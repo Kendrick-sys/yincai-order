@@ -5,7 +5,7 @@
  * CI Tab 支持「从PI创建」：选择已有PI单据自动填充数据
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
@@ -1113,7 +1113,17 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     { enabled: open, staleTime: 60_000 }
   );
 
-  // ── localStorage 持久化 key（按订单 ID 区分）──────────────────────────────────
+  // ── 客户列表分组（useMemo 避免每次 render 重新过滤）─────────────────────────────────────────
+  const domesticCustomers = useMemo(
+    () => (customerList ?? []).filter((c: any) => c.country === "domestic"),
+    [customerList]
+  );
+  const overseasCustomers = useMemo(
+    () => (customerList ?? []).filter((c: any) => c.country === "overseas"),
+    [customerList]
+  );
+
+  // ── localStorage 持久化 key（按订单 ID 区分）────────────────────────────────────────────
   const storageKey = `yincai_contract_cn_${order.id}`;
   const piStorageKey = `yincai_pi_${order.id}`;
 
@@ -1267,12 +1277,14 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
   // ── 附加费用更新辅助 ──────────────────────────────────────────────────────────
 
-  const updateExtra = <K extends keyof DomesticExtras>(key: K, value: DomesticExtras[K]) => {
-    setExtras(prev => ({ ...prev, [key]: value }));
-  };
+  // useCallback 避免每次 render 重新创建这些辅助函数
+  const updateExtra = useCallback(
+    <K extends keyof DomesticExtras>(key: K, value: DomesticExtras[K]) => {
+      setExtras(prev => ({ ...prev, [key]: value }));
+    }, []);
 
   /** 更新数量或单价时自动重算金额 */
-  const updateExtraWithCalc = (
+  const updateExtraWithCalc = useCallback((
     qtyKey: keyof DomesticExtras,
     priceKey: keyof DomesticExtras,
     amountKey: keyof DomesticExtras,
@@ -1285,14 +1297,15 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
       [priceKey]: price,
       [amountKey]: round2(qty * price),
     }));
-  };
+  }, []);
 
   // PI/CI 附加费用更新辅助
-  const updatePiExtra = <K extends keyof PiExtras>(key: K, value: PiExtras[K]) => {
-    setPiExtras(prev => ({ ...prev, [key]: value }));
-  };
+  const updatePiExtra = useCallback(
+    <K extends keyof PiExtras>(key: K, value: PiExtras[K]) => {
+      setPiExtras(prev => ({ ...prev, [key]: value }));
+    }, []);
 
-  const updatePiExtraWithCalc = (
+  const updatePiExtraWithCalc = useCallback((
     qtyKey: keyof PiExtras,
     priceKey: keyof PiExtras,
     amountKey: keyof PiExtras,
@@ -1305,7 +1318,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
       [priceKey]: price,
       [amountKey]: round2(qty * price),
     }));
-  };
+  }, []);
 
   // ── 总价计算 ─────────────────────────────────────────────────────────────────
 
@@ -1922,9 +1935,9 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           <TabsContent value="contract_cn" className="space-y-4 mt-4">
 
             {/* 客户档案快速选择（可搜索 Combobox） */}
-            {customerList && customerList.filter((c: any) => c.country === "domestic").length > 0 && (
+            {domesticCustomers.length > 0 && (
               <CustomerFillCombobox
-                customers={customerList.filter((c: any) => c.country === "domestic")}
+                customers={domesticCustomers}
                 label="从客户档案选择："
                 placeholder="搜索国内客户自动填充甲方信息..."
                 onSelect={(c) => {
@@ -2260,9 +2273,9 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           {/* ─── PI ─── */}
           <TabsContent value="pi" className="space-y-4 mt-4">
             {/* 国外客户档案快速选择（可搜索 Combobox） */}
-            {customerList && customerList.filter((c: any) => c.country === "overseas").length > 0 && (
+            {overseasCustomers.length > 0 && (
               <CustomerFillCombobox
-                customers={customerList.filter((c: any) => c.country === "overseas")}
+                customers={overseasCustomers}
                 label="从客户档案选择："
                 placeholder="搜索国外客户自动填充 Buyer 信息..."
                 colorScheme="indigo"
@@ -2317,9 +2330,9 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           {/* ─── CI ─── */}
           <TabsContent value="ci" className="space-y-4 mt-4">
             {/* 国外客户档案快速选择（可搜索 Combobox） */}
-            {customerList && customerList.filter((c: any) => c.country === "overseas").length > 0 && (
+            {overseasCustomers.length > 0 && (
               <CustomerFillCombobox
-                customers={customerList.filter((c: any) => c.country === "overseas")}
+                customers={overseasCustomers}
                 label="从客户档案选择："
                 placeholder="搜索国外客户自动填充 Buyer 信息..."
                 colorScheme="indigo"

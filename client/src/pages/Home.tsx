@@ -209,12 +209,12 @@ export default function Home() {
   }, [tabFiltered, sortField, sortDir]);
 
   // 统计（基于搜索结果，不受 Tab 影响）
-  const stats = Object.entries(STATUS_CONFIG).map(([key, cfg]) => ({
+  const stats = useMemo(() => Object.entries(STATUS_CONFIG).map(([key, cfg]) => ({
     key,
     label: cfg.label,
     count: searchFiltered.filter(o => o.status === key).length,
     dot: cfg.dot,
-  }));
+  })), [searchFiltered]);
 
   const handleDelete = (id: number, desc: string) => {
     if (!confirm(`确定要删除订单「${desc || id}」吗？此操作不可恢复。`)) return;
