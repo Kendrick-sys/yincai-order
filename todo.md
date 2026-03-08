@@ -483,3 +483,11 @@
 - [x] 权限隔离：新增 getCustomerById 函数并导入 TRPCError
 - [x] 客户排序：Customers.tsx 搜索框旁增加「最后下单」排序按鈕（点击循环：默认→最近在前→最早在前）
 - [x] 离职自动转移：userManagement.update 路由停用账号时自动将其所有客户 createdBy 设为 null（公共客户）
+
+## 第六十批（订单权限校验 + 分配业务员 + 创建订单快捷按钮）
+
+- [x] 订单权限：orders.update/updateStatus/softDelete/restore/hardDelete 加入 createdBy 校验（业务员只能操作自己的订单）
+- [x] 分配业务员：后端 customers.assignSalesperson 路由（管理员专属，更新 createdBy 字段）
+- [x] 分配业务员：Customers.tsx 客户列表每行增加「分配业务员」按鈕（管理员可见，弹出对话框选择在职业务员或设为公共）
+- [x] 创建订单快捷按鈕：客户列表每行增加「创建订单」图标按鈕，点击跳转 /order/new?customer=客户名
+- [x] OrderForm.tsx：读取 URL 参数 customer，自动预填客户名字段

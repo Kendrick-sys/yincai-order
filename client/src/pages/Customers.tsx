@@ -1,19 +1,23 @@
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home, ExternalLink, Upload, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home, ExternalLink, Upload, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, UserPlus, FilePlus } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 
@@ -46,10 +50,17 @@ const emptyForm: CustomerForm = {
 export default function Customers() {
   const [, navigate] = useLocation();
   const utils = trpc.useUtils();
+  const { user: currentUser } = useAuth();
+  const isAdmin = currentUser?.role === "admin";
   const { data: customers = [] } = trpc.customers.list.useQuery(
     undefined,
     { staleTime: 60_000 }
   );
+  // 管理员専属：获取在职业务员列表（用于分配业务员下拉）
+  const { data: allUsers = [] } = trpc.userManagement.list.useQuery(undefined, {
+    enabled: isAdmin,
+  });
+  const activeSalespersons = (allUsers as any[]).filter((u: any) => u.isActive && u.role === "user");
   const createMut = trpc.customers.create.useMutation({
     onSuccess: () => { utils.customers.list.invalidate(); setDialogOpen(false); toast.success("客户已添加"); },
   });
@@ -59,6 +70,15 @@ export default function Customers() {
   const deleteMut = trpc.customers.delete.useMutation({
     onSuccess: () => { utils.customers.list.invalidate(); setDeleteId(null); toast.success("客户已删除"); },
   });
+  // 分配业务员 mutation
+  const assignMut = trpc.customers.assignSalesperson.useMutation({
+    onSuccess: () => {
+      utils.customers.list.invalidate();
+      setAssignTarget(null);
+      toast.success("已分配业务员");
+    },
+    onError: (err) => toast.error(err.message || "分配失败"),
+  });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -67,6 +87,9 @@ export default function Customers() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // 分配业务员对话框状态
+  const [assignTarget, setAssignTarget] = useState<{ id: number; name: string } | null>(null);
+  const [assignUserId, setAssignUserId] = useState<string>("public");
   // 排序状态：null=默认（按添加时间）, 'asc'=最早下单在前, 'desc'=最近下单在前
   const [lastOrderSort, setLastOrderSort] = useState<null | 'asc' | 'desc'>(null);
 
@@ -366,6 +389,28 @@ export default function Customers() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* 创建订单快捷按鈕 */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate(`/?newOrder=1&customer=${encodeURIComponent(c.name)}`)}
+                    className="h-8 w-8 p-0 text-primary hover:text-primary hover:bg-primary/10"
+                    title="为该客户创建订单"
+                  >
+                    <FilePlus className="w-3.5 h-3.5" />
+                  </Button>
+                  {/* 分配业务员（管理员专属） */}
+                  {isAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setAssignTarget({ id: c.id, name: c.name }); setAssignUserId(c.createdBy ? String(c.createdBy) : "public"); }}
+                      className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                      title="分配业务员"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => openEdit(c)} className="h-8 w-8 p-0">
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
@@ -611,6 +656,49 @@ export default function Customers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 分配业务员对话框 */}
+      <Dialog open={!!assignTarget} onOpenChange={(v) => !v && setAssignTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>分配业务员</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground pt-1">
+              将客户「{assignTarget?.name}」指派给某个在职业务员，或设为公共客户。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>分配给</Label>
+              <Select value={assignUserId} onValueChange={setAssignUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">公共客户（所有管理员可见）</SelectItem>
+                  {activeSalespersons.map((u: any) => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {u.displayName ?? u.username}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setAssignTarget(null)}>取消</Button>
+            <Button
+              onClick={() => {
+                if (!assignTarget) return;
+                const userId = assignUserId === "public" ? null : Number(assignUserId);
+                assignMut.mutate({ id: assignTarget.id, userId });
+              }}
+              disabled={assignMut.isPending}
+            >
+              {assignMut.isPending ? "分配中..." : "确认分配"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

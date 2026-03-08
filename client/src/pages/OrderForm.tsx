@@ -334,6 +334,11 @@ export default function OrderForm() {
   const isEdit = !!params.id;
   const orderId = params.id ? parseInt(params.id) : undefined;
 
+  // 从 URL 参数读取预填客户名（从客户列表点击「创建订单」跳转过来）
+  const prefilledCustomer = !isEdit
+    ? new URLSearchParams(window.location.search).get("customer") ?? ""
+    : "";
+
   // 从数据库读取客户列表（60秒内不重新拉取，与 Customers 页面共享缓存）
   const { data: customerList = [] } = trpc.customers.list.useQuery(
     undefined,
@@ -342,7 +347,7 @@ export default function OrderForm() {
 
   // 订单头部
   const [header, setHeader] = useState({
-    orderNo: "", orderDescription: "", customer: "",
+    orderNo: "", orderDescription: "", customer: prefilledCustomer,
     isNewCustomer: false,
     customerType: "domestic" as "domestic" | "overseas",
     customsDeclared: false,

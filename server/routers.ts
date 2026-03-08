@@ -320,6 +320,17 @@ export const appRouter = router({
         await deleteCustomer(input.id);
         return { success: true };
       }),
+
+    // 分配业务员（管理员专属）——将客户指派给某个在职业务员，或设为公共（null）
+    assignSalesperson: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        userId: z.number().nullable(),   // null 表示设为公共客户
+      }))
+      .mutation(async ({ input }) => {
+        await updateCustomer(input.id, { createdBy: input.userId });
+        return { success: true };
+      }),
   }),
 
   // ─── 单据管理（合同/PI/CI）──────────────────────────────────────────────────
@@ -693,7 +704,13 @@ export const appRouter = router({
     // 更新订单
     update: protectedProcedure
       .input(z.object({ id: z.number(), order: orderHeaderSchema, models: z.array(modelSchema) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin") {
+          const existing = await getOrderById(input.id);
+          if (!existing || existing.createdBy !== ctx.user.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "无权修改该订单" });
+          }
+        }
         await updateOrder(input.id, input.order, input.models);
         return { success: true };
       }),
@@ -704,7 +721,13 @@ export const appRouter = router({
         id: z.number(),
         status: z.enum(["draft", "submitted", "in_production", "completed", "cancelled"]),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin") {
+          const existing = await getOrderById(input.id);
+          if (!existing || existing.createdBy !== ctx.user.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "无权更新该订单状态" });
+          }
+        }
         await updateOrderStatus(input.id, input.status);
         return { success: true };
       }),
@@ -712,7 +735,13 @@ export const appRouter = router({
     // 软删除（移入回收站）
     delete: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin") {
+          const existing = await getOrderById(input.id);
+          if (!existing || existing.createdBy !== ctx.user.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "无权删除该订单" });
+          }
+        }
         await softDeleteOrder(input.id);
         return { success: true };
       }),
@@ -720,7 +749,13 @@ export const appRouter = router({
     // 从回收站恢复
     restore: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin") {
+          const existing = await getOrderById(input.id);
+          if (!existing || existing.createdBy !== ctx.user.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "无权恢复该订单" });
+          }
+        }
         await restoreOrder(input.id);
         return { success: true };
       }),
@@ -728,7 +763,13 @@ export const appRouter = router({
     // 彻底删除（不可恢复）
     hardDelete: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin") {
+          const existing = await getOrderById(input.id);
+          if (!existing || existing.createdBy !== ctx.user.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "无权彻底删除该订单" });
+          }
+        }
         await hardDeleteOrder(input.id);
         return { success: true };
       }),
