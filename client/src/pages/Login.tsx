@@ -9,6 +9,7 @@ import { Eye, EyeOff, LogIn, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { trpc } from "@/lib/trpc";
 
 export default function Login() {
@@ -16,6 +17,7 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true); // 默认勾选「记住我」
 
   const utils = trpc.useUtils();
 
@@ -39,7 +41,7 @@ export default function Login() {
       toast.warning("请填写用户名和密码");
       return;
     }
-    loginMutation.mutate({ username: username.trim(), password });
+    loginMutation.mutate({ username: username.trim(), password, rememberMe });
   };
 
   return (
@@ -122,7 +124,23 @@ export default function Login() {
               </div>
             </div>
 
-            {/* 登录按钮 */}
+            {/* 记住我 */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="rememberMe"
+                checked={rememberMe}
+                onCheckedChange={(v) => setRememberMe(!!v)}
+                disabled={loginMutation.isPending}
+              />
+              <Label
+                htmlFor="rememberMe"
+                className="text-sm text-slate-600 cursor-pointer select-none"
+              >
+                记住我（30 天内免登录）
+              </Label>
+            </div>
+
+            {/* 登录按鈕 */}
             <Button
               type="submit"
               className="w-full h-10 bg-[#1A3C5E] hover:bg-[#15304e] text-white font-medium"

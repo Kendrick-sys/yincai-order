@@ -284,6 +284,10 @@ export default function Customers() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-foreground">{c.name}</span>
+                    {/* 已离职标注 */}
+                    {(c as any).creatorIsActive === false && (
+                      <span className="text-xs text-red-400 border border-red-200 bg-red-50 px-1.5 py-0.5 rounded-full">已离职</span>
+                    )}
                     {/* 国内/国外标签 */}
                     <Badge variant={c.country === "overseas" ? "default" : "secondary"} className="text-xs gap-1">
                       {c.country === "overseas"

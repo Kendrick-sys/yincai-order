@@ -97,12 +97,32 @@ export async function deleteCustomer(id: number) {
   await db.delete(customers).where(eq(customers.id, id));
 }
 
-/** 获取客户列表（含订单统计：数量 + 最近下单日期） */
+/** 批量转移客户归属（离职业务员客户转移）。toUserId=null 表示设为公共 */
+export async function transferCustomers(fromUserId: number, toUserId: number | null) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(customers)
+    .set({ createdBy: toUserId })
+    .where(eq(customers.createdBy, fromUserId));
+}
+
+/** 批量转移订单归属（离职业务员订单转移）。toUserId=null 表示设为公共 */
+export async function transferOrders(fromUserId: number, toUserId: number | null) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(orders)
+    .set({ createdBy: toUserId })
+    .where(eq(orders.createdBy, fromUserId));
+}
+
+/** 获取客户列表（含订单统计：数量 + 最近下单日期 + 创建者信息） */
 export async function listCustomersWithStats(userId?: number) {
   const db = await getDb();
   if (!db) return [];
 
-  // 左连接 orders 表，按客户名称分组统计
+  // alias users 表为 creatorUser 避免与主表冲突
+  const creatorUser = users;
+
   const query = db
     .select({
       id: customers.id,
@@ -126,9 +146,13 @@ export async function listCustomersWithStats(userId?: number) {
       createdBy: customers.createdBy,
       orderCount: sql<number>`COUNT(CASE WHEN ${orders.deletedAt} IS NULL THEN 1 END)`,
       lastOrderDate: sql<string | null>`MAX(CASE WHEN ${orders.deletedAt} IS NULL THEN ${orders.orderDate} END)`,
+      // 创建者信息
+      creatorName: creatorUser.displayName,
+      creatorIsActive: creatorUser.isActive,
     })
     .from(customers)
     .leftJoin(orders, eq(orders.customer, customers.name))
+    .leftJoin(creatorUser, eq(customers.createdBy, creatorUser.id))
     .where(userId !== undefined ? eq(customers.createdBy, userId) : undefined)
     .groupBy(customers.id)
     .orderBy(customers.sortOrder, customers.createdAt);
@@ -138,26 +162,93 @@ export async function listCustomersWithStats(userId?: number) {
 
 // ─── 订单相关 ─────────────────────────────────────────────────────────────────
 
-/** 获取正常订单列表（未删除） */
+//** 获取正常订单列表（未删除），含创建者姓名和停用状态 */
 export async function listOrders(userId?: number) {
   const db = await getDb();
   if (!db) return [];
   const condition = userId !== undefined
     ? and(isNull(orders.deletedAt), eq(orders.createdBy, userId))
     : isNull(orders.deletedAt);
-  return db.select().from(orders)
+  return db
+    .select({
+      // 所有 orders 字段
+      id: orders.id,
+      orderNo: orders.orderNo,
+      orderDescription: orders.orderDescription,
+      customer: orders.customer,
+      maker: orders.maker,
+      salesperson: orders.salesperson,
+      orderDate: orders.orderDate,
+      deliveryDate: orders.deliveryDate,
+      remarks: orders.remarks,
+      isNewCustomer: orders.isNewCustomer,
+      customerType: orders.customerType,
+      customsDeclared: orders.customsDeclared,
+      isAlibaba: orders.isAlibaba,
+      alibabaOrderNo: orders.alibabaOrderNo,
+      is1688: orders.is1688,
+      alibaba1688OrderNo: orders.alibaba1688OrderNo,
+      isAmazon: orders.isAmazon,
+      amazonOrderNo: orders.amazonOrderNo,
+      recipientName: orders.recipientName,
+      recipientPhone: orders.recipientPhone,
+      recipientAddress: orders.recipientAddress,
+      factoryShipNo: orders.factoryShipNo,
+      status: orders.status,
+      deletedAt: orders.deletedAt,
+      createdBy: orders.createdBy,
+      createdAt: orders.createdAt,
+      updatedAt: orders.updatedAt,
+      // 创建者信息
+      creatorName: users.displayName,
+      creatorIsActive: users.isActive,
+    })
+    .from(orders)
+    .leftJoin(users, eq(orders.createdBy, users.id))
     .where(condition)
     .orderBy(desc(orders.createdAt));
 }
-
-/** 获取回收站订单列表（已软删除） */
+/** 获取回收站订单列表（已软删除），含创建者姓名和停用状态 */
 export async function listTrashedOrders(userId?: number) {
   const db = await getDb();
   if (!db) return [];
   const condition = userId !== undefined
     ? and(isNotNull(orders.deletedAt), eq(orders.createdBy, userId))
     : isNotNull(orders.deletedAt);
-  return db.select().from(orders)
+  return db
+    .select({
+      id: orders.id,
+      orderNo: orders.orderNo,
+      orderDescription: orders.orderDescription,
+      customer: orders.customer,
+      maker: orders.maker,
+      salesperson: orders.salesperson,
+      orderDate: orders.orderDate,
+      deliveryDate: orders.deliveryDate,
+      remarks: orders.remarks,
+      isNewCustomer: orders.isNewCustomer,
+      customerType: orders.customerType,
+      customsDeclared: orders.customsDeclared,
+      isAlibaba: orders.isAlibaba,
+      alibabaOrderNo: orders.alibabaOrderNo,
+      is1688: orders.is1688,
+      alibaba1688OrderNo: orders.alibaba1688OrderNo,
+      isAmazon: orders.isAmazon,
+      amazonOrderNo: orders.amazonOrderNo,
+      recipientName: orders.recipientName,
+      recipientPhone: orders.recipientPhone,
+      recipientAddress: orders.recipientAddress,
+      factoryShipNo: orders.factoryShipNo,
+      status: orders.status,
+      deletedAt: orders.deletedAt,
+      createdBy: orders.createdBy,
+      createdAt: orders.createdAt,
+      updatedAt: orders.updatedAt,
+      creatorName: users.displayName,
+      creatorIsActive: users.isActive,
+    })
+    .from(orders)
+    .leftJoin(users, eq(orders.createdBy, users.id))
     .where(condition)
     .orderBy(desc(orders.deletedAt));
 }

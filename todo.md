@@ -465,3 +465,12 @@
 - [x] 前端：订单列表管理员视图显示"制单员"列
 - [x] 前端：客户列表管理员视图显示归属业务员
 - [x] 前端：DashboardLayout 侧边栏增加"账号管理"入口（管理员可见）
+
+## 第五十八批（离职转移 + 长期登录）
+
+- [x] 长期登录：auth.login 增加 rememberMe 参数，选中时 JWT 有效期 30 天（默认 24 小时）
+- [x] 长期登录：登录页增加「记住我」复选框
+- [x] 长期登录：Cookie maxAge 随 rememberMe 动态设置
+- [x] 离职转移：后端 userManagement.transferCustomers 路由（批量更新 createdBy）
+- [x] 离职转移：账号管理页停用账号时弹出“转移客户”对话框（选择目标业务员或设为公共）
+- [x] 离职标注：orders 和 customers 列表中，createdBy 对应账号 isActive=false 时显示“（已离职）”标注

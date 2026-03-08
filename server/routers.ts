@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS, THIRTY_DAYS_MS, EIGHT_HOURS_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
@@ -8,6 +8,7 @@ import {
   softDeleteOrder, restoreOrder, hardDeleteOrder, listTrashedOrders,
   updateOrderStatus,
   listCustomers, listCustomersWithStats, createCustomer, updateCustomer, deleteCustomer,
+  transferCustomers, transferOrders,
 } from "./db";
 import {
   generateDocNo, createDocument, updateDocumentPdf,
@@ -151,6 +152,7 @@ export const appRouter = router({
       .input(z.object({
         username: z.string().min(1, "用户名不能为空"),
         password: z.string().min(1, "密码不能为空"),
+        rememberMe: z.boolean().optional().default(false),
       }))
       .mutation(async ({ input, ctx }) => {
         const user = await getUserByUsername(input.username);
@@ -164,13 +166,15 @@ export const appRouter = router({
         if (!valid) {
           throw new Error("用户名或密码错误");
         }
+        // 记住我：30 天；不记住：8 小时
+        const expiresInMs = input.rememberMe ? THIRTY_DAYS_MS : EIGHT_HOURS_MS;
         // 签发 JWT Session
         const sessionToken = await sdk.createSessionToken(user.openId, {
           name: user.displayName ?? user.name ?? user.username ?? "",
-          expiresInMs: ONE_YEAR_MS,
+          expiresInMs,
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: expiresInMs });
         return {
           success: true,
           user: {
@@ -242,6 +246,17 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // 批量转移客户和订单归属（离职业务员操作）
+    transferData: adminProcedure
+      .input(z.object({
+        fromUserId: z.number(),
+        toUserId: z.number().nullable(), // null = 设为公共
+      }))
+      .mutation(async ({ input }) => {
+        await transferCustomers(input.fromUserId, input.toUserId);
+        await transferOrders(input.fromUserId, input.toUserId);
+        return { success: true };
+      }),
     // 业务员修改自己的密码
     changeMyPassword: protectedProcedure
       .input(z.object({

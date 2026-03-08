@@ -1,13 +1,13 @@
 /**
  * 账号管理页（管理员专属）
- * 功能：查看所有账号、新建账号、修改姓名/角色、停用/启用、重置密码
+ * 功能：查看所有账号、新建账号、修改姓名/角色、停用/启用、重置密码、转移客户
  */
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import {
-  Plus, UserCheck, UserX, KeyRound, Pencil, ChevronLeft,
-  Shield, User, Loader2, Eye, EyeOff,
+  Plus, UserCheck, UserX, KeyRound, ChevronLeft,
+  Shield, User, Loader2, Eye, EyeOff, ArrowRightLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -189,6 +190,99 @@ function ResetPasswordDialog({
   );
 }
 
+// ─── 转移客户对话框 ───────────────────────────────────────────────────────────
+
+function TransferDataDialog({
+  user,
+  allUsers,
+  onClose,
+}: {
+  user: AppUser | null;
+  allUsers: AppUser[];
+  onClose: () => void;
+}) {
+  // "public" 表示设为公共（createdBy = null）
+  const [toUserId, setToUserId] = useState<string>("public");
+  const utils = trpc.useUtils();
+
+  const transferMutation = trpc.userManagement.transferData.useMutation({
+    onSuccess: () => {
+      const targetName = toUserId === "public"
+        ? "公共（所有管理员可见）"
+        : allUsers.find((u) => u.id === Number(toUserId))?.displayName ?? "目标账号";
+      toast.success(`已将「${user?.displayName ?? user?.username}」的客户和订单转移至 ${targetName}`);
+      utils.userManagement.list.invalidate();
+      onClose();
+      setToUserId("public");
+    },
+    onError: (err) => toast.error(err.message || "转移失败"),
+  });
+
+  // 可转移的目标：除了当前被转移的用户外的所有用户
+  const targetOptions = allUsers.filter((u) => u.id !== user?.id);
+
+  const handleConfirm = () => {
+    if (!user) return;
+    const targetId = toUserId === "public" ? null : Number(toUserId);
+    transferMutation.mutate({ fromUserId: user.id, toUserId: targetId });
+  };
+
+  return (
+    <Dialog open={!!user} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>转移客户与订单</DialogTitle>
+          <DialogDescription className="text-sm text-slate-500 pt-1">
+            将「{user?.displayName ?? user?.username}」名下的所有客户和订单批量转移给其他人员，或设为公共（管理员可见）。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <Label>转移给</Label>
+            <Select value={toUserId} onValueChange={setToUserId}>
+              <SelectTrigger>
+                <SelectValue placeholder="请选择" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">
+                  <span className="flex items-center gap-2">
+                    <Shield className="w-3.5 h-3.5 text-slate-400" />
+                    设为公共（管理员可见）
+                  </span>
+                </SelectItem>
+                {targetOptions.map((u) => (
+                  <SelectItem key={u.id} value={String(u.id)}>
+                    <span className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 text-slate-400" />
+                      {u.displayName ?? u.username}
+                      {u.role === "admin" && (
+                        <span className="text-xs text-slate-400">（管理员）</span>
+                      )}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-700">
+            此操作不可撤销，请确认转移目标后再执行。
+          </div>
+        </div>
+        <DialogFooter className="pt-2">
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={transferMutation.isPending}
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            {transferMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "确认转移"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── 主页面 ───────────────────────────────────────────────────────────────────
 
 export default function UserManagement() {
@@ -196,6 +290,7 @@ export default function UserManagement() {
   const { user: currentUser } = useAuth({ redirectOnUnauthenticated: true, redirectPath: "/login" });
   const [showCreate, setShowCreate] = useState(false);
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
+  const [transferTarget, setTransferTarget] = useState<AppUser | null>(null);
 
   const { data: users = [], isLoading } = trpc.userManagement.list.useQuery(undefined, {
     retry: false,
@@ -260,7 +355,7 @@ export default function UserManagement() {
         ) : (
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
             {/* 表头 */}
-            <div className="grid grid-cols-[1fr_1fr_100px_100px_140px] gap-4 px-5 py-3 bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500 uppercase tracking-wide">
+            <div className="grid grid-cols-[1fr_1fr_100px_100px_160px] gap-4 px-5 py-3 bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500 uppercase tracking-wide">
               <span>姓名 / 用户名</span>
               <span>最后登录</span>
               <span className="text-center">角色</span>
@@ -278,7 +373,7 @@ export default function UserManagement() {
                 {users.map((u) => (
                   <div
                     key={u.id}
-                    className={`grid grid-cols-[1fr_1fr_100px_100px_140px] gap-4 px-5 py-4 items-center transition-colors ${
+                    className={`grid grid-cols-[1fr_1fr_100px_100px_160px] gap-4 px-5 py-4 items-center transition-colors ${
                       !u.isActive ? "opacity-50 bg-slate-50/50" : "hover:bg-slate-50/50"
                     }`}
                   >
@@ -288,6 +383,9 @@ export default function UserManagement() {
                         {u.displayName ?? u.username}
                         {u.id === currentUser?.id && (
                           <span className="ml-2 text-xs text-[#1A3C5E] font-normal">（当前账号）</span>
+                        )}
+                        {!u.isActive && (
+                          <span className="ml-2 text-xs text-red-400 font-normal">已离职</span>
                         )}
                       </p>
                       <p className="text-xs text-slate-400 mt-0.5">{u.username}</p>
@@ -340,6 +438,19 @@ export default function UserManagement() {
                         <KeyRound className="w-3.5 h-3.5" />
                       </Button>
 
+                      {/* 转移客户（仅非当前账号可操作） */}
+                      {u.id !== currentUser?.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-slate-500 hover:text-amber-600"
+                          onClick={() => setTransferTarget(u as AppUser)}
+                          title="转移客户与订单"
+                        >
+                          <ArrowRightLeft className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+
                       {/* 停用/启用（不能操作自己） */}
                       {u.id !== currentUser?.id && (
                         <Button
@@ -371,13 +482,18 @@ export default function UserManagement() {
 
         {/* 说明文字 */}
         <p className="text-xs text-slate-400 mt-4 text-center">
-          停用账号后，该账号将无法登录，但历史订单和客户数据会完整保留。
+          停用账号后，该账号将无法登录，但历史订单和客户数据会完整保留。可使用「转移」按钮将其客户和订单批量转移给其他人员。
         </p>
       </div>
 
       {/* 对话框 */}
       <CreateUserDialog open={showCreate} onClose={() => setShowCreate(false)} />
       <ResetPasswordDialog user={resetTarget} onClose={() => setResetTarget(null)} />
+      <TransferDataDialog
+        user={transferTarget}
+        allUsers={users as AppUser[]}
+        onClose={() => setTransferTarget(null)}
+      />
     </div>
   );
 }

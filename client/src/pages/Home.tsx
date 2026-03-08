@@ -670,7 +670,12 @@ export default function Home() {
                       )}
                     </div>
                     {/* 制单员 */}
-                    <span className="text-sm text-gray-600 text-center">{order.maker || "—"}</span>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-sm text-gray-600 text-center">{order.maker || "—"}</span>
+                      {(order as any).creatorIsActive === false && (
+                        <span className="text-xs text-red-400">（已离职）</span>
+                      )}
+                    </div>
                     {/* 状态 */}
                     <div className="flex flex-col gap-1 items-center">
                       <Badge className={`text-xs border ${statusCfg.color}`} variant="outline">
