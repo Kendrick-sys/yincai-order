@@ -598,3 +598,8 @@
 
 - [x] storage.ts：改为直接使用 MINIO_ROOT_USER/PASSWORD，彻底去掉 MINIO_ACCESS_KEY/SECRET_KEY
 - [x] NAS-DEPLOYMENT.md：.env 模板去掉 MINIO_ACCESS_KEY/SECRET_KEY，简化为只需 ROOT_USER/PASSWORD
+
+## Bug 修复（第七十五批）
+
+- [x] 修复历史单据列表更新延迟问题：generateContractMutation / generatePiCiMutation 的 onSuccess 中添加 invalidate documents.listByOrder，生成单据后立即刷新列表
+- [x] DocumentHistory 的 listByOrder 查询设置 staleTime: 0，始终拉取最新数据

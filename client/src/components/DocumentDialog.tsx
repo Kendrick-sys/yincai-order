@@ -1068,6 +1068,7 @@ function PiCiFields({
 // ─── 主组件 ────────────────────────────────────────────────────────────────────
 
 export default function DocumentDialog({ open, onClose, order }: Props) {
+  const utils = trpc.useUtils();
   const isOverseas = order.customerType === "overseas";
   const defaultTab = isOverseas ? "pi" : "contract_cn";
 
@@ -1565,6 +1566,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     onSuccess: (data) => {
       toast.success(`采购合同 ${data.docNo} 已生成`);
       window.open(data.pdfUrl, "_blank");
+      utils.documents.listByOrder.invalidate({ orderId: order.id });
       onClose();
     },
     onError: (err) => toast.error(`生成失败：${err.message}`),
@@ -1574,6 +1576,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     onSuccess: (data) => {
       toast.success(`${activeTab.toUpperCase()} ${data.docNo} 已生成`);
       window.open(data.pdfUrl, "_blank");
+      utils.documents.listByOrder.invalidate({ orderId: order.id });
       onClose();
     },
     onError: (err) => toast.error(`生成失败：${err.message}`),

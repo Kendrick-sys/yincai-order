@@ -40,7 +40,7 @@ const DOC_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function DocumentHistory({ orderId }: Props) {
   const utils = trpc.useUtils();
-  const { data: docs, isLoading } = trpc.documents.listByOrder.useQuery({ orderId });
+  const { data: docs, isLoading } = trpc.documents.listByOrder.useQuery({ orderId }, { staleTime: 0 });
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
