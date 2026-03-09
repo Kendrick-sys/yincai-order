@@ -1,0 +1,76 @@
+version: "3.9"
+
+# 吟彩销售订单系统 - NAS Docker Compose
+# 使用方法：
+#   1. 将此文件和 .env 放在同一目录（如 /volume1/docker/yincai-order/）
+#   2. 将代码 clone 到 ./yincai-order/ 子目录
+#   3. docker-compose up -d
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: yincai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: yincai_order
+      MYSQL_USER: yincai
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: yincai-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./minio-data:/data
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # MinIO 管理控制台
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - app-net
+
+  app:
+    build:
+      context: ./yincai-order
+      dockerfile: Dockerfile
+    container_name: yincai-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: mysql://yincai:${MYSQL_PASSWORD}@mysql:3306/yincai_order
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge
