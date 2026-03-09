@@ -749,3 +749,7 @@
 - [x] 订单列表/客户列表/回收站空状态提示优化（区分“加载中”和“无数据”）
 - [x] Vite build 代码分割优化（manualChunks）
 - [x] Bug修复：成本表 Excel 导入失败（改用 sql 原始查询 DELETE WHERE 1=1 替代 drizzle delete 无 WHERE）
+
+## Bug修复（第九十一批）
+
+- [x] Bug修复：NAS MySQL sql_safe_updates 限制导致 Excel 导入失败——改用 TRUNCATE TABLE 替代 DELETE WHERE 1=1

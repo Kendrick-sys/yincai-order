@@ -427,8 +427,8 @@ export async function deleteYifengCostItem(id: number): Promise<void> {
 export async function replaceAllYifengCostItems(items: InsertYifengCostItem[]): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  // 使用 sql 原始查询清空表，避免 drizzle delete 无 WHERE 子句在部分数据库上报错
-  await db.execute(sql`DELETE FROM ${yifengCostItems} WHERE 1=1`);
+  // 使用 TRUNCATE TABLE 清空表，不受 sql_safe_updates 模式限制（NAS MySQL 兼容）
+  await db.execute(sql`TRUNCATE TABLE yifeng_cost_items`);
   if (items.length > 0) {
     // 分批插入，每批 50 条
     for (let i = 0; i < items.length; i += 50) {
