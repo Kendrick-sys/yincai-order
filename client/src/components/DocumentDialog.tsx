@@ -1476,12 +1476,27 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng, on
   }, [activeTab]);
 
   // ── 同步数据给父组件（用于采购合同联动） ──────────────────────────────────────────
+  // 将当前数据存入 ref，供外部按需读取（避免实时回调导致无限循环）
+  const syncDataRef = useRef<DocSyncData>({ lineItems, extras, piExtras, activeTab });
+  // 每次渲染时同步最新数据到 ref（不触发重渲染）
+  syncDataRef.current = { lineItems, extras, piExtras, activeTab };
+
+  // 暴露一个帟函数给父组件，父组件在需要时主动调用（如打开采购合同弹窗前）
   const onSyncDataRef = useRef(onSyncData);
   onSyncDataRef.current = onSyncData;
+  // 提供一个稳定的回调给父组件，父组件可以在需要时主动调用它来获取当前数据
+  const getSyncData = useCallback((): DocSyncData => syncDataRef.current, []);
+  // 将 getSyncData 暴露到父组件：弹窗打开时调用一次
   useEffect(() => {
-    if (!open || !onSyncDataRef.current) return;
-    onSyncDataRef.current({ lineItems, extras, piExtras, activeTab });
-  }, [open, lineItems, extras, piExtras, activeTab]);
+    if (!open) return;
+    // 弹窗刚打开时，延迟一帧再同步（确保 state 已初始化）
+    const timer = setTimeout(() => {
+      if (onSyncDataRef.current) {
+        onSyncDataRef.current(syncDataRef.current);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 附加费用更新辅助 ──────────────────────────────────────────────────────────
 
