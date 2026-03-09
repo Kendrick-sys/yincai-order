@@ -159,19 +159,19 @@ export default function Home() {
     }
   };
 
-  // 搜索过滤
-  const searchFiltered = useMemo(() =>
-    orders.filter(o =>
-      !search ||
-      (o.customer ?? "").includes(search) ||
-      (o.orderDescription ?? "").includes(search) ||
-      (o.orderNo ?? "").includes(search) ||
-      ((o as any).alibabaOrderNo ?? "").includes(search) ||
-      ((o as any).alibaba1688OrderNo ?? "").includes(search) ||
-      ((o as any).amazonOrderNo ?? "").includes(search)
-    ),
-    [orders, search]
-  );
+  // 搜索过滤（大小写不敏感）
+  const searchFiltered = useMemo(() => {
+    if (!search) return orders;
+    const q = search.toLowerCase();
+    return orders.filter(o =>
+      (o.customer ?? "").toLowerCase().includes(q) ||
+      (o.orderDescription ?? "").toLowerCase().includes(q) ||
+      (o.orderNo ?? "").toLowerCase().includes(q) ||
+      ((o as any).alibabaOrderNo ?? "").toLowerCase().includes(q) ||
+      ((o as any).alibaba1688OrderNo ?? "").toLowerCase().includes(q) ||
+      ((o as any).amazonOrderNo ?? "").toLowerCase().includes(q)
+    );
+  }, [orders, search]);
 
   // 渠道过滤
   const channelFiltered = useMemo(() => {

@@ -603,3 +603,12 @@
 
 - [x] 修复历史单据列表更新延迟问题：generateContractMutation / generatePiCiMutation 的 onSuccess 中添加 invalidate documents.listByOrder，生成单据后立即刷新列表
 - [x] DocumentHistory 的 listByOrder 查询设置 staleTime: 0，始终拉取最新数据
+
+## 新功能（第七十六批）
+
+- [x] 搜索大小写不敏感：Home.tsx 搜索过滤将 search 和所有字段转为小写再比较
+- [x] 亚马逊订单国内合同甲乙方对调：isAmazon 时吟彩为甲方（采购方），供货商为乙方
+- [x] OrderData 接口增加 isAmazon 字段，OrderView 传递该字段
+- [x] DocumentDialog 根据 isAmazon 动态切换甲乙方 UI 和标签
+- [x] generatePdf.ts 根据 isAmazon 参数生成对应甲乙方合同
+- [x] 逻辑和性能优化

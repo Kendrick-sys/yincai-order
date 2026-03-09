@@ -205,6 +205,7 @@ interface OrderData {
   orderDate?: string | null;
   deliveryDate?: string | null;
   customerType?: string | null;
+  isAmazon?: boolean | null;
   models?: OrderModel[];
 }
 
@@ -1070,6 +1071,7 @@ function PiCiFields({
 export default function DocumentDialog({ open, onClose, order }: Props) {
   const utils = trpc.useUtils();
   const isOverseas = order.customerType === "overseas";
+  const isAmazonOrder = !!order.isAmazon; // 亚马逊订单：吴彩为甲方（采购方），供货商为乙方
   const defaultTab = isOverseas ? "pi" : "contract_cn";
 
   const [activeTab, setActiveTab] = useState(defaultTab);
@@ -1596,11 +1598,12 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         return;
       }
       if (!counterpartyName.trim()) {
-        toast.error("请填写甲方（采购方）公司名称");
+        toast.error(isAmazonOrder ? "请填写乙方（供货商）公司名称" : "请填写甲方（采购方）公司名称");
         return;
       }
       generateContractMutation.mutate({
         orderId: order.id,
+        isAmazon: isAmazonOrder,
         counterpartyName,
         counterpartyAddress: counterpartyAddress || undefined,
         buyerCnCompany: buyerCnCompany || undefined,
@@ -2091,42 +2094,65 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             )}
 
             {/* 甲乙方信息 */}
+            {isAmazonOrder && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700">
+                <span className="font-semibold">亚马逊订单模式：</span>
+                <span>吴彩为甲方（采购方），供货商为乙方</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 rounded-lg bg-muted/30 border border-border">
-                <p className="text-xs font-semibold text-muted-foreground mb-1">甲方（采购方）</p>
-                <p className="text-sm font-medium text-foreground">{order.customer || "—"}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">即本订单客户</p>
-              </div>
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                <p className="text-xs font-semibold text-primary mb-1">乙方（供货方）</p>
-                <p className="text-sm font-medium text-foreground">{COMPANY_NAME_CN}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">即我方</p>
-              </div>
+              {isAmazonOrder ? (
+                <>
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <p className="text-xs font-semibold text-primary mb-1">甲方（采购方）</p>
+                    <p className="text-sm font-medium text-foreground">{COMPANY_NAME_CN}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">即我方</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">乙方（供货方）</p>
+                    <p className="text-sm font-medium text-foreground">{order.customer || "—"}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">即本订单客户（供货商）</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">甲方（采购方）</p>
+                    <p className="text-sm font-medium text-foreground">{order.customer || "—"}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">即本订单客户</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <p className="text-xs font-semibold text-primary mb-1">乙方（供货方）</p>
+                    <p className="text-sm font-medium text-foreground">{COMPANY_NAME_CN}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">即我方</p>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">甲方全称（采购方）<span className="text-destructive ml-1">*</span></Label>
+                <Label className="text-xs">{isAmazonOrder ? "乙方全称（供货商）" : "甲方全称（采购方）"}<span className="text-destructive ml-1">*</span></Label>
                 <Input
                   value={counterpartyName}
                   onChange={e => setCounterpartyName(e.target.value)}
-                  placeholder="请输入甲方（采购方）公司全称"
+                  placeholder={isAmazonOrder ? "请输入乙方（供货商）公司全称" : "请输入甲方（采购方）公司全称"}
                   className="h-8 text-sm"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">甲方公司全称（合同封面显示）</Label>
+                <Label className="text-xs">{isAmazonOrder ? "乙方公司全称（合同封面显示）" : "甲方公司全称（合同封面显示）"}</Label>
                 <Input
                   value={buyerCnCompany}
                   onChange={e => setBuyerCnCompany(e.target.value)}
-                  placeholder="如与甲方全称相同可不填"
+                  placeholder="如与全称相同可不填"
                   className="h-8 text-sm"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">甲方税号</Label>
+                <Label className="text-xs">{isAmazonOrder ? "乙方税号" : "甲方税号"}</Label>
                 <Input
                   value={buyerTaxNo}
                   onChange={e => setBuyerTaxNo(e.target.value)}
@@ -2135,7 +2161,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">交货地址</Label>
+                <Label className="text-xs">{isAmazonOrder ? "乙方地址" : "交货地址"}</Label>
                 <Input
                   value={counterpartyAddress}
                   onChange={e => setCounterpartyAddress(e.target.value)}
@@ -2146,7 +2172,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">甲方对公账号</Label>
+                <Label className="text-xs">{isAmazonOrder ? "乙方对公账号" : "甲方对公账号"}</Label>
                 <Input
                   value={buyerBankAccount}
                   onChange={e => setBuyerBankAccount(e.target.value)}
@@ -2155,7 +2181,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">甲方对公开户行</Label>
+                <Label className="text-xs">{isAmazonOrder ? "乙方对公开户行" : "甲方对公开户行"}</Label>
                 <Input
                   value={buyerBankName}
                   onChange={e => setBuyerBankName(e.target.value)}

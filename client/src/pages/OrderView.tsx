@@ -459,6 +459,7 @@ export default function OrderView() {
             orderDate: order.orderDate,
             deliveryDate: order.deliveryDate,
             customerType: (order as any).customerType,
+            isAmazon: (order as any).isAmazon,
             models: (order.models ?? []).map((m: any) => ({
               modelName: m.modelName,
               modelCode: m.modelCode,
