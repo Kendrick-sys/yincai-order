@@ -368,7 +368,7 @@ export default function OrderForm() {
   // 加载已有订单
   const { data: existingOrder } = trpc.orders.get.useQuery(
     { id: orderId! },
-    { enabled: isEdit && !!orderId }
+    { enabled: isEdit && !!orderId, staleTime: 0 }
   );
 
   useEffect(() => {
@@ -428,12 +428,26 @@ export default function OrderForm() {
     }
   }, [existingOrder]);
 
+  const utils = trpc.useUtils();
   const createMutation = trpc.orders.create.useMutation({
-    onSuccess: () => { toast.success("订单已创建！"); navigate("/"); },
+    onSuccess: async () => {
+      // 先 invalidate 缓存，确保列表页和详情页都能拿到最新数据
+      await utils.orders.list.invalidate();
+      toast.success("订单已创建！");
+      navigate("/");
+    },
     onError: () => toast.error("创建失败，请重试"),
   });
   const updateMutation = trpc.orders.update.useMutation({
-    onSuccess: () => { toast.success("订单已保存！"); navigate("/"); },
+    onSuccess: async () => {
+      // invalidate 订单列表和当前订单详情缓存，确保保存后数据立即更新
+      await Promise.all([
+        utils.orders.list.invalidate(),
+        orderId ? utils.orders.get.invalidate({ id: orderId }) : Promise.resolve(),
+      ]);
+      toast.success("订单已保存！");
+      navigate("/");
+    },
     onError: () => toast.error("保存失败，请重试"),
   });
 

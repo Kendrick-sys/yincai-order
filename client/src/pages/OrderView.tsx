@@ -100,7 +100,7 @@ export default function OrderView() {
 
   const { data: order, isLoading } = trpc.orders.get.useQuery(
     { id: orderId },
-    { staleTime: 30_000 }
+    { staleTime: 0 }
   );
 
   if (isLoading) {

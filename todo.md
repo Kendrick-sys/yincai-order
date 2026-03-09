@@ -583,3 +583,8 @@
 
 - [x] Bug：国内合同产品明细型号未映射——修复草稿恢复逻辑：草稿中 lineItems 为空时自动回退到订单 models 初始化
 - [x] Bug：PI/CI 产品明细行不显示——同样修复草稿恢复逻辑：piLineItems 为空时自动回退到订单 models 初始化
+
+## Bug修复 + 性能优化（第七十四批）
+
+- [x] Bug：编辑订单保存后数据未更新——修复：保存成功后 invalidate orders.list + orders.get 缓存，确保列表页和详情页立即拿到最新数据
+- [x] NAS 性能优化：降低各页面 staleTime（OrderView/OrderForm/PrintPreview 设为 0，Home 设为 5s），避免缓存导致数据不一致

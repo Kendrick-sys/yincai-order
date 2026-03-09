@@ -109,7 +109,7 @@ export default function Home() {
   const utils = trpc.useUtils();
   const { data: orders = [], isLoading } = trpc.orders.list.useQuery(
     undefined,
-    { staleTime: 30_000 }
+    { staleTime: 5_000 }
   );
 
   const deleteMutation = trpc.orders.delete.useMutation({

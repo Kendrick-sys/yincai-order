@@ -312,7 +312,7 @@ export default function PrintPreview() {
 
   const { data: order, isLoading } = trpc.orders.get.useQuery(
     { id: orderId },
-    { staleTime: 30_000 }  // 30秒内不重新拉取，与 OrderView 共享缓存
+    { staleTime: 0 }  // 始终拉取最新数据
   );
 
   const handlePrint = () => {
