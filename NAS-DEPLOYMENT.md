@@ -62,15 +62,13 @@ MYSQL_PASSWORD=你的数据库密码
 JWT_SECRET=在此填入随机生成的64位十六进制字符串
 
 # ─── MinIO 文件存储（替代 Manus 内置 S3）────────────────────────────────────
-# 注意：部署后需要在 MinIO 控制台手动创建 bucket 并配置 server/storage.ts
+# 系统直接使用 MINIO_ROOT_USER / MINIO_ROOT_PASSWORD 连接 MinIO
+# 无需额外创建 Access Key，与 MinIO 容器使用相同凭据即可
 MINIO_ROOT_USER=minio_admin
-MINIO_ROOT_PASSWORD=你的MinIO密码
+MINIO_ROOT_PASSWORD=你的MinIO密码（至少8位）
 MINIO_ENDPOINT=http://minio:9000
 MINIO_BUCKET=yincai-docs
-MINIO_ACCESS_KEY=你的MinIO访问密钥
-MINIO_SECRET_KEY=你的MinIO密钥
-# 浏览器访问 MinIO 的外部地址（NAS 局域网 IP），图片上传后用此地址显示
-# 如果不设置，默认使用 MINIO_ENDPOINT（Docker 内部地址，浏览器无法访问）
+# 浏览器访问 MinIO 的外部地址（必填！填 NAS 局域网 IP）
 MINIO_PUBLIC_ENDPOINT=http://你的NAS局域网IP:9000
 
 # ─── 公司信息（用于合同/PI/CI 自动填充）────────────────────────────────────
@@ -279,7 +277,8 @@ docker-compose up -d
 1. 浏览器访问 `http://你的NAS的IP:9001`（MinIO 控制台）
 2. 使用 `.env` 中的 `MINIO_ROOT_USER` 和 `MINIO_ROOT_PASSWORD` 登录
 3. 创建名为 `yincai-docs` 的存储桶，并设置为**公共读取**（Public）
-4. 在 MinIO 中创建 Access Key，将生成的 Key 和 Secret 填入 `.env` 的 `MINIO_ACCESS_KEY` 和 `MINIO_SECRET_KEY`
+
+> **注意**：无需在 MinIO 控制台中额外创建 Access Key，系统直接使用 `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` 连接 MinIO。
 
 ### 步骤七：修改 storage.ts 以使用 MinIO
 
@@ -363,15 +362,15 @@ docker-compose up -d app
 
 | 变量 | 说明 |
 |------|------|
+| `MINIO_ROOT_USER` | MinIO 用户名（与 MinIO 容器一致） |
+| `MINIO_ROOT_PASSWORD` | MinIO 密码（与 MinIO 容器一致，至少 8 位） |
 | `MINIO_ENDPOINT` | MinIO API 地址（Docker 内部：`http://minio:9000`） |
 | `MINIO_BUCKET` | 存储桶名称（默认 `yincai-docs`） |
-| `MINIO_ACCESS_KEY` | MinIO 访问密钥（回退读取 `MINIO_ROOT_USER`） |
-| `MINIO_SECRET_KEY` | MinIO 密钥（回退读取 `MINIO_ROOT_PASSWORD`） |
 | `MINIO_PUBLIC_ENDPOINT` | 浏览器可访问的外部地址（如 `http://192.168.2.97:9000`） |
 
 > **重要**：`MINIO_PUBLIC_ENDPOINT` 必须设置为 NAS 局域网 IP，否则图片上传后浏览器无法显示（因为 Docker 内部地址 `http://minio:9000` 浏览器无法访问）。
 >
-> **凭据回退**：如果不想单独创建 Access Key，可以只配置 `MINIO_ROOT_USER` 和 `MINIO_ROOT_PASSWORD`，系统会自动回退使用这两个值作为 S3 凭据。
+> **简化配置**：系统直接使用 `MINIO_ROOT_USER` 和 `MINIO_ROOT_PASSWORD` 连接 MinIO，无需在 MinIO 控制台中额外创建 Access Key。
 
 ---
 

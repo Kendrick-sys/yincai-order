@@ -588,3 +588,13 @@
 
 - [x] Bug：编辑订单保存后数据未更新——修复：保存成功后 invalidate orders.list + orders.get 缓存，确保列表页和详情页立即拿到最新数据
 - [x] NAS 性能优化：降低各页面 staleTime（OrderView/OrderForm/PrintPreview 设为 0，Home 设为 5s），避免缓存导致数据不一致
+
+## Bug修复（第七十五批）
+
+- [ ] Bug：PI 无法像国内合同一样从客户列表导入买方信息（Buyer 区域）
+- [ ] Bug：CI 无法从左侧 PI 数据映射到 CI（之前可以的功能失效）
+
+## MinIO 凭据修复（第七十六批）
+
+- [x] storage.ts：改为直接使用 MINIO_ROOT_USER/PASSWORD，彻底去掉 MINIO_ACCESS_KEY/SECRET_KEY
+- [x] NAS-DEPLOYMENT.md：.env 模板去掉 MINIO_ACCESS_KEY/SECRET_KEY，简化为只需 ROOT_USER/PASSWORD

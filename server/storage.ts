@@ -10,24 +10,22 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 function isMinioConfigured(): boolean {
   const hasEndpoint = !!process.env.MINIO_ENDPOINT;
   const hasBucket = !!process.env.MINIO_BUCKET;
-  // Support both dedicated access keys and root user credentials
   const hasCredentials = !!(getMinioAccessKey() && getMinioSecretKey());
   const configured = hasEndpoint && hasBucket && hasCredentials;
   if (configured) {
-    const akSource = process.env.MINIO_ACCESS_KEY ? 'MINIO_ACCESS_KEY' : 'MINIO_ROOT_USER';
-    console.log(`[Storage] Using MinIO (endpoint=${process.env.MINIO_ENDPOINT}, bucket=${process.env.MINIO_BUCKET}, credentials from ${akSource})`);
+    console.log(`[Storage] Using MinIO (endpoint=${process.env.MINIO_ENDPOINT}, bucket=${process.env.MINIO_BUCKET}, user=${getMinioAccessKey()})`);
   }
   return configured;
 }
 
-// Fallback: MINIO_ACCESS_KEY -> MINIO_ROOT_USER
+// NAS deployment: use MINIO_ROOT_USER / MINIO_ROOT_PASSWORD directly
+// These are the same credentials used by the MinIO container itself
 function getMinioAccessKey(): string {
-  return process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USER || '';
+  return process.env.MINIO_ROOT_USER || '';
 }
 
-// Fallback: MINIO_SECRET_KEY -> MINIO_ROOT_PASSWORD
 function getMinioSecretKey(): string {
-  return process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD || '';
+  return process.env.MINIO_ROOT_PASSWORD || '';
 }
 
 function getS3Client(): S3Client {
@@ -63,11 +61,9 @@ async function minioPut(
       })
     );
   } catch (err: any) {
-    const akSource = process.env.MINIO_ACCESS_KEY ? 'MINIO_ACCESS_KEY' : 'MINIO_ROOT_USER';
     const akValue = getMinioAccessKey();
     console.error(`[Storage] MinIO upload failed: ${err.message}`);
-    console.error(`[Storage] Credentials source: ${akSource}, accessKeyId: "${akValue.slice(0, 4)}...${akValue.slice(-2)}"`);
-    console.error(`[Storage] Endpoint: ${process.env.MINIO_ENDPOINT}, Bucket: ${bucket}`);
+    console.error(`[Storage] MINIO_ROOT_USER: "${akValue}", Endpoint: ${process.env.MINIO_ENDPOINT}, Bucket: ${bucket}`);
     throw err;
   }
 
