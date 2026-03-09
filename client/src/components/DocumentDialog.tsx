@@ -1124,14 +1124,34 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   );
 
   // 保存草稿到数据库（防抖 1.5s）
-  const saveDraftMutation = trpc.documentDrafts.save.useMutation();
+  const saveDraftMutation = trpc.documentDrafts.save.useMutation({
+    onSuccess: () => {
+      toast.success("草稿已自动保存", { duration: 1500, id: "draft-auto-save" });
+    },
+  });
+  const saveDraftMutationRef = useRef(saveDraftMutation);
+  saveDraftMutationRef.current = saveDraftMutation;
   const saveDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveDraftToDb = useCallback((draftType: "contract_cn" | "pi", data: object) => {
     if (saveDraftTimerRef.current) clearTimeout(saveDraftTimerRef.current);
     saveDraftTimerRef.current = setTimeout(() => {
-      saveDraftMutation.mutate({ orderId: order.id, draftType, data: JSON.stringify(data) });
+      saveDraftMutationRef.current.mutate({ orderId: order.id, draftType, data: JSON.stringify(data) });
     }, 1500);
-  }, [order.id, saveDraftMutation]);
+  }, [order.id]);
+
+  // 弹窗关闭时清除防抖 timer，防止内存泄漏
+  useEffect(() => {
+    if (!open && saveDraftTimerRef.current) {
+      clearTimeout(saveDraftTimerRef.current);
+      saveDraftTimerRef.current = null;
+    }
+    return () => {
+      if (saveDraftTimerRef.current) {
+        clearTimeout(saveDraftTimerRef.current);
+        saveDraftTimerRef.current = null;
+      }
+    };
+  }, [open]);
 
   // ── 客户列表分组（useMemo 避免每次 render 重新过滤）─────────────────────────────────────────
   const domesticCustomers = useMemo(
@@ -2004,6 +2024,21 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             <TabsTrigger value="pi" disabled={!isOverseas} title={!isOverseas ? "国内客户不支持 PI" : undefined}>PI（形式发票）</TabsTrigger>
             <TabsTrigger value="ci" disabled={!isOverseas} title={!isOverseas ? "国内客户不支持 CI" : undefined}>CI（商业发票）</TabsTrigger>
           </TabsList>
+
+          {/* 草稿作者和时间提示 */}
+          {(() => {
+            const currentDraft = (activeTab === "contract_cn") ? dbDraftCn : (activeTab === "pi" || activeTab === "ci") ? dbDraftPi : null;
+            if (!currentDraft?.updatedByName) return null;
+            const timeStr = currentDraft.updatedAt ? new Date(currentDraft.updatedAt).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "未知时间";
+            return (
+              <div className="flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300">
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                草稿由 <span className="font-medium">{currentDraft.updatedByName}</span> 于 {timeStr} 保存
+              </div>
+            );
+          })()}
 
           {/* ─── 国内采购合同 ─── */}
           <TabsContent value="contract_cn" className="space-y-4 mt-4">

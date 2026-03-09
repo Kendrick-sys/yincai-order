@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { Upload, X, ZoomIn, Loader2, Clipboard } from "lucide-react";
+import { Upload, X, ZoomIn, Loader2, Clipboard, CheckCircle2 } from "lucide-react";
 
 interface ImageUploaderProps {
   label: string;
@@ -10,21 +10,26 @@ interface ImageUploaderProps {
   maxCount?: number;
 }
 
+interface UploadProgress {
+  fileName: string;
+  progress: number;     // 0-100
+  status: "reading" | "uploading" | "done" | "error";
+}
+
 export default function ImageUploader({
   label, category, images, onChange, maxCount = 5,
 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // uploading: 点击/拖拽上传中；pasteUploading: 粘贴上传中（独立状态）
   const [uploading, setUploading] = useState(false);
   const [pasteUploading, setPasteUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  // 鼠标是否悬停在本组件的上传区域上
   const [isHovered, setIsHovered] = useState(false);
+  const [progressList, setProgressList] = useState<UploadProgress[]>([]);
 
-  // ── 核心上传逻辑 ──────────────────────────────────────────────────────────────
+  // ── 核心上传逻辑（带进度） ──────────────────────────────────────────────────
   const uploadFiles = useCallback(async (
     files: File[],
     mode: "normal" | "paste" = "normal"
@@ -37,30 +42,75 @@ export default function ImageUploader({
     if (mode === "paste") setPasteUploading(true);
     else setUploading(true);
 
+    // 初始化进度列表
+    const initialProgress: UploadProgress[] = toUpload.map(f => ({
+      fileName: f.name || "粘贴图片",
+      progress: 0,
+      status: "reading",
+    }));
+    setProgressList(initialProgress);
+
     const newUrls: string[] = [];
-    for (const file of toUpload) {
-      if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name || "图片"} 超过 10MB 限制`); continue; }
+    for (let i = 0; i < toUpload.length; i++) {
+      const file = toUpload[i];
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name || "图片"} 超过 10MB 限制`);
+        setProgressList(prev => prev.map((p, idx) => idx === i ? { ...p, status: "error", progress: 100 } : p));
+        continue;
+      }
       try {
+        // 阶段1：读取文件 (0-30%)
+        setProgressList(prev => prev.map((p, idx) => idx === i ? { ...p, progress: 10, status: "reading" } : p));
         const base64 = await fileToBase64(file);
-        const res = await fetch("/api/upload/image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ base64, mimeType: file.type, category }),
+        setProgressList(prev => prev.map((p, idx) => idx === i ? { ...p, progress: 30, status: "uploading" } : p));
+
+        // 阶段2：上传到服务器 (30-90%)
+        // 使用 XMLHttpRequest 获取真实上传进度
+        const url = await new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/upload/image");
+          xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.withCredentials = true;
+
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = 30 + Math.round((e.loaded / e.total) * 60); // 30-90%
+              setProgressList(prev => prev.map((p, idx) => idx === i ? { ...p, progress: pct } : p));
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                resolve(data.url);
+              } catch {
+                reject(new Error("响应解析失败"));
+              }
+            } else {
+              let errMsg = "上传失败";
+              try {
+                const errBody = JSON.parse(xhr.responseText);
+                if (errBody?.error) errMsg = errBody.error;
+              } catch {/* ignore */}
+              if (xhr.status === 401) errMsg = "登录已过期，请刷新页面重新登录";
+              reject(new Error(errMsg));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error("网络错误"));
+          xhr.ontimeout = () => reject(new Error("上传超时"));
+          xhr.timeout = 60000; // 60s 超时
+
+          xhr.send(JSON.stringify({ base64, mimeType: file.type, category }));
         });
-        if (!res.ok) {
-          let errMsg = "上传失败";
-          try {
-            const errBody = await res.json();
-            if (errBody?.error) errMsg = errBody.error;
-          } catch {/* ignore */}
-          if (res.status === 401) errMsg = "登录已过期，请刷新页面重新登录";
-          throw new Error(errMsg);
-        }
-        const { url } = await res.json();
+
+        // 阶段3：完成 (100%)
+        setProgressList(prev => prev.map((p, idx) => idx === i ? { ...p, progress: 100, status: "done" } : p));
         newUrls.push(url);
       } catch (err: any) {
         toast.error(`${file.name || "图片"} 上传失败：${err?.message ?? "未知错误"}`);
+        setProgressList(prev => prev.map((p, idx) => idx === i ? { ...p, status: "error", progress: 100 } : p));
       }
     }
 
@@ -75,6 +125,9 @@ export default function ImageUploader({
           : `成功上传 ${newUrls.length} 张图片`
       );
     }
+
+    // 1.5 秒后清除进度条
+    setTimeout(() => setProgressList([]), 1500);
   }, [images, maxCount, onChange, category]);
 
   const handleFiles = useCallback((files: FileList | File[] | null) => {
@@ -88,16 +141,9 @@ export default function ImageUploader({
   // ── 粘贴事件：只在本组件上传区悬停时响应 ────────────────────────────────────
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
-      // 未悬停在本区域时，不拦截
       if (!isHovered) return;
-
-      // 焦点在文本输入框内时，不拦截
       const target = e.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      ) return;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
 
       const items = e.clipboardData?.items;
       if (!items) return;
@@ -116,7 +162,7 @@ export default function ImageUploader({
         return;
       }
 
-      e.preventDefault(); // 阻止其他区域响应同一次粘贴
+      e.preventDefault();
       uploadFiles(imageFiles, "paste");
     };
 
@@ -161,9 +207,8 @@ export default function ImageUploader({
   const canUpload = images.length < maxCount;
   const isAnyUploading = uploading || pasteUploading;
 
-  // ── 上传区样式 ────────────────────────────────────────────────────────────────
   const uploadAreaClass = [
-    "relative flex items-center gap-3 px-3 py-2 rounded-lg border-2 border-dashed cursor-pointer transition-all duration-150 select-none overflow-hidden",
+    "relative flex flex-col gap-2 px-3 py-2 rounded-lg border-2 border-dashed cursor-pointer transition-all duration-150 select-none overflow-hidden",
     isDragging
       ? "border-primary bg-primary/5 scale-[1.01]"
       : isHovered && !isAnyUploading
@@ -218,42 +263,81 @@ export default function ImageUploader({
           />
 
           {/* 粘贴上传专属加载动画覆盖层 */}
-          {pasteUploading && (
+          {pasteUploading && progressList.length === 0 && (
             <div className="absolute inset-0 bg-primary/10 backdrop-blur-[1px] flex items-center justify-center gap-2 rounded-lg z-10">
               <Loader2 className="w-4 h-4 animate-spin text-primary" />
               <span className="text-xs font-medium text-primary">正在上传粘贴的图片...</span>
             </div>
           )}
 
-          {/* 图标区 */}
-          {uploading ? (
-            <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
-          ) : pasteUploading ? (
-            <Clipboard className="w-4 h-4 flex-shrink-0 text-primary opacity-0" />
-          ) : isHovered ? (
-            <Clipboard className="w-4 h-4 flex-shrink-0 text-primary transition-colors" />
-          ) : (
-            <Upload className={`w-4 h-4 flex-shrink-0 transition-colors ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
-          )}
+          {/* 主内容行 */}
+          <div className="flex items-center gap-3">
+            {/* 图标区 */}
+            {uploading && progressList.length === 0 ? (
+              <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+            ) : pasteUploading ? (
+              <Clipboard className="w-4 h-4 flex-shrink-0 text-primary opacity-0" />
+            ) : isHovered ? (
+              <Clipboard className="w-4 h-4 flex-shrink-0 text-primary transition-colors" />
+            ) : (
+              <Upload className={`w-4 h-4 flex-shrink-0 transition-colors ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
+            )}
 
-          {/* 文字区 */}
-          <div className="flex flex-col">
-            <span className={`text-xs font-medium transition-colors ${isDragging ? "text-primary" : isHovered ? "text-primary" : "text-foreground/70"}`}>
-              {uploading
-                ? "上传中..."
-                : isDragging
-                  ? "松开鼠标即可上传"
-                  : isHovered
-                    ? `上传${label}图片（点击、拖拽或 Ctrl+V 粘贴）`
-                    : `上传${label}图片（点击或拖拽）`}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              支持 JPG/PNG/PDF，最多 {maxCount} 张，单张 ≤10MB
-              {!uploading && !isDragging && !isHovered && (
-                <span className="ml-1 text-muted-foreground/60">· 悬停后可 Ctrl+V 粘贴截图</span>
-              )}
-            </span>
+            {/* 文字区 */}
+            <div className="flex flex-col">
+              <span className={`text-xs font-medium transition-colors ${isDragging ? "text-primary" : isHovered ? "text-primary" : "text-foreground/70"}`}>
+                {uploading
+                  ? "上传中..."
+                  : isDragging
+                    ? "松开鼠标即可上传"
+                    : isHovered
+                      ? `上传${label}图片（点击、拖拽或 Ctrl+V 粘贴）`
+                      : `上传${label}图片（点击或拖拽）`}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                支持 JPG/PNG/PDF，最多 {maxCount} 张，单张 ≤10MB
+                {!uploading && !isDragging && !isHovered && (
+                  <span className="ml-1 text-muted-foreground/60">· 悬停后可 Ctrl+V 粘贴截图</span>
+                )}
+              </span>
+            </div>
           </div>
+
+          {/* ── 进度条区域 ── */}
+          {progressList.length > 0 && (
+            <div className="space-y-1.5 w-full">
+              {progressList.map((item, idx) => (
+                <div key={idx} className="space-y-0.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-foreground/70 truncate max-w-[60%]">
+                      {item.fileName}
+                    </span>
+                    <span className={`flex items-center gap-1 font-medium ${
+                      item.status === "done" ? "text-green-600" :
+                      item.status === "error" ? "text-destructive" :
+                      "text-primary"
+                    }`}>
+                      {item.status === "done" && <CheckCircle2 className="w-3 h-3" />}
+                      {item.status === "error" ? "失败" :
+                       item.status === "done" ? "完成" :
+                       item.status === "reading" ? "读取中..." :
+                       `${item.progress}%`}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ease-out ${
+                        item.status === "done" ? "bg-green-500" :
+                        item.status === "error" ? "bg-destructive" :
+                        "bg-primary"
+                      }`}
+                      style={{ width: `${item.progress}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

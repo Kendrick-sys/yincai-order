@@ -11,6 +11,7 @@ import {
   listCustomers, listCustomersWithStats, createCustomer, updateCustomer, deleteCustomer, getCustomerById,
   transferCustomers, transferOrders,
   getDocumentDraft, upsertDocumentDraft,
+  getUserById,
 } from "./db";
 import {
   generateDocNo, createDocument, updateDocumentPdf,
@@ -666,7 +667,14 @@ export const appRouter = router({
       }))
       .query(async ({ input }) => {
         const draft = await getDocumentDraft(input.orderId, input.draftType);
-        return draft ? { data: draft.data, updatedAt: draft.updatedAt } : null;
+        if (!draft) return null;
+        // 查询修改人名称
+        let updatedByName: string | null = null;
+        if (draft.updatedBy) {
+          const user = await getUserById(draft.updatedBy);
+          updatedByName = user?.displayName || user?.name || null;
+        }
+        return { data: draft.data, updatedAt: draft.updatedAt, updatedBy: draft.updatedBy, updatedByName };
       }),
 
     // 保存单据草稿
