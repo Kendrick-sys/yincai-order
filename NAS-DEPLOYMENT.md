@@ -55,6 +55,7 @@
 ```env
 # ─── 数据库 ───────────────────────────────────────────────────────────────────
 DATABASE_URL=mysql://yincai:你的数据库密码@mysql:3306/yincai_order
+MYSQL_PASSWORD=你的数据库密码
 
 # ─── 认证 ────────────────────────────────────────────────────────────────────
 # 随机生成一个长字符串作为 JWT 密钥，例如：openssl rand -hex 32
@@ -68,6 +69,9 @@ MINIO_ENDPOINT=http://minio:9000
 MINIO_BUCKET=yincai-docs
 MINIO_ACCESS_KEY=你的MinIO访问密钥
 MINIO_SECRET_KEY=你的MinIO密钥
+# 浏览器访问 MinIO 的外部地址（NAS 局域网 IP），图片上传后用此地址显示
+# 如果不设置，默认使用 MINIO_ENDPOINT（Docker 内部地址，浏览器无法访问）
+MINIO_PUBLIC_ENDPOINT=http://你的NAS局域网IP:9000
 
 # ─── 公司信息（用于合同/PI/CI 自动填充）────────────────────────────────────
 COMPANY_CN_NAME=吟彩（深圳）有限公司
@@ -348,70 +352,26 @@ docker-compose up -d app
 
 ---
 
-## 7. MinIO 存储迁移
+## 7. MinIO 存储说明
 
-当前 `server/storage.ts` 使用 Manus 内置存储代理。部署到 NAS 时，需要修改为直接使用 MinIO S3 API。
+当前 `server/storage.ts` 已内置双模式自动切换：
 
-### 修改 server/storage.ts
+- **NAS 部署**：当 `.env` 中配置了 `MINIO_ENDPOINT` + `MINIO_BUCKET` + 凭据时，自动使用 MinIO S3 兼容存储
+- **Manus 云端**：未配置 MinIO 时，回退使用 Manus 内置存储代理
 
-将文件内容替换为以下 MinIO 兼容版本：
+**无需手动修改 `storage.ts`**，只需在 `.env` 中正确配置以下变量即可：
 
-```typescript
-// server/storage.ts — MinIO 版本（NAS 部署用）
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+| 变量 | 说明 |
+|------|------|
+| `MINIO_ENDPOINT` | MinIO API 地址（Docker 内部：`http://minio:9000`） |
+| `MINIO_BUCKET` | 存储桶名称（默认 `yincai-docs`） |
+| `MINIO_ACCESS_KEY` | MinIO 访问密钥（回退读取 `MINIO_ROOT_USER`） |
+| `MINIO_SECRET_KEY` | MinIO 密钥（回退读取 `MINIO_ROOT_PASSWORD`） |
+| `MINIO_PUBLIC_ENDPOINT` | 浏览器可访问的外部地址（如 `http://192.168.2.97:9000`） |
 
-function getS3Client(): S3Client {
-  const endpoint = process.env.MINIO_ENDPOINT ?? "http://minio:9000";
-  const accessKeyId = process.env.MINIO_ACCESS_KEY ?? "";
-  const secretAccessKey = process.env.MINIO_SECRET_KEY ?? "";
-  
-  return new S3Client({
-    endpoint,
-    region: "us-east-1",  // MinIO 需要一个 region，值任意
-    credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: true,  // MinIO 必须使用路径风格 URL
-  });
-}
-
-const BUCKET = process.env.MINIO_BUCKET ?? "yincai-docs";
-
-export async function storagePut(
-  relKey: string,
-  data: Buffer | Uint8Array | string,
-  contentType = "application/octet-stream"
-): Promise<{ key: string; url: string }> {
-  const client = getS3Client();
-  const key = relKey.replace(/^\/+/, "");
-  const body = typeof data === "string" ? Buffer.from(data) : Buffer.from(data);
-  
-  await client.send(new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-    Body: body,
-    ContentType: contentType,
-  }));
-  
-  // 如果 bucket 设置为公共读，可直接拼接 URL
-  const endpoint = (process.env.MINIO_ENDPOINT ?? "http://minio:9000").replace(/\/+$/, "");
-  const url = `${endpoint}/${BUCKET}/${key}`;
-  return { key, url };
-}
-
-export async function storageGet(
-  relKey: string,
-  expiresIn = 3600
-): Promise<{ key: string; url: string }> {
-  const client = getS3Client();
-  const key = relKey.replace(/^\/+/, "");
-  
-  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
-  const url = await getSignedUrl(client, command, { expiresIn });
-  return { key, url };
-}
-```
-
-> **注意**：修改 `storage.ts` 后需要重新构建 Docker 镜像（`docker-compose build app`）。
+> **重要**：`MINIO_PUBLIC_ENDPOINT` 必须设置为 NAS 局域网 IP，否则图片上传后浏览器无法显示（因为 Docker 内部地址 `http://minio:9000` 浏览器无法访问）。
+>
+> **凭据回退**：如果不想单独创建 Access Key，可以只配置 `MINIO_ROOT_USER` 和 `MINIO_ROOT_PASSWORD`，系统会自动回退使用这两个值作为 S3 凭据。
 
 ---
 
