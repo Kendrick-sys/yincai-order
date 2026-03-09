@@ -1188,7 +1188,12 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     if (dbDraftCn?.data) {
       try {
         const parsed = JSON.parse(dbDraftCn.data);
-        if (parsed.lineItems) setLineItems(parsed.lineItems);
+        // 如果草稿中有 lineItems 且非空，使用草稿数据；否则从订单 models 初始化
+        if (parsed.lineItems && Array.isArray(parsed.lineItems) && parsed.lineItems.length > 0) {
+          setLineItems(parsed.lineItems);
+        } else {
+          setLineItems(buildInitialLineItems(order.models ?? []));
+        }
         if (parsed.counterpartyName !== undefined) setCounterpartyName(parsed.counterpartyName);
         if (parsed.counterpartyAddress !== undefined) setCounterpartyAddress(parsed.counterpartyAddress);
         if (parsed.buyerCnCompany !== undefined) setBuyerCnCompany(parsed.buyerCnCompany);
@@ -1209,7 +1214,12 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         const saved = localStorage.getItem(storageKey);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed.lineItems) setLineItems(parsed.lineItems);
+          // 如果 localStorage 草稿中有 lineItems 且非空，使用草稿；否则从订单 models 初始化
+          if (parsed.lineItems && Array.isArray(parsed.lineItems) && parsed.lineItems.length > 0) {
+            setLineItems(parsed.lineItems);
+          } else {
+            setLineItems(buildInitialLineItems(order.models ?? []));
+          }
           if (parsed.counterpartyName !== undefined) setCounterpartyName(parsed.counterpartyName);
           if (parsed.counterpartyAddress !== undefined) setCounterpartyAddress(parsed.counterpartyAddress);
           if (parsed.buyerCnCompany !== undefined) setBuyerCnCompany(parsed.buyerCnCompany);
@@ -1236,7 +1246,12 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     if (dbDraftPi?.data) {
       try {
         const parsed = JSON.parse(dbDraftPi.data);
-        if (parsed.piLineItems) setPiLineItems(parsed.piLineItems);
+        // 如果草稿中有 piLineItems 且非空，使用草稿数据；否则从订单 models 初始化
+        if (parsed.piLineItems && Array.isArray(parsed.piLineItems) && parsed.piLineItems.length > 0) {
+          setPiLineItems(parsed.piLineItems);
+        } else {
+          setPiLineItems(buildInitialPiLineItems(order.models ?? []));
+        }
         if (parsed.buyerAttn !== undefined) setBuyerAttn(parsed.buyerAttn);
         if (parsed.buyerCompany !== undefined) setBuyerCompany(parsed.buyerCompany);
         if (parsed.buyerAddress !== undefined) setBuyerAddress(parsed.buyerAddress);
@@ -1260,7 +1275,12 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         const piSaved = localStorage.getItem(piStorageKey);
         if (piSaved) {
           const parsed = JSON.parse(piSaved);
-          if (parsed.piLineItems) setPiLineItems(parsed.piLineItems);
+          // 如果 localStorage 草稿中有 piLineItems 且非空，使用草稿；否则从订单 models 初始化
+          if (parsed.piLineItems && Array.isArray(parsed.piLineItems) && parsed.piLineItems.length > 0) {
+            setPiLineItems(parsed.piLineItems);
+          } else {
+            setPiLineItems(buildInitialPiLineItems(order.models ?? []));
+          }
           if (parsed.buyerAttn !== undefined) setBuyerAttn(parsed.buyerAttn);
           if (parsed.buyerCompany !== undefined) setBuyerCompany(parsed.buyerCompany);
           if (parsed.buyerAddress !== undefined) setBuyerAddress(parsed.buyerAddress);
