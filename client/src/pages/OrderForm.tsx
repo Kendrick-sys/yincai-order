@@ -17,6 +17,7 @@ import { useLocation, useParams } from "wouter";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 interface ModelRow {
@@ -332,6 +333,7 @@ export default function OrderForm() {
   const [, navigate] = useLocation();
   const params = useParams<{ id?: string }>();
   const isEdit = !!params.id;
+  usePageTitle(isEdit ? "编辑订单" : "新建订单");
   const orderId = params.id ? parseInt(params.id) : undefined;
 
   // 从 URL 参数读取预填客户名（从客户列表点击「创建订单」跳转过来）

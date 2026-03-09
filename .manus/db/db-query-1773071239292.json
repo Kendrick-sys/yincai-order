@@ -1,0 +1,13 @@
+{
+  "query": "SELECT @@sql_safe_updates;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4S6fBAUfucGeUZk.root --database MnhiE9LdbgqX24MUwA2SN8 --execute SELECT @@sql_safe_updates;",
+  "rows": [
+    {
+      "@@sql_safe_updates": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "@@sql_safe_updates\n0\n",
+  "stderr": "",
+  "execution_time_ms": 62
+}

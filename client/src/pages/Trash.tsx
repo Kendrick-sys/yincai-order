@@ -9,10 +9,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Trash2, RotateCcw, ArrowLeft, PackageOpen } from "lucide-react";
 import { Link } from "wouter";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function Trash() {
+  usePageTitle("回收站");
   const utils = trpc.useUtils();
-  const { data: trashed = [] } = trpc.orders.listTrashed.useQuery(
+  const { data: trashed = [], isLoading } = trpc.orders.listTrashed.useQuery(
     undefined,
     { staleTime: 30_000 }
   );
@@ -89,7 +91,9 @@ export default function Trash() {
 
       {/* 内容区 */}
       <main className="max-w-4xl mx-auto px-6 py-8">
-        {trashed.length === 0 ? (
+        {isLoading ? (
+          <div className="py-16 text-center text-muted-foreground text-sm">加载中...</div>
+        ) : trashed.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
               <PackageOpen className="w-8 h-8 text-muted-foreground" />

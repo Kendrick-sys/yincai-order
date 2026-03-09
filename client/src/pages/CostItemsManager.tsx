@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import * as XLSX from "xlsx";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // ─── 类型 ──────────────────────────────────────────────────────────────────────
 interface CostItem {
@@ -96,6 +97,7 @@ const FIELD_COLOR: Record<EditingCell["field"], string> = {
 
 // ─── 主组件 ────────────────────────────────────────────────────────────────────
 export default function CostItemsManager() {
+  usePageTitle("型号成本管理");
   const utils = trpc.useUtils();
   const { data: items = [], isLoading, refetch } = trpc.costItems.list.useQuery();
   const { data: snapshots = [], refetch: refetchSnapshots } = trpc.costSnapshots.list.useQuery();

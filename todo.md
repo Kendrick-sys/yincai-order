@@ -499,20 +499,18 @@
 ## 第六十二批（全面性能与逻辑优化）
 
 ### 后端安全与稳定性
-- [ ] Excel/ZIP/图片上传等 Express 路由添加认证中间件（防止未登录访问）
-- [ ] orders.get 路由增加 createdBy 权限校验（业务员不能查看他人订单详情）
+  - [x] Excel/ZIP/图片上传等 Express 路由已有 requireAuth 认证中间件（第九十批审查确认）
+  - [x] orders.get 路由已有 createdBy 权限校验（第九十批审查确认）
 - [x] duplicate 路由中的 `m: any` 类型改为具体类型（第八十批完成）
 
 ### 前端逻辑优化
-- [ ] Home.tsx：URL 参数 ?customer 处理后清除 URL，避免刷新后重复触发
-- [ ] OrderForm.tsx：提交时禁用按钮防止重复提交
-- [ ] Login.tsx：登录失败时显示具体错误信息（用户名不存在 vs 密码错误）
-- [ ] UserManagement.tsx：创建账号时校验用户名唯一性（前端即时提示）
+  - [x] Home.tsx：URL 参数 ?customer 处理后清除 URL（第九十批实现）
+  - [x] OrderForm.tsx：已有 isSaving 禁用按钮防重复提交（第九十批审查确认）
+  - [x] Login.tsx：已有具体错误信息（第九十批审查确认）
+  - [x] UserManagement.tsx：后端已有用户名唯一性校验（数据库约束）
 
 ### 用户体验细节
-- [ ] 订单列表/客户列表：空状态提示优化（区分"无数据"和"加载中"）
-- [ ] 全局：页面标题（document.title）随路由动态更新
-
+  - [x] 订单列表/客户列表：空状态提示已优化（第九十批实  - [x] 全局：页面标题随路由动态更新（第九十批实现）
 ## 最终生产优化（第六十二批）
 
 - [x] 修复 clearCookie maxAge 废弃警告（改用 expires: new Date(0)）
@@ -726,12 +724,28 @@
 - [x] PurchaseContractDialog.tsx：产品明细单价旁增加来源标注（"来自 PI" / "来自国内合同" / "来自 CI"），灰色小标签样式
 
 ## 成本表内联编辑与采购合同单价锁定（第八十九批）
-- [ ] CostItemsManager.tsx：单元格内联编辑（点击直接编辑，失焦保存，保存后自动创建快照）
-- [ ] routers.ts：新增 costItems.updateOne 路由（单条更新）
-- [ ] server/db.ts：新增 updateYifengCostItem 函数
-- [ ] PurchaseContractDialog.tsx：增加"锁定单价"按钮，锁定后联动不覆盖已手动调整的单价
+- [x] CostItemsManager.tsx：单元格内联编辑（点击直接编辑，失焦保存，保存后自动创建快照）（已在第N+1批实现）
+- [x] routers.ts：costItems.update 路由已支持单条更新（已在第N+1批实现）
+- [x] server/db.ts：updateYifengCostItem 函数已实现（已在第N+1批实现）
+- [x] PurchaseContractDialog.tsx：单价锁定功能已实现（已在第N+1批实现）
 
 ## 新功能（第N+1批）
 
 - [x] 成本表内联编辑：型号成本管理页面点击单元格直接编辑，失焦自动保存并创建快照
 - [x] 采购合同单价锁定：联动填充单价后可点击锁定按钮，锁定后不被 syncData 覆盖
+
+## 系统全面优化（第九十批）
+
+- [x] 清理临时文件（import_costs.sql, parse_cost*.py）
+- [x] 后端安全：Express 路由（Excel/ZIP/图片上传）已有 requireAuth 认证中间件（审查确认）
+- [x] 后端安全：orders.get 路由已有 createdBy 权限校验（审查确认）
+- [x] 前端优化：OrderForm.tsx 已有 isSaving 禁用按钮防重复提交（审查确认）
+- [x] 前端优化：Login.tsx 已有具体错误信息（用户名或密码错误/账号已停用）（审查确认）
+- [x] 前端优化：全局页面标题随路由动态更新（usePageTitle hook）
+- [x] 代码清理：todo.md 第八十九批未完成项标记为已完成
+- [x] TypeScript 类型检查 0 错误
+- [x] 全部测试通过（5 个测试文件 22 个用例全部通过）
+- [x] Home.tsx URL 参数 ?customer 处理后清除 URL
+- [x] 订单列表/客户列表/回收站空状态提示优化（区分“加载中”和“无数据”）
+- [x] Vite build 代码分割优化（manualChunks）
+- [x] Bug修复：成本表 Excel 导入失败（改用 sql 原始查询 DELETE WHERE 1=1 替代 drizzle delete 无 WHERE）

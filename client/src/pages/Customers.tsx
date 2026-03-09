@@ -20,6 +20,7 @@ import {
 import { Plus, Pencil, Trash2, Users, ArrowLeft, GripVertical, Download, Globe, Home, ExternalLink, Upload, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, UserPlus, FilePlus } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 type CustomerForm = {
   name: string;
@@ -48,11 +49,12 @@ const emptyForm: CustomerForm = {
 };
 
 export default function Customers() {
+  usePageTitle("客户管理");
   const [, navigate] = useLocation();
   const utils = trpc.useUtils();
   const { user: currentUser } = useAuth();
   const isAdmin = currentUser?.role === "admin";
-  const { data: customers = [] } = trpc.customers.list.useQuery(
+  const { data: customers = [], isLoading: isLoadingCustomers } = trpc.customers.list.useQuery(
     undefined,
     { staleTime: 60_000 }
   );
@@ -280,7 +282,9 @@ export default function Customers() {
 
       {/* 内容区 */}
       <main className="max-w-3xl mx-auto px-6 py-8">
-        {customers.length === 0 ? (
+        {isLoadingCustomers ? (
+          <div className="py-16 text-center text-muted-foreground text-sm">加载中...</div>
+        ) : customers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
               <Users className="w-8 h-8 text-muted-foreground" />

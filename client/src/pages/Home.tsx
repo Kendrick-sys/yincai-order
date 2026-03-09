@@ -15,6 +15,7 @@ import { useLocation, Link } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -104,6 +105,7 @@ function SortableHeader({
 export default function Home() {
   const [, navigate] = useLocation();
   const { user, logout } = useAuth();
+  usePageTitle("订单管理");
   const [search, setSearch]         = useState("");
   const [activeTab, setActiveTab]   = useState<StatusKey | "all">("all");
   const [channelFilter, setChannelFilter] = useState<"all" | "alibaba" | "1688" | "amazon">("all");
@@ -115,11 +117,15 @@ export default function Home() {
   const [exporting, setExporting]     = useState(false);
   const [exportStatus, setExportStatus] = useState<string>("");
 
-  // 读取 URL 参数 ?customer=xxx（从客户管理页跳转过来）
+  // 读取 URL 参数 ?customer=xxx（从客户管理页跳转过来），读取后清除 URL 参数
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const customerParam = params.get("customer");
-    if (customerParam) setSearch(customerParam);
+    if (customerParam) {
+      setSearch(customerParam);
+      // 清除 URL 参数，避免刷新后重复触发
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }, []);
 
   const utils = trpc.useUtils();

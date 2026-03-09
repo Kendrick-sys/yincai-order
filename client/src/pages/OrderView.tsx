@@ -8,6 +8,7 @@ import DocumentDialog, { type DocSyncData } from "@/components/DocumentDialog";
 import PurchaseContractDialog from "@/components/PurchaseContractDialog";
 import DocumentHistory from "@/components/DocumentHistory";
 import { toast } from "sonner";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft:         { label: "草稿",   color: "bg-gray-100 text-gray-600 border-gray-200" },
@@ -95,6 +96,7 @@ function ImageGallery({ images, label }: { images: string[]; label: string }) {
 }
 
 export default function OrderView() {
+  usePageTitle("订单详情");
   const [, navigate] = useLocation();
   const params = useParams<{ id: string }>();
   const orderId = parseInt(params.id);

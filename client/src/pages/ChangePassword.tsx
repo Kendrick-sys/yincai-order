@@ -10,8 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function ChangePassword() {
+  usePageTitle("修改密码");
   const [, navigate] = useLocation();
   const { user } = useAuth({ redirectOnUnauthenticated: true, redirectPath: "/login" });
   const [currentPassword, setCurrentPassword] = useState("");

@@ -1,0 +1,15 @@
+{
+  "query": "SELECT TABLE_NAME, CONSTRAINT_NAME, CONSTRAINT_TYPE FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'yifeng_cost_items' AND TABLE_SCHEMA = DATABASE();",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4S6fBAUfucGeUZk.root --database MnhiE9LdbgqX24MUwA2SN8 --execute SELECT TABLE_NAME, CONSTRAINT_NAME, CONSTRAINT_TYPE FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'yifeng_cost_items' AND TABLE_SCHEMA = DATABASE();",
+  "rows": [
+    {
+      "TABLE_NAME": "yifeng_cost_items",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    }
+  ],
+  "messages": [],
+  "stdout": "TABLE_NAME\tCONSTRAINT_NAME\tCONSTRAINT_TYPE\nyifeng_cost_items\tPRIMARY\tPRIMARY KEY\n",
+  "stderr": "",
+  "execution_time_ms": 53
+}

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // ─── 默认前缀 ──────────────────────────────────────────────────────────────────
 const DEFAULT_PREFIXES = {
@@ -28,6 +29,7 @@ const DEFAULT_PREFIXES = {
 // ─── 主组件 ────────────────────────────────────────────────────────────────────
 
 export default function Settings() {
+  usePageTitle("系统设置");
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const { data: savedPrefixes, isLoading, refetch } = trpc.settings.getDocPrefixes.useQuery();

@@ -2,6 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, FileDown } from "lucide-react";
 import { useLocation, useParams } from "wouter";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -306,6 +307,7 @@ function ModelRow({ m, i }: { m: any; i: number }) {
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 
 export default function PrintPreview() {
+  usePageTitle("打印预览");
   const [, navigate] = useLocation();
   const params = useParams<{ id: string }>();
   const orderId = parseInt(params.id);

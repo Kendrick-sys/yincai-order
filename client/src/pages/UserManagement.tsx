@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -286,6 +287,7 @@ function TransferDataDialog({
 // ─── 主页面 ───────────────────────────────────────────────────────────────────
 
 export default function UserManagement() {
+  usePageTitle("账号管理");
   const [, navigate] = useLocation();
   const { user: currentUser } = useAuth({ redirectOnUnauthenticated: true, redirectPath: "/login" });
   const [showCreate, setShowCreate] = useState(false);
