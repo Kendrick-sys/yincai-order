@@ -684,3 +684,17 @@
 - [x] DocumentDialog.tsx：国内合同填写区域优化（截图4红框区域）——甲方信息展示格式与乙方一致
 - [x] DocumentDialog.tsx：PI/CI 产品明细表增加 Material 列
 - [x] generatePdf.ts：PI/CI PDF 产品明细表增加 Material 列
+
+## 采购合同与单据联动优化（第八十六批）
+- [x] routers.ts：generatePiCi 的 lineItems schema 增加 material 字段（PI/CI PDF 现在可正确渲染材质列）
+- [x] DocumentDialog.tsx：generatePiCiMutation 中增加 material 字段传递
+- [x] DocumentDialog.tsx：增加 DocSyncData 接口（export）和 onSyncData 回调 prop，实时将 lineItems/extras/piExtras/activeTab 同步给父组件
+- [x] OrderView.tsx：增加 syncDocData state，监听 DocumentDialog 的 onSyncData 回调，传给 PurchaseContractDialog
+- [x] PurchaseContractDialog.tsx：增加 syncData prop（DocSyncData | null）
+- [x] PurchaseContractDialog.tsx：弹窗打开时重置 state（修复关闭再打开仍用旧数据的问题）
+- [x] PurchaseContractDialog.tsx：syncData 变化时自动按型号+材质匹配成本表，填充箱子单价和数量
+- [x] PurchaseContractDialog.tsx：内衬联动——自动开启内衬、填充材质/数量/PU/EVA单价/开模费
+- [x] PurchaseContractDialog.tsx：丝印联动——若来源单据有丝印则自动开启（不填单价，紫色高亮提醒）
+- [x] PurchaseContractDialog.tsx：定制颜色联动——若来源单据有定制颜色则自动开启（黄色高亮提醒）
+- [x] PurchaseContractDialog.tsx："四、定制丝印"增加紫色高亮提醒标签
+- [x] TypeScript 0 错误，22/22 测试全部通过

@@ -567,6 +567,7 @@ export const appRouter = router({
         transitDays: z.string().optional(),
         lineItems: z.array(z.object({
           modelName: z.string(),
+          material: z.string().optional(),
           spec: z.string().optional(),
           quantity: z.number(),
           unitPrice: z.number(),

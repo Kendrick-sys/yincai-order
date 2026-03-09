@@ -230,12 +230,26 @@ interface OrderData {
   models?: OrderModel[];
 }
 
+/** 同步给采购合同弹窗的数据快照 */
+export interface DocSyncData {
+  /** 国内合同/PI/CI 的产品明细（含型号、材质、数量） */
+  lineItems: LineItemInput[];
+  /** 国内合同附加明细（内衬/丝印/颜色等） */
+  extras: DomesticExtras;
+  /** PI/CI 附加明细（内衬/丝印/颜色等） */
+  piExtras: PiExtras;
+  /** 当前激活的 Tab */
+  activeTab: string;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   order: OrderData;
   /** 如果为 true，打开时自动切换到国内合同 Tab 并预填亿丰供货商信息 */
   prefillYifeng?: boolean;
+  /** 当 lineItems/extras 变化时，将数据同步给父组件（用于采购合同联动） */
+  onSyncData?: (data: DocSyncData) => void;
 }
 
 // ─── 工具函数 ──────────────────────────────────────────────────────────────────
@@ -1107,7 +1121,7 @@ function PiCiFields({
 
 // ─── 主组件 ────────────────────────────────────────────────────────────────────
 
-export default function DocumentDialog({ open, onClose, order, prefillYifeng }: Props) {
+export default function DocumentDialog({ open, onClose, order, prefillYifeng, onSyncData }: Props) {
   const utils = trpc.useUtils();
   const isOverseas = order.customerType === "overseas";
   const isAmazonOrder = !!order.isAmazon; // 亚马逊订单：吟彩为甲方（采购方），供货商为乙方
@@ -1461,6 +1475,14 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng }: 
     }
   }, [activeTab]);
 
+  // ── 同步数据给父组件（用于采购合同联动） ──────────────────────────────────────────
+  const onSyncDataRef = useRef(onSyncData);
+  onSyncDataRef.current = onSyncData;
+  useEffect(() => {
+    if (!open || !onSyncDataRef.current) return;
+    onSyncDataRef.current({ lineItems, extras, piExtras, activeTab });
+  }, [open, lineItems, extras, piExtras, activeTab]);
+
   // ── 附加费用更新辅助 ──────────────────────────────────────────────────────────
 
   // useCallback 避免每次 render 重新创建这些辅助函数
@@ -1755,6 +1777,7 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng }: 
         buyerEmail: buyerEmail || undefined,
         lineItems: piLineItems.map(item => ({
           modelName: item.modelName,
+          material: item.material || undefined,
           spec: item.spec || undefined,
           quantity: item.quantity,
           unitPrice: item.unitPrice,

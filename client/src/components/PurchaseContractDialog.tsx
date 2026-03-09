@@ -5,9 +5,10 @@
  * - 乙方（供货方）：恩平市亿丰塑料模具有限公司（固定）
  * - 无需填写甲乙方信息，直接填写产品明细和付款条款即可
  */
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { lookupCost } from "@/lib/yifengCostTable";
+import type { DocSyncData } from "@/components/DocumentDialog";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -130,6 +131,8 @@ interface Props {
   open: boolean;
   onClose: () => void;
   order: OrderData;
+  /** 来自 DocumentDialog 的实时数据，用于自动填充单价和附加费用 */
+  syncData?: DocSyncData | null;
 }
 
 // ─── 子组件：产品明细表格 ────────────────────────────────────────────────────────
@@ -495,7 +498,7 @@ function PaymentTerms({
 }
 
 // // ─── 主组件 ──────────────────────────────────────────────────────────────────────────────────
-function PurchaseContractDialog({ open, onClose, order }: Props) {
+function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
   const utils = trpc.useUtils();
 
   // 从订单 models 初始化产品明细，并自动匹配成本表单价
@@ -507,7 +510,7 @@ function PurchaseContractDialog({ open, onClose, order }: Props) {
       const unitPrice = cost ? cost.boxPrice : 0;
       const quantity = parseInt(m.quantity ?? "0") || 0;
       return {
-        modelName: "塑料工具笱",
+        modelName: "塑料工具箱",
         material,
         spec,
         quantity,
@@ -525,10 +528,120 @@ function PurchaseContractDialog({ open, onClose, order }: Props) {
   const [balancePct, setBalancePct] = useState(70);
 
   // 当弹窗打开时重置表单（从订单数据重新初始化）
-  const prevOpen = useState(open)[0];
-  if (open && !prevOpen) {
-    // 不在渲染中修改 state，使用 useEffect 替代
-  }
+  const prevOpenRef = useRef(false);
+  useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      // 弹窗刚打开：从订单 models 初始化
+      setLineItems(buildInitialLineItems(order.models ?? []));
+      setExtras(defaultExtras());
+      setNeedInvoice(false);
+      setDepositPct(30);
+      setBalancePct(70);
+    }
+    prevOpenRef.current = open;
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 当 syncData 变化时，自动用成本表填充单价和附加费用
+  useEffect(() => {
+    if (!open || !syncData) return;
+
+    // 确定来源：优先用 PI/CI，其次国内合同
+    const srcItems = syncData.lineItems;
+    const srcExtras = (syncData.activeTab === "pi" || syncData.activeTab === "ci")
+      ? syncData.piExtras
+      : syncData.extras;
+
+    // ─ 1. 更新产品明细单价（按型号+材质匹配成本表）
+    if (srcItems.length > 0) {
+      setLineItems(prev => {
+        // 如果行数不同，就用 srcItems 重建；否则只更新单价和数量
+        const newItems = srcItems.map((src, idx) => {
+          const spec = src.spec || src.modelName || "";
+          const material = src.material || "PP";
+          const cost = lookupCost(spec, material);
+          const unitPrice = cost ? cost.boxPrice : (prev[idx]?.unitPrice ?? 0);
+          const quantity = src.quantity || 0;
+          return {
+            modelName: prev[idx]?.modelName || "塑料工具箱",
+            material,
+            spec,
+            quantity,
+            unitPrice,
+            amount: round2(unitPrice * quantity),
+          };
+        });
+        return newItems;
+      });
+    }
+
+    // ─ 2. 更新附加费用（内衬/丝印/颜色）
+    setExtras(prev => {
+      const updated = { ...prev };
+
+      // 内衬：若来源单据有内衬，自动开启并填充单价
+      if (srcExtras.hasLiner) {
+        updated.hasLiner = true;
+        const linerMat = srcExtras.linerMaterial || "";
+        updated.linerMaterial = linerMat;
+        updated.linerDescription = srcExtras.linerDescription || "";
+        updated.linerQuantity = srcExtras.linerQuantity || 0;
+
+        // 根据每个型号的内衬单价求平均
+        const linerUnitPrices: number[] = [];
+        srcItems.forEach(src => {
+          const spec = src.spec || src.modelName || "";
+          const material = src.material || "PP";
+          const cost = lookupCost(spec, material);
+          if (cost) {
+            const matUpper = linerMat.toUpperCase();
+            if (matUpper === "PU") linerUnitPrices.push(cost.puPrice);
+            else if (matUpper === "EVA") linerUnitPrices.push(cost.evaPrice);
+          }
+        });
+        if (linerUnitPrices.length > 0) {
+          // 多型号时取平均单价
+          const avgPrice = round2(linerUnitPrices.reduce((a, b) => a + b, 0) / linerUnitPrices.length);
+          updated.linerUnitPrice = avgPrice;
+          updated.linerAmount = round2(avgPrice * (updated.linerQuantity || 0));
+        } else {
+          // 没有匹配则保留手动填写
+          updated.linerUnitPrice = prev.linerUnitPrice;
+          updated.linerAmount = round2(prev.linerUnitPrice * (updated.linerQuantity || 0));
+        }
+
+        // 内衬开模费
+        if (srcExtras.hasLinerTemplate) {
+          updated.hasLinerTemplate = true;
+          updated.linerTemplateQuantity = srcExtras.linerTemplateQuantity || 1;
+          // 开模费单价：取所有匹配型号的 linerMoldFee 平均
+          const moldFees: number[] = [];
+          srcItems.forEach(src => {
+            const spec = src.spec || src.modelName || "";
+            const material = src.material || "PP";
+            const cost = lookupCost(spec, material);
+            if (cost && cost.linerMoldFee > 0) moldFees.push(cost.linerMoldFee);
+          });
+          if (moldFees.length > 0) {
+            const avgMold = round2(moldFees.reduce((a, b) => a + b, 0) / moldFees.length);
+            updated.linerTemplateUnitPrice = avgMold;
+            updated.linerTemplateAmount = round2(avgMold * updated.linerTemplateQuantity);
+          }
+        }
+      }
+
+      // 丝印：若来源单据有丝印，自动开启（不填充单价，高亮提醒手动填写）
+      if (srcExtras.hasSilkPrint) {
+        updated.hasSilkPrint = true;
+      }
+
+      // 定制颜色：若来源单据有定制颜色，自动开启（高亮提醒手动填写）
+      if (srcExtras.hasCustomColor) {
+        updated.hasCustomColor = true;
+      }
+
+      return updated;
+    });
+  }, [open, syncData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 总价计算
   const boxSubtotal = useMemo(
@@ -783,6 +896,9 @@ function PurchaseContractDialog({ open, onClose, order }: Props) {
           <div className="flex items-center gap-3">
             <Switch id="pc-hasSilkPrint" checked={extras.hasSilkPrint} onCheckedChange={v => updateExtra("hasSilkPrint", v)} />
             <label htmlFor="pc-hasSilkPrint" className="text-xs font-semibold text-foreground/70 cursor-pointer">四、定制丝印</label>
+            <span className="ml-1 text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded px-2 py-0.5 font-medium">
+              ⚠️ 请对照国内合同/PI/CI 确认是否有定制丝印
+            </span>
           </div>
           {extras.hasSilkPrint && (
             <div className="space-y-3 pl-2">

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Pencil, Printer, FileDown, ImageOff, Box, Tag, Layers, Archive, Paintbrush, FileText, ShoppingCart, CheckCircle2, AlertCircle } from "lucide-react";
 import { useLocation, useParams } from "wouter";
-import DocumentDialog from "@/components/DocumentDialog";
+import DocumentDialog, { type DocSyncData } from "@/components/DocumentDialog";
 import PurchaseContractDialog from "@/components/PurchaseContractDialog";
 import DocumentHistory from "@/components/DocumentHistory";
 import { toast } from "sonner";
@@ -100,6 +100,7 @@ export default function OrderView() {
   const orderId = parseInt(params.id);
   const [docDialogOpen, setDocDialogOpen] = useState(false);
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
+  const [syncDocData, setSyncDocData] = useState<DocSyncData | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -524,6 +525,7 @@ export default function OrderView() {
         <DocumentDialog
           open={docDialogOpen}
           onClose={() => setDocDialogOpen(false)}
+          onSyncData={setSyncDocData}
           order={{
             id: order.id,
             customer: order.customer,
@@ -542,11 +544,12 @@ export default function OrderView() {
         />
       )}
 
-      {/* 采购合同弹窗（吟彩→亿丰，独立组件） */}
+      {/* 采购合同弹窗（吵彩→亿丰，独立组件） */}
       {order && (
         <PurchaseContractDialog
           open={purchaseDialogOpen}
           onClose={() => setPurchaseDialogOpen(false)}
+          syncData={syncDocData}
           order={{
             id: order.id,
             customer: order.customer,
