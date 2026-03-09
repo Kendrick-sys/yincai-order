@@ -658,3 +658,13 @@
   - generatePdf.ts：PDF HTML模板显示“联系人：凯瑞宁　电话”
   - routers.ts：generateContractCn Zod schema新增两个字段并传递给PDF生成函数
   - DocumentDialog.tsx：供货商切换/初始化/重置时同步设置contactName和phone，并在提交时传递给后端
+
+## 新功能：向亿丰下采购合同（第八十三批）
+
+- [x] 数据库 schema：orders 表新增 purchaseContractStatus 字段（'unsigned' | 'signed'，默认 'unsigned'）
+- [x] 后端 routers.ts：新增 orders.updatePurchaseContractStatus 路由（更新采购合同状态）
+- [x] 后端 db.ts：新增 updatePurchaseContractStatus 查询函数，并将字段加入 listOrders/listTrashedOrders 的 select 列表
+- [x] 前端 Home.tsx（订单列表）：每条订单增加采购合同状态标识（🔴采购未签 / 🟢采购已签），点击可切换状态
+- [x] 前端 DocumentDialog.tsx：新增 prefillYifeng prop，打开时自动切换到国内合同 Tab 并预填亿丰供货商信息
+- [x] 前端 OrderView.tsx（订单详情页）：增加"采购合同专区"卡片，显示当前状态，提供"生成采购合同"和"标记已/未签"按鈕，关闭采购合同弹窗后自动标记已签
+- [x] 测试：orders.test.ts 新增 updatePurchaseContractStatus 测试，22/22 全部通过

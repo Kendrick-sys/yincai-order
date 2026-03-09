@@ -88,6 +88,11 @@ export const orders = mysqlTable("orders", {
     .default("draft")
     .notNull(),
 
+  // 采购合同状态（向亿丰下采购合同）
+  purchaseContractStatus: mysqlEnum("purchaseContractStatus", ["unsigned", "signed"])
+    .default("unsigned")
+    .notNull(),
+
   // 软删除：deletedAt 不为 null 表示已删除（进入回收站）
   deletedAt: timestamp("deletedAt"),
 

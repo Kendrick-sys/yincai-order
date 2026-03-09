@@ -8,6 +8,7 @@ import {
   createOrder, updateOrder, listOrders, getOrderById,
   softDeleteOrder, restoreOrder, hardDeleteOrder, listTrashedOrders,
   updateOrderStatus,
+  updatePurchaseContractStatus,
   listCustomers, listCustomersWithStats, createCustomer, updateCustomer, deleteCustomer, getCustomerById,
   transferCustomers, transferOrders,
   getDocumentDraft, upsertDocumentDraft,
@@ -785,6 +786,18 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         await ensureOrderOwnership(ctx, input.id, "更新状态");
         await updateOrderStatus(input.id, input.status);
+        return { success: true };
+      }),
+
+    // 更新采购合同状态
+    updatePurchaseContractStatus: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        status: z.enum(["unsigned", "signed"]),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        await ensureOrderOwnership(ctx, input.id, "更新采购合同状态");
+        await updatePurchaseContractStatus(input.id, input.status);
         return { success: true };
       }),
 

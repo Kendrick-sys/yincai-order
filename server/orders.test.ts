@@ -89,6 +89,15 @@ describe("orders router", () => {
     const restoredList = await caller.orders.list();
     expect(restoredList.find((o: any) => o.id === id)).toBeDefined();
 
+    // 更新采购合同状态
+    await caller.orders.updatePurchaseContractStatus({ id, status: "signed" });
+    const signedOrder = await caller.orders.get({ id });
+    expect(signedOrder?.purchaseContractStatus).toBe("signed");
+
+    await caller.orders.updatePurchaseContractStatus({ id, status: "unsigned" });
+    const unsignedOrder = await caller.orders.get({ id });
+    expect(unsignedOrder?.purchaseContractStatus).toBe("unsigned");
+
     // 彻底删除
     await caller.orders.hardDelete({ id });
     const finalOrder = await caller.orders.get({ id });

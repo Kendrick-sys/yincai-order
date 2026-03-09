@@ -1,0 +1,1 @@
+ALTER TABLE `orders` ADD `purchaseContractStatus` enum('unsigned','signed') DEFAULT 'unsigned' NOT NULL;

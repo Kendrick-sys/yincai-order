@@ -203,6 +203,7 @@ export async function listOrders(userId?: number) {
       recipientAddress: orders.recipientAddress,
       factoryShipNo: orders.factoryShipNo,
       status: orders.status,
+      purchaseContractStatus: orders.purchaseContractStatus,
       deletedAt: orders.deletedAt,
       createdBy: orders.createdBy,
       createdAt: orders.createdAt,
@@ -248,6 +249,7 @@ export async function listTrashedOrders(userId?: number) {
       recipientAddress: orders.recipientAddress,
       factoryShipNo: orders.factoryShipNo,
       status: orders.status,
+      purchaseContractStatus: orders.purchaseContractStatus,
       deletedAt: orders.deletedAt,
       createdBy: orders.createdBy,
       createdAt: orders.createdAt,
@@ -343,6 +345,15 @@ export async function updateOrderStatus(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(orders).set({ status }).where(eq(orders.id, id));
+}
+
+export async function updatePurchaseContractStatus(
+  id: number,
+  status: "unsigned" | "signed"
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(orders).set({ purchaseContractStatus: status }).where(eq(orders.id, id));
 }
 
 // ─── 单据草稿（跨设备共享） ─────────────────────────────────────────────────────────────────────────────────────────────────────────

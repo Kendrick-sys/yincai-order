@@ -156,6 +156,23 @@ export default function Home() {
     onSuccess: () => { toast.success("状态已更新"); utils.orders.list.invalidate(); },
   });
 
+  const updatePurchaseStatusMutation = trpc.orders.updatePurchaseContractStatus.useMutation({
+    onMutate: async ({ id, status }) => {
+      await utils.orders.list.cancel();
+      const prev = utils.orders.list.getData();
+      utils.orders.list.setData(undefined, old => old?.map(o => o.id === id ? { ...o, purchaseContractStatus: status } : o));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) utils.orders.list.setData(undefined, ctx.prev);
+      toast.error("采购合同状态更新失败");
+    },
+    onSuccess: (_data, vars) => {
+      toast.success(vars.status === "signed" ? "已标记为已签采购合同" : "已标记为未签采购合同");
+      utils.orders.list.invalidate();
+    },
+  });
+
   const duplicateMutation = trpc.orders.duplicate.useMutation({
     onSuccess: (data) => {
       toast.success("订单已复制，正在跳转编辑...");
@@ -791,6 +808,26 @@ export default function Home() {
                             <ChevronRight className="w-3 h-3" />
                           </button>
                         )}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => updatePurchaseStatusMutation.mutate({
+                                id: order.id,
+                                status: order.purchaseContractStatus === "signed" ? "unsigned" : "signed",
+                              })}
+                              className={`text-xs px-1.5 py-0.5 rounded border font-medium transition-colors ${
+                                order.purchaseContractStatus === "signed"
+                                  ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                                  : "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                              }`}
+                            >
+                              {order.purchaseContractStatus === "signed" ? "🟢 采购已签" : "🔴 采购未签"}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            {order.purchaseContractStatus === "signed" ? "点击标记为未签" : "点击标记为已签"}
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       {/* 操作 */}
                       <div className="flex items-center gap-1 justify-center">
@@ -872,6 +909,23 @@ export default function Home() {
                         {order.maker && (
                           <span>制单：{order.maker}</span>
                         )}
+                      </div>
+
+                      {/* 采购合同状态 */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <button
+                          onClick={() => updatePurchaseStatusMutation.mutate({
+                            id: order.id,
+                            status: order.purchaseContractStatus === "signed" ? "unsigned" : "signed",
+                          })}
+                          className={`text-xs px-2 py-0.5 rounded border font-medium transition-colors ${
+                            order.purchaseContractStatus === "signed"
+                              ? "bg-green-50 text-green-700 border-green-200"
+                              : "bg-red-50 text-red-600 border-red-200"
+                          }`}
+                        >
+                          {order.purchaseContractStatus === "signed" ? "🟢 采购已签" : "🔴 采购未签"}
+                        </button>
                       </div>
 
                       {/* 第三行：操作按钮 + 推进状态 */}

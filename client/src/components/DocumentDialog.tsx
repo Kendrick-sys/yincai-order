@@ -237,6 +237,8 @@ interface Props {
   open: boolean;
   onClose: () => void;
   order: OrderData;
+  /** 如果为 true，打开时自动切换到国内合同 Tab 并预填亿丰供货商信息 */
+  prefillYifeng?: boolean;
 }
 
 // ─── 工具函数 ──────────────────────────────────────────────────────────────────
@@ -1092,7 +1094,7 @@ function PiCiFields({
 
 // ─── 主组件 ────────────────────────────────────────────────────────────────────
 
-export default function DocumentDialog({ open, onClose, order }: Props) {
+export default function DocumentDialog({ open, onClose, order, prefillYifeng }: Props) {
   const utils = trpc.useUtils();
   const isOverseas = order.customerType === "overseas";
   const isAmazonOrder = !!order.isAmazon; // 亚马逊订单：吟彩为甲方（采购方），供货商为乙方
@@ -1375,7 +1377,20 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
       setCounterpartyPhone(defaultSupplier.phone);
       setAmazonSupplierIdx(0);
     }
-  }, [open, order, dbDraftCn, dbDraftPi]);
+
+    // prefillYifeng：强制切换到国内合同 Tab 并预填亿丰供货商信息
+    if (prefillYifeng) {
+      setActiveTab("contract_cn");
+      const yifeng = AMAZON_SUPPLIER_OPTIONS[0];
+      setCounterpartyName(yifeng.name);
+      setCounterpartyAddress(yifeng.address);
+      setBuyerBankAccount(yifeng.bankAccount);
+      setBuyerBankName(yifeng.bankName);
+      setCounterpartyContactName(yifeng.contactName);
+      setCounterpartyPhone(yifeng.phone);
+      if (yifeng.taxNo) setBuyerTaxNo(yifeng.taxNo);
+    }
+  }, [open, order, dbDraftCn, dbDraftPi, prefillYifeng]);
 
   // 每次国内合同字段变化时，自动保存到 localStorage 和数据库
   useEffect(() => {

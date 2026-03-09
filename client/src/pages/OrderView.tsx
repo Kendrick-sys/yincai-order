@@ -2,10 +2,11 @@ import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Pencil, Printer, FileDown, ImageOff, Box, Tag, Layers, Archive, Paintbrush, FileText } from "lucide-react";
+import { ArrowLeft, Pencil, Printer, FileDown, ImageOff, Box, Tag, Layers, Archive, Paintbrush, FileText, ShoppingCart, CheckCircle2, AlertCircle } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import DocumentDialog from "@/components/DocumentDialog";
 import DocumentHistory from "@/components/DocumentHistory";
+import { toast } from "sonner";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft:         { label: "草稿",   color: "bg-gray-100 text-gray-600 border-gray-200" },
@@ -97,6 +98,17 @@ export default function OrderView() {
   const params = useParams<{ id: string }>();
   const orderId = parseInt(params.id);
   const [docDialogOpen, setDocDialogOpen] = useState(false);
+  const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
+
+  const utils = trpc.useUtils();
+
+  const updatePurchaseStatusMutation = trpc.orders.updatePurchaseContractStatus.useMutation({
+    onSuccess: (_data, vars) => {
+      toast.success(vars.status === "signed" ? "已标记为已签采购合同" : "已标记为未签采购合同");
+      utils.orders.get.invalidate({ id: orderId });
+    },
+    onError: () => toast.error("状态更新失败"),
+  });
 
   const { data: order, isLoading } = trpc.orders.get.useQuery(
     { id: orderId },
@@ -427,6 +439,64 @@ export default function OrderView() {
           </div>
         )}
 
+        {/* 采购合同专区 */}
+        <div className={`rounded-xl border-2 shadow-sm p-5 ${
+          order.purchaseContractStatus === "signed"
+            ? "bg-green-50 border-green-200"
+            : "bg-red-50 border-red-200"
+        }`}>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                order.purchaseContractStatus === "signed" ? "bg-green-100" : "bg-red-100"
+              }`}>
+                {order.purchaseContractStatus === "signed"
+                  ? <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  : <AlertCircle className="w-5 h-5 text-red-500" />
+                }
+              </div>
+              <div>
+                <p className={`font-semibold text-sm ${
+                  order.purchaseContractStatus === "signed" ? "text-green-800" : "text-red-700"
+                }`}>
+                  {order.purchaseContractStatus === "signed" ? "已向亿丰下采购合同" : "未向亿丰下采购合同"}
+                </p>
+                <p className={`text-xs mt-0.5 ${
+                  order.purchaseContractStatus === "signed" ? "text-green-600" : "text-red-500"
+                }`}>
+                  供货商：恩平市亿丰塑料模具有限公司
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                size="sm"
+                className="gap-1.5 text-xs bg-[#1A3C5E] hover:bg-[#1A3C5E]/90 text-white"
+                onClick={() => setPurchaseDialogOpen(true)}
+              >
+                <ShoppingCart className="w-3.5 h-3.5" />
+                生成采购合同
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className={`gap-1.5 text-xs ${
+                  order.purchaseContractStatus === "signed"
+                    ? "border-red-300 text-red-600 hover:bg-red-50"
+                    : "border-green-300 text-green-700 hover:bg-green-50"
+                }`}
+                onClick={() => updatePurchaseStatusMutation.mutate({
+                  id: orderId,
+                  status: order.purchaseContractStatus === "signed" ? "unsigned" : "signed",
+                })}
+                disabled={updatePurchaseStatusMutation.isPending}
+              >
+                {order.purchaseContractStatus === "signed" ? "标记为未签" : "标记为已签"}
+              </Button>
+            </div>
+          </div>
+        </div>
+
         {/* 历史单据 */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
@@ -460,6 +530,36 @@ export default function OrderView() {
             deliveryDate: order.deliveryDate,
             customerType: (order as any).customerType,
             isAmazon: (order as any).isAmazon,
+            models: (order.models ?? []).map((m: any) => ({
+              modelName: m.modelName,
+              modelCode: m.modelCode,
+              quantity: m.quantity,
+              topCover: m.topCover,
+              bottomCover: m.bottomCover,
+            })),
+          }}
+        />
+      )}
+
+      {/* 采购合同弹窗（预填亿丰信息） */}
+      {order && (
+        <DocumentDialog
+          open={purchaseDialogOpen}
+          onClose={() => {
+            setPurchaseDialogOpen(false);
+            // 关闭采购合同弹窗后，自动标记为已签
+            if (order.purchaseContractStatus !== "signed") {
+              updatePurchaseStatusMutation.mutate({ id: orderId, status: "signed" });
+            }
+          }}
+          prefillYifeng={true}
+          order={{
+            id: order.id,
+            customer: order.customer,
+            orderDate: order.orderDate,
+            deliveryDate: order.deliveryDate,
+            customerType: "domestic",
+            isAmazon: false,
             models: (order.models ?? []).map((m: any) => ({
               modelName: m.modelName,
               modelCode: m.modelCode,
