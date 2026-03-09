@@ -24,6 +24,22 @@ import {
   Sheet, SheetContent, SheetTrigger,
 } from "@/components/ui/sheet";
 
+// ─── 关键词高亮组件 ────────────────────────────────────────────────────────────
+function HighlightText({ text, keyword, className }: { text: string; keyword: string; className?: string }) {
+  if (!keyword || !text) return <span className={className}>{text}</span>;
+  const lowerText = text.toLowerCase();
+  const lowerKeyword = keyword.toLowerCase();
+  const idx = lowerText.indexOf(lowerKeyword);
+  if (idx === -1) return <span className={className}>{text}</span>;
+  return (
+    <span className={className}>
+      {text.slice(0, idx)}
+      <mark className="bg-yellow-200 text-yellow-900 rounded-sm px-0.5 not-italic font-inherit">{text.slice(idx, idx + keyword.length)}</mark>
+      {text.slice(idx + keyword.length)}
+    </span>
+  );
+}
+
 function downloadOrderExcel(orderId: number) {
   const a = document.createElement("a");
   a.href = `/api/export/order/${orderId}`;
@@ -690,7 +706,7 @@ export default function Home() {
                       <div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="font-medium text-gray-800 text-sm leading-tight">
-                            {order.orderDescription || "（未填写描述）"}
+                            <HighlightText text={order.orderDescription || "（未填写描述）"} keyword={search} />
                           </p>
                           {(order as any).isAlibaba && (
                             <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1.5 py-0.5 rounded flex-shrink-0">阿里巴巴</span>
@@ -699,7 +715,10 @@ export default function Home() {
                             <span className="text-xs font-medium text-[#6D28D9] bg-[#F5F3FF] px-1.5 py-0.5 rounded flex-shrink-0">1688</span>
                           )}
                           {(order as any).isAmazon && (
-                            <span className="text-xs font-medium text-[#1D6FA4] bg-[#EFF6FF] px-1.5 py-0.5 rounded flex-shrink-0">亚马逊</span>
+                            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-[#1D6FA4] bg-[#EFF6FF] px-1.5 py-0.5 rounded flex-shrink-0">
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96C5 16.1 6.1 17 7 17h11v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63H18c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 22.46 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                              亚马逊
+                            </span>
                           )}
                           {(order as any).customerType === "overseas" && (order as any).customsDeclared && (
                             <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-orange-500 px-1.5 py-0.5 rounded flex-shrink-0">
@@ -724,11 +743,13 @@ export default function Home() {
                           )}
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {order.orderNo ? `订单号：${order.orderNo}` : ""}
+                          {order.orderNo ? <>订单号：<HighlightText text={order.orderNo} keyword={search} /></> : ""}
                         </p>
                       </div>
                       {/* 客户 */}
-                      <span className="text-sm text-gray-600 text-center">{order.customer || "—"}</span>
+                      <span className="text-sm text-gray-600 text-center">
+                        {order.customer ? <HighlightText text={order.customer} keyword={search} /> : "—"}
+                      </span>
                       {/* 下单日期 */}
                       <span className={`text-sm text-center ${sortField === "orderDate" ? "text-[#1A3C5E] font-medium" : "text-gray-600"}`}>
                         {order.orderDate || "—"}
@@ -801,7 +822,7 @@ export default function Home() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="font-medium text-gray-800 text-sm leading-tight">
-                              {order.orderDescription || "（未填写描述）"}
+                              <HighlightText text={order.orderDescription || "（未填写描述）"} keyword={search} />
                             </p>
                             {(order as any).isAlibaba && (
                               <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1 py-0.5 rounded">阿里</span>
@@ -810,14 +831,17 @@ export default function Home() {
                               <span className="text-xs font-medium text-[#6D28D9] bg-[#F5F3FF] px-1 py-0.5 rounded">1688</span>
                             )}
                             {(order as any).isAmazon && (
-                              <span className="text-xs font-medium text-[#1D6FA4] bg-[#EFF6FF] px-1 py-0.5 rounded">亚马逊</span>
+                              <span className="inline-flex items-center gap-0.5 text-xs font-medium text-[#1D6FA4] bg-[#EFF6FF] px-1 py-0.5 rounded">
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96C5 16.1 6.1 17 7 17h11v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63H18c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 22.46 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                                亚马逊
+                              </span>
                             )}
                             {(order as any).customerType === "overseas" && (order as any).customsDeclared && (
                               <span className="text-xs font-semibold text-white bg-orange-500 px-1 py-0.5 rounded">报关</span>
                             )}
                           </div>
                           {order.orderNo && (
-                            <p className="text-xs text-gray-400 mt-0.5">订单号：{order.orderNo}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">订单号：<HighlightText text={order.orderNo} keyword={search} /></p>
                           )}
                         </div>
                         <div className="flex-shrink-0">
@@ -832,7 +856,7 @@ export default function Home() {
                         {order.customer && (
                           <span className="flex items-center gap-1">
                             <Users className="w-3 h-3" />
-                            {order.customer}
+                            <HighlightText text={order.customer} keyword={search} />
                           </span>
                         )}
                         {order.orderDate && (

@@ -354,7 +354,7 @@ export const appRouter = router({
     generateContractCn: protectedProcedure
       .input(z.object({
         orderId: z.number(),
-        isAmazon: z.boolean().optional(), // 亚马逊订单：吴彩为甲方（采购方），供货商为乙方
+        isAmazon: z.boolean().optional(), // 亚马逊订单：吟彩为甲方（采购方），供货商为乙方
         counterpartyName: z.string().min(1, "对方名称不能为空"),
         counterpartyAddress: z.string().optional(),
         buyerCnCompany: z.string().optional(),

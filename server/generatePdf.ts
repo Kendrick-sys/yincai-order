@@ -136,7 +136,7 @@ export interface DomesticExtras {
 export interface ContractCnData {
   docNo: string;
   orderDate: string;
-  isAmazon?: boolean;              // 亚马逊订单：吴彩为甲方（采购方），供货商为乙方
+  isAmazon?: boolean;              // 亚马逊订单：吟彩为甲方（采购方），供货商为乙方
   counterpartyName: string;       // 对方名称（普通订单为甲方，亚马逊订单为乙方）
   counterpartyAddress?: string;
   buyerCnCompany?: string;         // 甲方公司全称

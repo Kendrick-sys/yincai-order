@@ -1071,7 +1071,7 @@ function PiCiFields({
 export default function DocumentDialog({ open, onClose, order }: Props) {
   const utils = trpc.useUtils();
   const isOverseas = order.customerType === "overseas";
-  const isAmazonOrder = !!order.isAmazon; // 亚马逊订单：吴彩为甲方（采购方），供货商为乙方
+  const isAmazonOrder = !!order.isAmazon; // 亚马逊订单：吟彩为甲方（采购方），供货商为乙方
   const defaultTab = isOverseas ? "pi" : "contract_cn";
 
   const [activeTab, setActiveTab] = useState(defaultTab);
@@ -1322,8 +1322,9 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           if (matchedCustomer.enAddress) setBuyerAddress(matchedCustomer.enAddress);
           else if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
         }
-        // 国内客户：自动填入甲方信息（空字段才填，不覆盖用户已修改的内容）
-        if (matchedCustomer.country === "domestic") {
+        // 国内客户 / 亚马逊订单供货商：自动填入甲乙方信息（空字段才填，不覆盖用户已修改的内容）
+        // 亚马逊订单：客户就是供货商（乙方），同样需要自动预填
+        if (matchedCustomer.country === "domestic" || isAmazonOrder) {
           if (matchedCustomer.cnCompany) setBuyerCnCompany(prev => prev || (matchedCustomer.cnCompany ?? ""));
           if (matchedCustomer.taxNo) setBuyerTaxNo(prev => prev || (matchedCustomer.taxNo ?? ""));
           if (matchedCustomer.bankAccount) setBuyerBankAccount(prev => prev || (matchedCustomer.bankAccount ?? ""));
@@ -2097,7 +2098,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             {isAmazonOrder && (
               <div className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700">
                 <span className="font-semibold">亚马逊订单模式：</span>
-                <span>吴彩为甲方（采购方），供货商为乙方</span>
+                <span>吟彩为甲方（采购方），供货商为乙方</span>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
