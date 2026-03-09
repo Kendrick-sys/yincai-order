@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Download, AlertCircle, ShoppingCart } from "lucide-react";
+import { Loader2, Download, AlertCircle, ShoppingCart, Lock, LockOpen } from "lucide-react";
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────────
 const YINCAI_INFO = {
@@ -59,6 +59,8 @@ interface LineItemInput {
   quantity: number;
   unitPrice: number;
   amount: number;
+  /** 锁定后 syncData 不会覆盖该行单价 */
+  priceLocked?: boolean;
 }
 
 interface DomesticExtras {
@@ -154,7 +156,7 @@ function LineItemsTable({
   const [customProductName, setCustomProductName] = useState<Record<number, boolean>>({});
   const [customMaterial, setCustomMaterial] = useState<Record<number, boolean>>({});
 
-  const updateItem = (idx: number, field: keyof LineItemInput, value: string | number) => {
+  const updateItem = (idx: number, field: keyof LineItemInput, value: string | number | boolean) => {
     const newItems = items.map((item, i) => {
       if (i !== idx) return item;
       const updated = { ...item, [field]: value };
@@ -299,16 +301,37 @@ function LineItemsTable({
                 </td>
                 <td className="border-b border-r border-border px-1 py-1 text-center">
                   <div className="flex flex-col items-center gap-0.5">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min={0}
-                      value={item.unitPrice || ""}
-                      onChange={e => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
-                      className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
-                      placeholder="0.00"
-                    />
-                    {sourceLabel && item.unitPrice > 0 && (
+                    <div className="flex items-center gap-0.5 w-full">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={item.unitPrice || ""}
+                        onChange={e => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
+                        className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1 text-center flex-1"
+                        placeholder="0.00"
+                      />
+                      <button
+                        type="button"
+                        title={item.priceLocked ? "单价已锁定，点击解锁" : "锁定单价，防止被自动覆盖"}
+                        onClick={() => updateItem(idx, "priceLocked", !item.priceLocked)}
+                        className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded transition-colors ${
+                          item.priceLocked
+                            ? "text-amber-600 bg-amber-100 hover:bg-amber-200"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {item.priceLocked
+                          ? <Lock className="w-3 h-3" />
+                          : <LockOpen className="w-3 h-3" />}
+                      </button>
+                    </div>
+                    {item.priceLocked && (
+                      <span className="text-[9px] px-1 py-0.5 rounded border font-medium leading-none bg-amber-100 text-amber-700 border-amber-200">
+                        已锁定
+                      </span>
+                    )}
+                    {!item.priceLocked && sourceLabel && item.unitPrice > 0 && (
                       <span className={`text-[9px] px-1 py-0.5 rounded border font-medium leading-none ${sourceLabel.color}`}>
                         {sourceLabel.text}
                       </span>
@@ -329,7 +352,7 @@ function LineItemsTable({
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted-foreground mt-1">※ 输入单价后金额自动计算；产品名称选「其他」可手动输入</p>
+      <p className="text-xs text-muted-foreground mt-1">× 输入单价后金额自动计算；产品名称选『其他』可手动输入；点击单价列的 <Lock className="w-3 h-3 inline text-amber-600" /> 图标可锁定单价，锁定后不再被自动覆盖</p>
     </div>
   );
 }
@@ -595,7 +618,7 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
     // 记录来源
     setSyncSource(activeTab === "pi" ? "pi" : activeTab === "ci" ? "ci" : "cn");
 
-    // ─ 1. 更新产品明细单价（按型号+材质匹配成本表）
+    // ─ 1. 更新产品明细单价（按型号+材质匹配成本表，跳过已锁定行）
     if (srcItems.length > 0) {
       setLineItems(prev => {
         // 如果行数不同，就用 srcItems 重建；否则只更新单价和数量
@@ -603,15 +626,21 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
           const spec = src.spec || src.modelName || "";
           const material = src.material || "PP";
           const cost = lookupCostFn(spec, material);
-          const unitPrice = cost ? cost.boxPrice : (prev[idx]?.unitPrice ?? 0);
           const quantity = src.quantity || 0;
+          // 若该行单价已被锁定，保留原单价，不覆盖
+          const prevItem = prev[idx];
+          const isLocked = prevItem?.priceLocked === true;
+          const unitPrice = isLocked
+            ? (prevItem?.unitPrice ?? 0)
+            : (cost ? cost.boxPrice : (prevItem?.unitPrice ?? 0));
           return {
-            modelName: prev[idx]?.modelName || "塑料工具箱",
+            modelName: prevItem?.modelName || "塑料工具箱",
             material,
             spec,
             quantity,
             unitPrice,
             amount: round2(unitPrice * quantity),
+            priceLocked: prevItem?.priceLocked,
           };
         });
         return newItems;

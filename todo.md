@@ -724,3 +724,14 @@
 - [x] DocumentDialog.tsx：DocSyncData 接口增加 sourceTab 字段（'cn'|'pi'|'ci'）
 - [x] OrderView.tsx：传递 sourceTab 给 PurchaseContractDialog 的 syncData
 - [x] PurchaseContractDialog.tsx：产品明细单价旁增加来源标注（"来自 PI" / "来自国内合同" / "来自 CI"），灰色小标签样式
+
+## 成本表内联编辑与采购合同单价锁定（第八十九批）
+- [ ] CostItemsManager.tsx：单元格内联编辑（点击直接编辑，失焦保存，保存后自动创建快照）
+- [ ] routers.ts：新增 costItems.updateOne 路由（单条更新）
+- [ ] server/db.ts：新增 updateYifengCostItem 函数
+- [ ] PurchaseContractDialog.tsx：增加"锁定单价"按钮，锁定后联动不覆盖已手动调整的单价
+
+## 新功能（第N+1批）
+
+- [x] 成本表内联编辑：型号成本管理页面点击单元格直接编辑，失焦自动保存并创建快照
+- [x] 采购合同单价锁定：联动填充单价后可点击锁定按钮，锁定后不被 syncData 覆盖

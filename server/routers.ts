@@ -903,7 +903,7 @@ export const appRouter = router({
         return { id };
       }),
 
-    // 更新单条
+    // 更新单条（内联编辑时可传 createSnapshot: true 自动创建快照）
     update: adminProcedure
       .input(z.object({
         id:           z.number().int(),
@@ -914,10 +914,26 @@ export const appRouter = router({
         evaPrice:     z.string().optional(),
         linerMoldFee: z.string().optional(),
         sortOrder:    z.number().int().optional(),
+        /** 是否在保存后自动创建快照（内联编辑时传 true） */
+        createSnapshot: z.boolean().optional(),
       }))
-      .mutation(async ({ input }) => {
-        const { id, ...data } = input;
+      .mutation(async ({ input, ctx }) => {
+        const { id, createSnapshot: doSnapshot, ...data } = input;
         await updateYifengCostItem(id, data);
+        if (doSnapshot) {
+          try {
+            const allItems = await listYifengCostItems();
+            await createCostSnapshot({
+              snapshotName: `内联编辑 ${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`,
+              createdBy: ctx.user.id,
+              createdByName: ctx.user.name || ctx.user.username || String(ctx.user.id),
+              itemCount: allItems.length,
+              data: JSON.stringify(allItems),
+            });
+          } catch (e) {
+            console.warn("[CostSnapshot] Failed to create inline-edit snapshot:", e);
+          }
+        }
         return { success: true };
       }),
 

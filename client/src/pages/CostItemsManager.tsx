@@ -1,10 +1,12 @@
 /**
  * CostItemsManager.tsx
  * 型号成本管理页面（仅管理员）
- * 支持：查看/编辑/删除/新增/Excel导入(含校验报告)/导出/版本历史回滚
+ * 支持：查看/内联编辑/删除/新增/Excel导入(含校验报告)/导出/版本历史回滚
+ *
+ * 内联编辑：点击数值单元格直接编辑，失焦自动保存并创建快照
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -74,8 +76,22 @@ interface Snapshot {
   createdAt: Date;
 }
 
+/** 内联编辑中的单元格标识 */
+interface EditingCell {
+  id: number;
+  field: "boxPrice" | "puPrice" | "evaPrice" | "linerMoldFee";
+}
+
 const EMPTY_FORM: EditForm = {
   model: "", material: "", boxPrice: "0", puPrice: "0", evaPrice: "0", linerMoldFee: "0",
+};
+
+/** 内联编辑的字段颜色 */
+const FIELD_COLOR: Record<EditingCell["field"], string> = {
+  boxPrice: "text-gray-800",
+  puPrice: "text-blue-600",
+  evaPrice: "text-green-600",
+  linerMoldFee: "text-orange-600",
 };
 
 // ─── 主组件 ────────────────────────────────────────────────────────────────────
@@ -96,6 +112,12 @@ export default function CostItemsManager() {
   const [rollbackId, setRollbackId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ─── 内联编辑状态 ────────────────────────────────────────────────────────────
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
+  const [inlineValue, setInlineValue] = useState("");
+  /** 防止 onBlur 和 onKeyDown(Enter) 同时触发保存 */
+  const savingRef = useRef(false);
+
   // ─── Mutations ──────────────────────────────────────────────────────────────
   const createMutation = trpc.costItems.create.useMutation({
     onSuccess: () => {
@@ -112,6 +134,15 @@ export default function CostItemsManager() {
       toast.success("已保存修改");
       setEditItem(null);
       utils.costItems.list.invalidate();
+    },
+    onError: (e) => toast.error(`保存失败：${e.message}`),
+  });
+
+  /** 内联编辑专用 mutation：静默保存，自动创建快照 */
+  const inlineUpdateMutation = trpc.costItems.update.useMutation({
+    onSuccess: () => {
+      utils.costItems.list.invalidate();
+      utils.costSnapshots.list.invalidate();
     },
     onError: (e) => toast.error(`保存失败：${e.message}`),
   });
@@ -153,6 +184,46 @@ export default function CostItemsManager() {
     const q = search.toLowerCase();
     return item.model.toLowerCase().includes(q) || item.material.toLowerCase().includes(q);
   });
+
+  // ─── 内联编辑逻辑 ────────────────────────────────────────────────────────────
+  /** 点击数值单元格，进入编辑模式 */
+  const startInlineEdit = useCallback((item: CostItem, field: EditingCell["field"]) => {
+    setEditingCell({ id: item.id, field });
+    setInlineValue(parseFloat(item[field]).toFixed(2));
+    savingRef.current = false;
+  }, []);
+
+  /** 提交内联编辑（失焦或按 Enter 时调用） */
+  const commitInlineEdit = useCallback(() => {
+    if (savingRef.current) return;
+    if (!editingCell) return;
+
+    const val = parseFloat(inlineValue);
+    if (isNaN(val) || val < 0) {
+      toast.error("价格必须为非负数");
+      setEditingCell(null);
+      return;
+    }
+
+    savingRef.current = true;
+    const strVal = val.toFixed(2);
+    inlineUpdateMutation.mutate(
+      { id: editingCell.id, [editingCell.field]: strVal, createSnapshot: true },
+      {
+        onSettled: () => {
+          savingRef.current = false;
+          setEditingCell(null);
+        },
+      }
+    );
+  }, [editingCell, inlineValue, inlineUpdateMutation]);
+
+  /** 取消内联编辑（按 Escape 时调用） */
+  const cancelInlineEdit = useCallback(() => {
+    savingRef.current = true; // 阻止 onBlur 触发保存
+    setEditingCell(null);
+    setTimeout(() => { savingRef.current = false; }, 100);
+  }, []);
 
   // ─── 编辑弹窗 ────────────────────────────────────────────────────────────────
   const openEdit = (item: CostItem) => {
@@ -285,8 +356,6 @@ export default function CostItemsManager() {
           return;
         }
 
-        // 将客户端校验跳过的行也传给服务端（服务端会再做一次校验）
-        // 将客户端跳过的行合并到 items 中（服务端会再做一次校验）
         importMutation.mutate({ items: parsed });
       } catch {
         toast.error("文件解析失败，请检查格式");
@@ -295,6 +364,46 @@ export default function CostItemsManager() {
     };
     reader.readAsArrayBuffer(file);
     e.target.value = "";
+  };
+
+  // ─── 内联编辑单元格渲染辅助 ──────────────────────────────────────────────────
+  const renderNumericCell = (
+    item: CostItem,
+    field: EditingCell["field"],
+    displayValue: string,
+    colorClass: string,
+  ) => {
+    const isEditing = editingCell?.id === item.id && editingCell?.field === field;
+    if (isEditing) {
+      return (
+        <TableCell className="text-right p-1">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            autoFocus
+            value={inlineValue}
+            onChange={e => setInlineValue(e.target.value)}
+            onBlur={commitInlineEdit}
+            onKeyDown={e => {
+              if (e.key === "Enter") { e.preventDefault(); commitInlineEdit(); }
+              if (e.key === "Escape") { e.preventDefault(); cancelInlineEdit(); }
+            }}
+            className={`w-full text-right font-mono text-sm border border-blue-400 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-blue-50 ${colorClass}`}
+            style={{ minWidth: 70 }}
+          />
+        </TableCell>
+      );
+    }
+    return (
+      <TableCell
+        className={`text-right font-mono text-sm cursor-pointer select-none hover:bg-blue-50 hover:text-blue-700 transition-colors rounded px-3 ${colorClass}`}
+        title="点击直接编辑"
+        onClick={() => startInlineEdit(item, field)}
+      >
+        ¥{displayValue}
+      </TableCell>
+    );
   };
 
   // ─── 渲染 ────────────────────────────────────────────────────────────────────
@@ -361,12 +470,13 @@ export default function CostItemsManager() {
 
       {/* 提示栏 */}
       <div className="max-w-6xl mx-auto px-6 pt-4">
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+        <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" />
           <div>
-            <span className="font-medium">导入说明：</span>
-            Excel 第一行为标题行（自动跳过），从第二行开始填写数据。列顺序：序号、型号、材质、箱子采购价、PU内衬单价、EVA内衬单价、内衬开模费。
-            <strong className="text-red-600 ml-1">导入将替换全部现有数据，系统会自动保存版本快照。</strong>
+            <span className="font-medium">快速编辑提示：</span>
+            点击价格单元格可直接修改，按 <kbd className="px-1 py-0.5 bg-blue-100 rounded text-xs font-mono">Enter</kbd> 或失焦自动保存并创建版本快照。
+            点击 <Pencil className="w-3 h-3 inline" /> 按钮可编辑型号和材质。
+            <span className="ml-2 text-red-600 font-medium">导入 Excel 将替换全部数据。</span>
           </div>
         </div>
       </div>
@@ -422,7 +532,7 @@ export default function CostItemsManager() {
                 </TableRow>
               ) : (
                 filtered.map((item, idx) => (
-                  <TableRow key={item.id} className="hover:bg-gray-50">
+                  <TableRow key={item.id} className="hover:bg-gray-50 group">
                     <TableCell className="text-center text-gray-400 text-xs">{idx + 1}</TableCell>
                     <TableCell className="font-medium text-[#1A3C5E]">{item.model}</TableCell>
                     <TableCell>
@@ -432,16 +542,26 @@ export default function CostItemsManager() {
                         <span className="text-gray-400 text-xs">通用</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm">¥{parseFloat(item.boxPrice).toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm text-blue-600">¥{parseFloat(item.puPrice).toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm text-green-600">¥{parseFloat(item.evaPrice).toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm text-orange-600">¥{parseFloat(item.linerMoldFee).toFixed(2)}</TableCell>
+                    {renderNumericCell(item, "boxPrice", parseFloat(item.boxPrice).toFixed(2), FIELD_COLOR.boxPrice)}
+                    {renderNumericCell(item, "puPrice", parseFloat(item.puPrice).toFixed(2), FIELD_COLOR.puPrice)}
+                    {renderNumericCell(item, "evaPrice", parseFloat(item.evaPrice).toFixed(2), FIELD_COLOR.evaPrice)}
+                    {renderNumericCell(item, "linerMoldFee", parseFloat(item.linerMoldFee).toFixed(2), FIELD_COLOR.linerMoldFee)}
                     <TableCell>
                       <div className="flex items-center justify-center gap-1">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-[#1A3C5E]" onClick={() => openEdit(item)}>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-7 w-7 p-0 text-gray-400 hover:text-[#1A3C5E]"
+                          title="编辑型号/材质"
+                          onClick={() => openEdit(item)}
+                        >
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-red-500" onClick={() => setDeleteId(item.id)}>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
+                          title="删除"
+                          onClick={() => setDeleteId(item.id)}
+                        >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
@@ -524,7 +644,7 @@ export default function CostItemsManager() {
           </DialogHeader>
           <div className="space-y-2">
             <p className="text-sm text-gray-500">
-              每次导入 Excel 前，系统会自动保存当前版本快照。点击「回滚」可恢复到该版本。
+              每次导入 Excel 或内联编辑后，系统会自动保存版本快照。点击「回滚」可恢复到该版本。
             </p>
             <ScrollArea className="h-80">
               {snapshots.length === 0 ? (
@@ -576,7 +696,7 @@ export default function CostItemsManager() {
         </DialogContent>
       </Dialog>
 
-      {/* ─── 编辑/新增弹窗 ────────────────────────────────────────────────────────── */}
+      {/* ─── 编辑/新增弹窗（型号+材质） ──────────────────────────────────────────── */}
       <Dialog open={!!editItem} onOpenChange={open => { if (!open) setEditItem(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
