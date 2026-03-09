@@ -1,7 +1,7 @@
 /**
  * CostItemsManager.tsx
  * 型号成本管理页面（仅管理员）
- * 支持：查看/编辑/删除/新增/Excel导入/导出模板
+ * 支持：查看/编辑/删除/新增/Excel导入(含校验报告)/导出/版本历史回滚
  */
 
 import { useState, useRef } from "react";
@@ -23,9 +23,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ArrowLeft, Plus, Upload, Download, Pencil, Trash2,
-  Package, Search, RefreshCw, AlertTriangle,
+  Package, Search, RefreshCw, AlertTriangle, CheckCircle2,
+  XCircle, History, RotateCcw, ChevronRight,
 } from "lucide-react";
 import { Link } from "wouter";
 import * as XLSX from "xlsx";
@@ -51,6 +53,27 @@ interface EditForm {
   linerMoldFee: string;
 }
 
+interface SkippedRow {
+  rowIndex: number;
+  model: string;
+  material: string;
+  reason: string;
+}
+
+interface ImportResult {
+  successCount: number;
+  skippedCount: number;
+  skipped: SkippedRow[];
+}
+
+interface Snapshot {
+  id: number;
+  snapshotName: string;
+  createdByName: string;
+  itemCount: number;
+  createdAt: Date;
+}
+
 const EMPTY_FORM: EditForm = {
   model: "", material: "", boxPrice: "0", puPrice: "0", evaPrice: "0", linerMoldFee: "0",
 };
@@ -59,6 +82,7 @@ const EMPTY_FORM: EditForm = {
 export default function CostItemsManager() {
   const utils = trpc.useUtils();
   const { data: items = [], isLoading, refetch } = trpc.costItems.list.useQuery();
+  const { data: snapshots = [], refetch: refetchSnapshots } = trpc.costSnapshots.list.useQuery();
 
   const [search, setSearch] = useState("");
   const [editItem, setEditItem] = useState<CostItem | null>(null);
@@ -66,6 +90,10 @@ export default function CostItemsManager() {
   const [isNewItem, setIsNewItem] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [showImportResult, setShowImportResult] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [rollbackId, setRollbackId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ─── Mutations ──────────────────────────────────────────────────────────────
@@ -99,11 +127,24 @@ export default function CostItemsManager() {
 
   const importMutation = trpc.costItems.importAll.useMutation({
     onSuccess: (data) => {
-      toast.success(`导入成功，共 ${data.count} 条记录`);
+      setImportResult(data);
+      setShowImportResult(true);
       utils.costItems.list.invalidate();
+      utils.costSnapshots.list.invalidate();
     },
     onError: (e) => toast.error(`导入失败：${e.message}`),
     onSettled: () => setImporting(false),
+  });
+
+  const rollbackMutation = trpc.costSnapshots.rollback.useMutation({
+      onSuccess: () => {
+      toast.success("已回滚到该版本");
+      setRollbackId(null);
+      setShowHistory(false);
+      utils.costItems.list.invalidate();
+      utils.costSnapshots.list.invalidate();
+    },
+    onError: (e) => toast.error(`回滚失败：${e.message}`),
   });
 
   // ─── 过滤 ────────────────────────────────────────────────────────────────────
@@ -139,10 +180,7 @@ export default function CostItemsManager() {
       return;
     }
     if (isNewItem) {
-      createMutation.mutate({
-        ...editForm,
-        sortOrder: items.length,
-      });
+      createMutation.mutate({ ...editForm, sortOrder: items.length });
     } else if (editItem) {
       updateMutation.mutate({ id: editItem.id, ...editForm });
     }
@@ -155,10 +193,7 @@ export default function CostItemsManager() {
       [1, "示例：1409", "PP", 11.0, 1.2, 2.4, 150.0],
       [2, "示例：1409", "ABS", 13.0, 1.2, 2.4, 150.0],
     ]);
-    // 设置列宽
-    ws["!cols"] = [
-      { wch: 6 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-    ];
+    ws["!cols"] = [{ wch: 6 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "型号成本表");
     XLSX.writeFile(wb, "亿丰成本表模板.xlsx");
@@ -168,9 +203,7 @@ export default function CostItemsManager() {
   // ─── 导出当前数据 ────────────────────────────────────────────────────────────
   const handleExportData = () => {
     const rows = items.map((item, idx) => [
-      idx + 1,
-      item.model,
-      item.material,
+      idx + 1, item.model, item.material,
       parseFloat(item.boxPrice) || 0,
       parseFloat(item.puPrice) || 0,
       parseFloat(item.evaPrice) || 0,
@@ -180,16 +213,14 @@ export default function CostItemsManager() {
       ["序号", "型号", "材质", "箱子采购价", "PU内衬单价", "EVA内衬单价", "内衬开模费"],
       ...rows,
     ]);
-    ws["!cols"] = [
-      { wch: 6 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-    ];
+    ws["!cols"] = [{ wch: 6 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "型号成本表");
     XLSX.writeFile(wb, `亿丰成本表_${new Date().toLocaleDateString("zh-CN").replace(/\//g, "-")}.xlsx`);
     toast.success(`已导出 ${items.length} 条记录`);
   };
 
-  // ─── Excel 导入 ──────────────────────────────────────────────────────────────
+  // ─── Excel 导入（含逐行校验） ─────────────────────────────────────────────────
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -203,19 +234,50 @@ export default function CostItemsManager() {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 });
 
-        // 跳过标题行，从第2行开始
-        const parsed = rows.slice(1)
-          .filter(row => Array.isArray(row) && row.length >= 3 && row[1])
-          .map((row, idx) => ({
-            model:        String(row[1] ?? "").trim(),
-            material:     String(row[2] ?? "").trim(),
-            boxPrice:     String(parseFloat(String(row[3] ?? "0")) || 0),
-            puPrice:      String(parseFloat(String(row[4] ?? "0")) || 0),
-            evaPrice:     String(parseFloat(String(row[5] ?? "0")) || 0),
-            linerMoldFee: String(parseFloat(String(row[6] ?? "0")) || 0),
-            sortOrder:    idx,
-          }))
-          .filter(item => item.model);
+        // 跳过标题行，逐行校验
+        const dataRows = rows.slice(1);
+        const parsed: Array<{
+          model: string; material: string; boxPrice: string;
+          puPrice: string; evaPrice: string; linerMoldFee: string; sortOrder: number;
+        }> = [];
+        const clientSkipped: SkippedRow[] = [];
+
+        dataRows.forEach((row, idx) => {
+          const rowIndex = idx + 2; // 实际行号（含标题行）
+          if (!Array.isArray(row) || row.length < 2) {
+            if (Array.isArray(row) && row.some(c => c !== null && c !== undefined && c !== "")) {
+              clientSkipped.push({ rowIndex, model: "", material: "", reason: "行数据不足（至少需要型号列）" });
+            }
+            return;
+          }
+          const model = String(row[1] ?? "").trim();
+          const material = String(row[2] ?? "").trim();
+
+          if (!model) {
+            clientSkipped.push({ rowIndex, model: "", material, reason: "型号不能为空" });
+            return;
+          }
+
+          const boxPrice = parseFloat(String(row[3] ?? "0"));
+          const puPrice = parseFloat(String(row[4] ?? "0"));
+          const evaPrice = parseFloat(String(row[5] ?? "0"));
+          const linerMoldFee = parseFloat(String(row[6] ?? "0"));
+
+          if (boxPrice < 0 || puPrice < 0 || evaPrice < 0 || linerMoldFee < 0) {
+            clientSkipped.push({ rowIndex, model, material, reason: "价格不能为负数" });
+            return;
+          }
+
+          parsed.push({
+            model,
+            material,
+            boxPrice: String(isNaN(boxPrice) ? 0 : boxPrice),
+            puPrice: String(isNaN(puPrice) ? 0 : puPrice),
+            evaPrice: String(isNaN(evaPrice) ? 0 : evaPrice),
+            linerMoldFee: String(isNaN(linerMoldFee) ? 0 : linerMoldFee),
+            sortOrder: parsed.length,
+          });
+        });
 
         if (parsed.length === 0) {
           toast.error("未找到有效数据，请检查文件格式");
@@ -223,14 +285,15 @@ export default function CostItemsManager() {
           return;
         }
 
+        // 将客户端校验跳过的行也传给服务端（服务端会再做一次校验）
+        // 将客户端跳过的行合并到 items 中（服务端会再做一次校验）
         importMutation.mutate({ items: parsed });
-      } catch (err) {
+      } catch {
         toast.error("文件解析失败，请检查格式");
         setImporting(false);
       }
     };
     reader.readAsArrayBuffer(file);
-    // 清空 input 以允许重复上传同一文件
     e.target.value = "";
   };
 
@@ -258,12 +321,18 @@ export default function CostItemsManager() {
               </div>
             </div>
             {!isLoading && (
-              <Badge variant="secondary" className="ml-2 text-xs">
-                共 {items.length} 条
-              </Badge>
+              <Badge variant="secondary" className="ml-2 text-xs">共 {items.length} 条</Badge>
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline" size="sm"
+              className="gap-1.5 text-gray-500"
+              onClick={() => { setShowHistory(true); refetchSnapshots(); }}
+            >
+              <History className="w-4 h-4" />
+              版本历史
+            </Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-gray-500" onClick={handleExportTemplate}>
               <Download className="w-4 h-4" />
               下载模板
@@ -273,8 +342,7 @@ export default function CostItemsManager() {
               导出数据
             </Button>
             <Button
-              variant="outline"
-              size="sm"
+              variant="outline" size="sm"
               className="gap-1.5 text-amber-600 border-amber-300 hover:bg-amber-50"
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
@@ -298,7 +366,7 @@ export default function CostItemsManager() {
           <div>
             <span className="font-medium">导入说明：</span>
             Excel 第一行为标题行（自动跳过），从第二行开始填写数据。列顺序：序号、型号、材质、箱子采购价、PU内衬单价、EVA内衬单价、内衬开模费。
-            <strong className="text-red-600 ml-1">导入将替换全部现有数据，请谨慎操作。</strong>
+            <strong className="text-red-600 ml-1">导入将替换全部现有数据，系统会自动保存版本快照。</strong>
           </div>
         </div>
       </div>
@@ -319,11 +387,7 @@ export default function CostItemsManager() {
             <RefreshCw className="w-4 h-4" />
             刷新
           </Button>
-          {search && (
-            <span className="text-sm text-gray-500">
-              找到 {filtered.length} 条
-            </span>
-          )}
+          {search && <span className="text-sm text-gray-500">找到 {filtered.length} 条</span>}
         </div>
 
         {/* 数据表格 */}
@@ -374,20 +438,10 @@ export default function CostItemsManager() {
                     <TableCell className="text-right font-mono text-sm text-orange-600">¥{parseFloat(item.linerMoldFee).toFixed(2)}</TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-gray-400 hover:text-[#1A3C5E]"
-                          onClick={() => openEdit(item)}
-                        >
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-[#1A3C5E]" onClick={() => openEdit(item)}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
-                          onClick={() => setDeleteId(item.id)}
-                        >
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-red-500" onClick={() => setDeleteId(item.id)}>
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
@@ -400,7 +454,129 @@ export default function CostItemsManager() {
         </div>
       </main>
 
-      {/* 编辑/新增弹窗 */}
+      {/* ─── 导入结果报告弹窗 ─────────────────────────────────────────────────────── */}
+      <Dialog open={showImportResult} onOpenChange={setShowImportResult}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              导入完成
+            </DialogTitle>
+          </DialogHeader>
+          {importResult && (
+            <div className="space-y-4">
+              {/* 汇总 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-green-600">{importResult.successCount}</div>
+                  <div className="text-xs text-green-700 mt-0.5">成功导入</div>
+                </div>
+                <div className={`border rounded-lg p-3 text-center ${importResult.skippedCount > 0 ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"}`}>
+                  <div className={`text-2xl font-bold ${importResult.skippedCount > 0 ? "text-amber-600" : "text-gray-400"}`}>{importResult.skippedCount}</div>
+                  <div className={`text-xs mt-0.5 ${importResult.skippedCount > 0 ? "text-amber-700" : "text-gray-500"}`}>跳过行数</div>
+                </div>
+              </div>
+
+              {/* 跳过明细 */}
+              {importResult.skipped.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
+                    <XCircle className="w-4 h-4 text-amber-500" />
+                    跳过明细（共 {importResult.skipped.length} 行）
+                  </p>
+                  <ScrollArea className="h-48 rounded-lg border border-amber-200 bg-amber-50">
+                    <div className="p-3 space-y-1.5">
+                      {importResult.skipped.map((row, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs">
+                          <span className="text-amber-600 font-mono w-12 flex-shrink-0">第{row.rowIndex}行</span>
+                          <span className="text-gray-600 flex-1">
+                            {row.model ? <><span className="font-medium">{row.model}</span>{row.material ? ` (${row.material})` : ""} — </> : ""}
+                            <span className="text-amber-700">{row.reason}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500">
+                系统已自动保存本次导入前的版本快照，可在「版本历史」中回滚。
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button className="bg-[#1A3C5E] hover:bg-[#15304d]" onClick={() => setShowImportResult(false)}>
+              确认
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── 版本历史弹窗 ─────────────────────────────────────────────────────────── */}
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5 text-[#1A3C5E]" />
+              版本历史
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">
+              每次导入 Excel 前，系统会自动保存当前版本快照。点击「回滚」可恢复到该版本。
+            </p>
+            <ScrollArea className="h-80">
+              {snapshots.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm">暂无历史版本</div>
+              ) : (
+                <div className="space-y-2 pr-2">
+                  {(snapshots as Snapshot[]).map((snap, idx) => (
+                    <div
+                      key={snap.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50 hover:bg-white transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${idx === 0 ? "bg-[#1A3C5E] text-white" : "bg-gray-200 text-gray-600"}`}>
+                          {idx === 0 ? "最新" : `V${snapshots.length - idx}`}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-800">{snap.snapshotName}</div>
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {snap.createdByName} · {snap.itemCount} 条记录 · {new Date(snap.createdAt).toLocaleString("zh-CN")}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {idx === 0 && (
+                          <Badge variant="secondary" className="text-xs">当前版本</Badge>
+                        )}
+                        {idx > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-amber-600 border-amber-300 hover:bg-amber-50 text-xs"
+                            onClick={() => setRollbackId(snap.id)}
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            回滚
+                          </Button>
+                        )}
+                        <ChevronRight className="w-4 h-4 text-gray-300" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowHistory(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── 编辑/新增弹窗 ────────────────────────────────────────────────────────── */}
       <Dialog open={!!editItem} onOpenChange={open => { if (!open) setEditItem(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -428,49 +604,25 @@ export default function CostItemsManager() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>箱子采购价（元）</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={editForm.boxPrice}
-                  onChange={e => setEditForm(f => ({ ...f, boxPrice: e.target.value }))}
-                />
+                <Input type="number" step="0.01" min="0" placeholder="0.00" value={editForm.boxPrice}
+                  onChange={e => setEditForm(f => ({ ...f, boxPrice: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>内衬开模费（元）</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={editForm.linerMoldFee}
-                  onChange={e => setEditForm(f => ({ ...f, linerMoldFee: e.target.value }))}
-                />
+                <Input type="number" step="0.01" min="0" placeholder="0.00" value={editForm.linerMoldFee}
+                  onChange={e => setEditForm(f => ({ ...f, linerMoldFee: e.target.value }))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>PU 内衬单价（元）</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={editForm.puPrice}
-                  onChange={e => setEditForm(f => ({ ...f, puPrice: e.target.value }))}
-                />
+                <Input type="number" step="0.01" min="0" placeholder="0.00" value={editForm.puPrice}
+                  onChange={e => setEditForm(f => ({ ...f, puPrice: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>EVA 内衬单价（元）</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={editForm.evaPrice}
-                  onChange={e => setEditForm(f => ({ ...f, evaPrice: e.target.value }))}
-                />
+                <Input type="number" step="0.01" min="0" placeholder="0.00" value={editForm.evaPrice}
+                  onChange={e => setEditForm(f => ({ ...f, evaPrice: e.target.value }))} />
               </div>
             </div>
           </div>
@@ -487,14 +639,12 @@ export default function CostItemsManager() {
         </DialogContent>
       </Dialog>
 
-      {/* 删除确认弹窗 */}
+      {/* ─── 删除确认弹窗 ─────────────────────────────────────────────────────────── */}
       <AlertDialog open={deleteId !== null} onOpenChange={open => { if (!open) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              删除后无法恢复，确定要删除这条成本记录吗？
-            </AlertDialogDescription>
+            <AlertDialogDescription>删除后无法恢复，确定要删除这条成本记录吗？</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
@@ -503,6 +653,27 @@ export default function CostItemsManager() {
               onClick={() => deleteId !== null && deleteMutation.mutate({ id: deleteId })}
             >
               确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ─── 回滚确认弹窗 ─────────────────────────────────────────────────────────── */}
+      <AlertDialog open={rollbackId !== null} onOpenChange={open => { if (!open) setRollbackId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认回滚</AlertDialogTitle>
+            <AlertDialogDescription>
+              回滚将用所选版本的数据替换当前全部成本表数据，操作前系统会自动保存当前版本快照。确定要回滚吗？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-500 hover:bg-amber-600"
+              onClick={() => rollbackId !== null && rollbackMutation.mutate({ id: rollbackId })}
+            >
+              确认回滚
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

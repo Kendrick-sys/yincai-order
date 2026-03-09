@@ -6,6 +6,7 @@ import {
   customers, InsertCustomer,
   documentDrafts,
   yifengCostItems, InsertYifengCostItem, YifengCostItem,
+  costSnapshots, InsertCostSnapshot, CostSnapshot,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -433,4 +434,41 @@ export async function replaceAllYifengCostItems(items: InsertYifengCostItem[]): 
       await db.insert(yifengCostItems).values(items.slice(i, i + 50));
     }
   }
+}
+
+// ─── 成本表版本快照 ──────────────────────────────────────────────────────────────
+
+/** 获取快照列表（不含 data 字段，减少传输量） */
+export async function listCostSnapshots(): Promise<Omit<CostSnapshot, 'data'>[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: costSnapshots.id,
+    snapshotName: costSnapshots.snapshotName,
+    createdBy: costSnapshots.createdBy,
+    createdByName: costSnapshots.createdByName,
+    itemCount: costSnapshots.itemCount,
+    createdAt: costSnapshots.createdAt,
+  }).from(costSnapshots).orderBy(desc(costSnapshots.createdAt)).limit(50);
+}
+
+/** 获取单个快照详情（含 data） */
+export async function getCostSnapshotById(id: number): Promise<CostSnapshot | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(costSnapshots).where(eq(costSnapshots.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/** 创建快照 */
+export async function createCostSnapshot(data: Omit<InsertCostSnapshot, 'id' | 'createdAt'>): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(costSnapshots).values(data).$returningId();
+  return result.id;
+}
+
+/** 回滚到指定快照（替换全部成本表数据） */
+export async function rollbackCostSnapshot(items: InsertYifengCostItem[]): Promise<void> {
+  return replaceAllYifengCostItems(items);
 }

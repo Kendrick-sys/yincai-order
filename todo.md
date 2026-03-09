@@ -712,3 +712,15 @@
 - [x] PurchaseContractDialog.tsx：syncData useEffect 中的 lookupCost 全部改为 lookupCostFn
 - [x] 联动速度优化：PurchaseContractDialog 打开时立即从数据库加载成本表（enabled: open）
 - [x] TypeScript 0 错误，22/22 测试全部通过
+
+## 成本表管理增强与联动标注（第八十八批）
+- [x] server/routers.ts：costItems.import 增加逐行校验（型号/材质不能为空，价格必须为正数），返回详细报告（成功X条/跳过Y条+原因列表）
+- [x] client/src/pages/CostItemsManager.tsx：导入完成后弹出详细报告对话框（成功/跳过/错误原因）
+- [x] drizzle/schema.ts：新增 costSnapshots 表（id/snapshotName/createdBy/createdAt/itemCount/data JSON）
+- [x] pnpm db:push：推送 schema 变更
+- [x] server/db.ts：新增 costSnapshots 的 CRUD 查询辅助函数
+- [x] server/routers.ts：新增 costSnapshots 路由（list/create/rollback），每次导入/批量修改时自动创建快照
+- [x] client/src/pages/CostItemsManager.tsx：增加“版本历史”面板，显示快照列表（时间/操作人/条数），支持查看详情和一键回滚
+- [x] DocumentDialog.tsx：DocSyncData 接口增加 sourceTab 字段（'cn'|'pi'|'ci'）
+- [x] OrderView.tsx：传递 sourceTab 给 PurchaseContractDialog 的 syncData
+- [x] PurchaseContractDialog.tsx：产品明细单价旁增加来源标注（"来自 PI" / "来自国内合同" / "来自 CI"），灰色小标签样式

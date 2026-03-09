@@ -139,10 +139,18 @@ interface Props {
 function LineItemsTable({
   items,
   onChange,
+  syncSource,
 }: {
   items: LineItemInput[];
   onChange: (items: LineItemInput[]) => void;
+  syncSource?: "pi" | "ci" | "cn" | null;
 }) {
+  const sourceLabelMap: Record<string, { text: string; color: string }> = {
+    pi: { text: "来自 PI", color: "bg-blue-100 text-blue-700 border-blue-200" },
+    ci: { text: "来自 CI", color: "bg-purple-100 text-purple-700 border-purple-200" },
+    cn: { text: "来自国内合同", color: "bg-green-100 text-green-700 border-green-200" },
+  };
+  const sourceLabel = syncSource ? sourceLabelMap[syncSource] : null;
   const [customProductName, setCustomProductName] = useState<Record<number, boolean>>({});
   const [customMaterial, setCustomMaterial] = useState<Record<number, boolean>>({});
 
@@ -290,15 +298,22 @@ function LineItemsTable({
                   />
                 </td>
                 <td className="border-b border-r border-border px-1 py-1 text-center">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={item.unitPrice || ""}
-                    onChange={e => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
-                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
-                    placeholder="0.00"
-                  />
+                  <div className="flex flex-col items-center gap-0.5">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={item.unitPrice || ""}
+                      onChange={e => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
+                      className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
+                      placeholder="0.00"
+                    />
+                    {sourceLabel && item.unitPrice > 0 && (
+                      <span className={`text-[9px] px-1 py-0.5 rounded border font-medium leading-none ${sourceLabel.color}`}>
+                        {sourceLabel.text}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="border-b border-border px-2 py-1 text-center text-xs font-medium text-muted-foreground">
                   {item.amount > 0 ? item.amount.toFixed(2) : "—"}
@@ -532,7 +547,7 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
       const unitPrice = cost ? cost.boxPrice : 0;
       const quantity = parseInt(m.quantity ?? "0") || 0;
       return {
-        modelName: "塑料工具筱",
+        modelName: "塑料工具箱",
         material,
         spec,
         quantity,
@@ -549,6 +564,8 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
   const [needInvoice, setNeedInvoice] = useState(false);
   const [depositPct, setDepositPct] = useState(30);
   const [balancePct, setBalancePct] = useState(70);
+  // 记录联动来源：来自 PI / CI / 国内合同
+  const [syncSource, setSyncSource] = useState<"pi" | "ci" | "cn" | null>(null);
 
   // 当弹窗打开时重置表单（从订单数据重新初始化）
   const prevOpenRef = useRef(false);
@@ -560,6 +577,7 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
       setNeedInvoice(false);
       setDepositPct(30);
       setBalancePct(70);
+      setSyncSource(null);
     }
     prevOpenRef.current = open;
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -570,9 +588,12 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
 
     // 确定来源：优先用 PI/CI，其次国内合同
     const srcItems = syncData.lineItems;
-    const srcExtras = (syncData.activeTab === "pi" || syncData.activeTab === "ci")
+    const activeTab = syncData.activeTab;
+    const srcExtras = (activeTab === "pi" || activeTab === "ci")
       ? syncData.piExtras
       : syncData.extras;
+    // 记录来源
+    setSyncSource(activeTab === "pi" ? "pi" : activeTab === "ci" ? "ci" : "cn");
 
     // ─ 1. 更新产品明细单价（按型号+材质匹配成本表）
     if (srcItems.length > 0) {
@@ -838,7 +859,7 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
           {/* 一、产品明细 */}
           <Separator />
           <p className="text-xs font-semibold text-foreground/70">一、产品明细（请填写单价）</p>
-          <LineItemsTable items={lineItems} onChange={setLineItems} />
+          <LineItemsTable items={lineItems} onChange={setLineItems} syncSource={syncSource} />
 
           {/* 二、内衬明细 */}
           <Separator />

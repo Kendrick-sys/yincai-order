@@ -14,6 +14,7 @@ import {
   getDocumentDraft, upsertDocumentDraft,
   getUserById,
   listYifengCostItems, createYifengCostItem, updateYifengCostItem, deleteYifengCostItem, replaceAllYifengCostItems,
+  listCostSnapshots, createCostSnapshot, getCostSnapshotById, rollbackCostSnapshot,
 } from "./db";
 import {
   generateDocNo, createDocument, updateDocumentPdf,
@@ -932,6 +933,7 @@ export const appRouter = router({
     importAll: adminProcedure
       .input(z.object({
         items: z.array(z.object({
+          rowIndex:     z.number().int().optional(),
           model:        z.string(),
           material:     z.string().default(""),
           boxPrice:     z.string().default("0"),
@@ -941,9 +943,111 @@ export const appRouter = router({
           sortOrder:    z.number().int().default(0),
         })),
       }))
-      .mutation(async ({ input }) => {
-        await replaceAllYifengCostItems(input.items);
-        return { count: input.items.length };
+      .mutation(async ({ input, ctx }) => {
+        const valid: (typeof input.items[0])[] = [];
+        const skipped: { rowIndex: number; model: string; material: string; reason: string }[] = [];
+
+        for (let i = 0; i < input.items.length; i++) {
+          const item = input.items[i];
+          const rowNo = item.rowIndex ?? (i + 2); // +2 因为第1行是标题行
+          // 校验：型号不能为空
+          if (!item.model || !item.model.trim()) {
+            skipped.push({ rowIndex: rowNo, model: item.model || "", material: item.material || "", reason: "型号不能为空" });
+            continue;
+          }
+          // 校验：材质不能超过 64 字符
+          if (item.material && item.material.length > 64) {
+            skipped.push({ rowIndex: rowNo, model: item.model, material: item.material, reason: "材质名称过长（超过64字符）" });
+            continue;
+          }
+          // 校验：价格必须为非负数
+          const prices = [
+            { name: "箱子价格", val: parseFloat(item.boxPrice) },
+            { name: "PU价格",   val: parseFloat(item.puPrice) },
+            { name: "EVA价格",  val: parseFloat(item.evaPrice) },
+            { name: "内衬开模费", val: parseFloat(item.linerMoldFee) },
+          ];
+          const badPrice = prices.find(p => isNaN(p.val) || p.val < 0);
+          if (badPrice) {
+            skipped.push({ rowIndex: rowNo, model: item.model, material: item.material, reason: `${badPrice.name}必须为非负数` });
+            continue;
+          }
+          valid.push(item);
+        }
+
+        if (valid.length > 0) {
+          await replaceAllYifengCostItems(valid);
+          // 创建快照
+          try {
+            await createCostSnapshot({
+              snapshotName: `导入 ${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`,
+              createdBy: ctx.user.id,
+              createdByName: ctx.user.name || ctx.user.username || String(ctx.user.id),
+              itemCount: valid.length,
+              data: JSON.stringify(valid),
+            });
+          } catch (e) {
+            console.warn("[CostSnapshot] Failed to create snapshot:", e);
+          }
+        }
+
+        return {
+          successCount: valid.length,
+          skippedCount: skipped.length,
+          skipped,
+        };
+      }),
+  }),
+
+  // ─── 成本表版本历史（仅管理员）──────────────────────────────────────────────
+  costSnapshots: router({
+    // 查询快照列表（不含 data 字段，减少传输量）
+    list: adminProcedure.query(async () => {
+      return listCostSnapshots();
+    }),
+    // 查询单个快照详情（含 data）
+    get: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .query(async ({ input }) => {
+        const snap = await getCostSnapshotById(input.id);
+        if (!snap) throw new TRPCError({ code: "NOT_FOUND", message: "快照不存在" });
+        return snap;
+      }),
+    // 回滚到指定快照
+    rollback: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input, ctx }) => {
+        const snap = await getCostSnapshotById(input.id);
+        if (!snap) throw new TRPCError({ code: "NOT_FOUND", message: "快照不存在" });
+        const items = JSON.parse(snap.data);
+        await rollbackCostSnapshot(items);
+        // 创建回滚快照
+        try {
+          await createCostSnapshot({
+            snapshotName: `回滚至 ${snap.snapshotName}（${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}）`,
+            createdBy: ctx.user.id,
+            createdByName: ctx.user.name || ctx.user.username || String(ctx.user.id),
+            itemCount: items.length,
+            data: snap.data,
+          });
+        } catch (e) {
+          console.warn("[CostSnapshot] Failed to create rollback snapshot:", e);
+        }
+        return { successCount: items.length };
+      }),
+    // 手动创建快照（当前数据）
+    createManual: adminProcedure
+      .input(z.object({ name: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        const items = await listYifengCostItems();
+        const id = await createCostSnapshot({
+          snapshotName: input.name,
+          createdBy: ctx.user.id,
+          createdByName: ctx.user.name || ctx.user.username || String(ctx.user.id),
+          itemCount: items.length,
+          data: JSON.stringify(items),
+        });
+        return { id };
       }),
   }),
 });

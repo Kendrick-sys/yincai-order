@@ -257,3 +257,16 @@ export const yifengCostItems = mysqlTable("yifeng_cost_items", {
 
 export type YifengCostItem = typeof yifengCostItems.$inferSelect;
 export type InsertYifengCostItem = typeof yifengCostItems.$inferInsert;
+
+// ─── 成本表版本快照 ──────────────────────────────────────────────────────────────
+export const costSnapshots = mysqlTable("cost_snapshots", {
+  id:              int("id").autoincrement().primaryKey(),
+  snapshotName:    varchar("snapshotName", { length: 128 }).notNull(),
+  createdBy:       int("createdBy").notNull(),
+  createdByName:   varchar("createdByName", { length: 64 }).notNull().default(""),
+  itemCount:       int("itemCount").notNull().default(0),
+  data:            text("data").notNull(),   // JSON 字符串，完整的成本表数据
+  createdAt:       timestamp("createdAt").defaultNow().notNull(),
+});
+export type CostSnapshot = typeof costSnapshots.$inferSelect;
+export type InsertCostSnapshot = typeof costSnapshots.$inferInsert;
