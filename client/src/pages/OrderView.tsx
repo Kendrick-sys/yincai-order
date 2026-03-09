@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Pencil, Printer, FileDown, ImageOff, Box, Tag, Layers, Archive, Paintbrush, FileText, ShoppingCart, CheckCircle2, AlertCircle } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import DocumentDialog from "@/components/DocumentDialog";
+import PurchaseContractDialog from "@/components/PurchaseContractDialog";
 import DocumentHistory from "@/components/DocumentHistory";
 import { toast } from "sonner";
 
@@ -541,25 +542,16 @@ export default function OrderView() {
         />
       )}
 
-      {/* 采购合同弹窗（预填亿丰信息） */}
+      {/* 采购合同弹窗（吟彩→亿丰，独立组件） */}
       {order && (
-        <DocumentDialog
+        <PurchaseContractDialog
           open={purchaseDialogOpen}
-          onClose={() => {
-            setPurchaseDialogOpen(false);
-            // 关闭采购合同弹窗后，自动标记为已签
-            if (order.purchaseContractStatus !== "signed") {
-              updatePurchaseStatusMutation.mutate({ id: orderId, status: "signed" });
-            }
-          }}
-          prefillYifeng={true}
+          onClose={() => setPurchaseDialogOpen(false)}
           order={{
             id: order.id,
             customer: order.customer,
             orderDate: order.orderDate,
             deliveryDate: order.deliveryDate,
-            customerType: "domestic",
-            isAmazon: false,
             models: (order.models ?? []).map((m: any) => ({
               modelName: m.modelName,
               modelCode: m.modelCode,

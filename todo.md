@@ -668,3 +668,9 @@
 - [x] 前端 DocumentDialog.tsx：新增 prefillYifeng prop，打开时自动切换到国内合同 Tab 并预填亿丰供货商信息
 - [x] 前端 OrderView.tsx（订单详情页）：增加"采购合同专区"卡片，显示当前状态，提供"生成采购合同"和"标记已/未签"按鈕，关闭采购合同弹窗后自动标记已签
 - [x] 测试：orders.test.ts 新增 updatePurchaseContractStatus 测试，22/22 全部通过
+
+## 采购合同优化（第八十四批）
+- [x] 创建独立的 PurchaseContractDialog 组件：甲方固定=吟彩（采购方），乙方固定=亿丰（供货方），无可编辑字段，产品明细映射订单数据
+- [x] PurchaseContractDialog：复用现有 documents.generateContractCn 路由（isAmazon=true），生成甲方=吟彩/乙方=亿丰的采购合同 PDF
+- [x] OrderView.tsx：替换旧的 prefillYifeng DocumentDialog 方案，改用新的 PurchaseContractDialog
+- [x] OrderView.tsx：移除关闭采购合同弹窗后自动标记已签的逻辑（需手动点"标记为已签"）
