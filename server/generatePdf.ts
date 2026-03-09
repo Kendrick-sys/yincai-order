@@ -142,6 +142,8 @@ export interface ContractCnData {
   isAmazon?: boolean;              // 亚马逊订单：吟彩为甲方（采购方），供货商为乙方
   counterpartyName: string;       // 对方名称（普通订单为甲方，亚马逊订单为乙方）
   counterpartyAddress?: string;
+  counterpartyContactName?: string; // 对方联系人
+  counterpartyPhone?: string;       // 对方联系电话
   buyerCnCompany?: string;         // 甲方公司全称
   buyerTaxNo?: string;             // 甲方税号
   buyerBankAccount?: string;       // 甲方对公账号
@@ -291,7 +293,7 @@ function formatAmount(amount: number, currency = "CNY"): string {
 // ─── HTML 模板：国内采购合同 ────────────────────────────────────────────────────
 
 function buildContractCnHtml(data: ContractCnData): string {
-  const { docNo, orderDate, isAmazon, counterpartyName, counterpartyAddress, buyerCnCompany, buyerTaxNo, buyerBankAccount, buyerBankName, lineItems, totalAmount, depositPct, balancePct, needInvoice, extras } = data;
+  const { docNo, orderDate, isAmazon, counterpartyName, counterpartyAddress, counterpartyContactName, counterpartyPhone, buyerCnCompany, buyerTaxNo, buyerBankAccount, buyerBankName, lineItems, totalAmount, depositPct, balancePct, needInvoice, extras } = data;
   const depositAmount = Math.round(totalAmount * depositPct) / 100;
   const balanceAmount = Math.round(totalAmount * balancePct) / 100;
   const totalChinese = numberToChinese(totalAmount);
@@ -299,11 +301,11 @@ function buildContractCnHtml(data: ContractCnData): string {
   // 亚马逊订单：吟彩为甲方（采购方），供货商为乙方
   // 普通订单：客户为甲方（采购方），吟彩为乙方（供货方）
   const partyA = isAmazon
-    ? { name: ENV.companyCnName, address: ENV.companyCnAddress || '', taxNo: ENV.companyTaxNo || '', bankName: ENV.companyCnBankName || '', bankAccount: ENV.companyCnBankAccount || '' }
-    : { name: buyerCnCompany || counterpartyName, address: counterpartyAddress || '', taxNo: buyerTaxNo || '', bankName: buyerBankName || '', bankAccount: buyerBankAccount || '' };
+    ? { name: ENV.companyCnName, address: ENV.companyCnAddress || '', taxNo: ENV.companyTaxNo || '', bankName: ENV.companyCnBankName || '', bankAccount: ENV.companyCnBankAccount || '', contactName: '', phone: '' }
+    : { name: buyerCnCompany || counterpartyName, address: counterpartyAddress || '', taxNo: buyerTaxNo || '', bankName: buyerBankName || '', bankAccount: buyerBankAccount || '', contactName: counterpartyContactName || '', phone: counterpartyPhone || '' };
   const partyB = isAmazon
-    ? { name: buyerCnCompany || counterpartyName, address: counterpartyAddress || '', taxNo: buyerTaxNo || '', bankName: buyerBankName || '', bankAccount: buyerBankAccount || '' }
-    : { name: ENV.companyCnName, address: ENV.companyCnAddress || '', taxNo: ENV.companyTaxNo || '', bankName: ENV.companyCnBankName || '', bankAccount: ENV.companyCnBankAccount || '' };
+    ? { name: buyerCnCompany || counterpartyName, address: counterpartyAddress || '', taxNo: buyerTaxNo || '', bankName: buyerBankName || '', bankAccount: buyerBankAccount || '', contactName: counterpartyContactName || '', phone: counterpartyPhone || '' }
+    : { name: ENV.companyCnName, address: ENV.companyCnAddress || '', taxNo: ENV.companyTaxNo || '', bankName: ENV.companyCnBankName || '', bankAccount: ENV.companyCnBankAccount || '', contactName: '', phone: '' };
 
   // 列顺序：产品名称 | 型号 | 材质 | 数量 | 单价 | 金额
   const tableRows = lineItems.map(item => `
@@ -476,6 +478,7 @@ function buildContractCnHtml(data: ContractCnData): string {
     <div class="party-card-title">甲方（采购方）</div>
     <div class="party-card-name">${partyA.name}</div>
     ${partyA.address ? `<div class="party-card-row"><span>地址：</span>${partyA.address}</div>` : ''}
+    ${partyA.contactName ? `<div class="party-card-row"><span>联系人：</span>${partyA.contactName}${partyA.phone ? '　' + partyA.phone : ''}</div>` : (partyA.phone ? `<div class="party-card-row"><span>电话：</span>${partyA.phone}</div>` : '')}
     ${partyA.taxNo ? `<div class="party-card-row"><span>税号：</span>${partyA.taxNo}</div>` : ''}
     ${partyA.bankName ? `<div class="party-card-row"><span>开户行：</span>${partyA.bankName}</div>` : ''}
     ${partyA.bankAccount ? `<div class="party-card-row"><span>账号：</span>${partyA.bankAccount}</div>` : ''}
@@ -484,6 +487,7 @@ function buildContractCnHtml(data: ContractCnData): string {
     <div class="party-card-title">乙方（供货方）</div>
     <div class="party-card-name">${partyB.name}</div>
     ${partyB.address ? `<div class="party-card-row"><span>地址：</span>${partyB.address}</div>` : ''}
+    ${partyB.contactName ? `<div class="party-card-row"><span>联系人：</span>${partyB.contactName}${partyB.phone ? '　' + partyB.phone : ''}</div>` : (partyB.phone ? `<div class="party-card-row"><span>电话：</span>${partyB.phone}</div>` : '')}
     ${partyB.taxNo ? `<div class="party-card-row"><span>税号：</span>${partyB.taxNo}</div>` : ''}
     ${partyB.bankName ? `<div class="party-card-row"><span>开户行：</span>${partyB.bankName}</div>` : ''}
     ${partyB.bankAccount ? `<div class="party-card-row"><span>账号：</span>${partyB.bankAccount}</div>` : ''}

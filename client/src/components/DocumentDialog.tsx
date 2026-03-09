@@ -1112,6 +1112,9 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   const [buyerTaxNo, setBuyerTaxNo] = useState("");
   const [buyerBankAccount, setBuyerBankAccount] = useState("");
   const [buyerBankName, setBuyerBankName] = useState("");
+  // 亚马逊合同：对方联系人和电话（供货商）
+  const [counterpartyContactName, setCounterpartyContactName] = useState("");
+  const [counterpartyPhone, setCounterpartyPhone] = useState("");
   // 亚马逊合同：当前选中的供货商索引（0 = 恩平亿丰，-1 = 自定义）
   const [amazonSupplierIdx, setAmazonSupplierIdx] = useState(0);
 
@@ -1368,6 +1371,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
       setBuyerBankAccount(defaultSupplier.bankAccount);
       setBuyerBankName(defaultSupplier.bankName);
       if (defaultSupplier.taxNo) setBuyerTaxNo(defaultSupplier.taxNo);
+      setCounterpartyContactName(defaultSupplier.contactName);
+      setCounterpartyPhone(defaultSupplier.phone);
       setAmazonSupplierIdx(0);
     }
   }, [open, order, dbDraftCn, dbDraftPi]);
@@ -1560,6 +1565,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
       setCounterpartyAddress(defaultSupplier.address);
       setBuyerBankAccount(defaultSupplier.bankAccount);
       setBuyerBankName(defaultSupplier.bankName);
+      setCounterpartyContactName(defaultSupplier.contactName);
+      setCounterpartyPhone(defaultSupplier.phone);
       setAmazonSupplierIdx(0);
     }
   };
@@ -1652,6 +1659,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         isAmazon: isAmazonOrder,
         counterpartyName,
         counterpartyAddress: counterpartyAddress || undefined,
+        counterpartyContactName: counterpartyContactName || undefined,
+        counterpartyPhone: counterpartyPhone || undefined,
         buyerCnCompany: buyerCnCompany || undefined,
         buyerTaxNo: buyerTaxNo || undefined,
         buyerBankAccount: buyerBankAccount || undefined,
@@ -2174,6 +2183,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                             setBuyerBankAccount(s.bankAccount);
                             setBuyerBankName(s.bankName);
                             if (s.taxNo) setBuyerTaxNo(s.taxNo);
+                            setCounterpartyContactName(s.contactName);
+                            setCounterpartyPhone(s.phone);
                             toast.success(`已切换供货商：${s.name}`);
                           } else {
                             // 自定义：清空供货商字段
@@ -2181,6 +2192,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                             setCounterpartyAddress("");
                             setBuyerBankAccount("");
                             setBuyerBankName("");
+                            setCounterpartyContactName("");
+                            setCounterpartyPhone("");
                           }
                         }}
                       >

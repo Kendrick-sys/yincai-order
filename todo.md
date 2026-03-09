@@ -649,3 +649,12 @@
 
 - [x] Bug：亚马逊合同PDF甲方信息为空——根本原因是NAS上.env未配置COMPANY_CN_*环境变量，代码逻辑正确，已告知用户在NAS上填写公司信息
 - [x] UI优化：DocumentDialog亚马逊模式选择预设供货商时自动隐藏冗余的乙方输入字段（全称/税号/地址/账号/开户行），只有“自定义”时才显示
+
+## Bug修复（第八十二批）
+
+- [x] Bug：亚马逊合同PDF中恩平亿丰供货方信息不完整——已修复：
+  - generatePdf.ts：ContractCnData接口新增 counterpartyContactName/counterpartyPhone 字段
+  - generatePdf.ts：partyA/partyB构建逻辑加入联系人和电话
+  - generatePdf.ts：PDF HTML模板显示“联系人：凯瑞宁　电话”
+  - routers.ts：generateContractCn Zod schema新增两个字段并传递给PDF生成函数
+  - DocumentDialog.tsx：供货商切换/初始化/重置时同步设置contactName和phone，并在提交时传递给后端

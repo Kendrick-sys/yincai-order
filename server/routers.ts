@@ -372,6 +372,8 @@ export const appRouter = router({
         isAmazon: z.boolean().optional(), // 亚马逊订单：吟彩为甲方（采购方），供货商为乙方
         counterpartyName: z.string().min(1, "对方名称不能为空"),
         counterpartyAddress: z.string().optional(),
+        counterpartyContactName: z.string().optional(), // 对方联系人
+        counterpartyPhone: z.string().optional(),       // 对方联系电话
         buyerCnCompany: z.string().optional(),
         buyerTaxNo: z.string().optional(),
         buyerBankAccount: z.string().optional(),
@@ -434,6 +436,8 @@ export const appRouter = router({
           isAmazon: input.isAmazon ?? false,
           counterpartyName: input.counterpartyName,
           counterpartyAddress: input.counterpartyAddress,
+          counterpartyContactName: input.counterpartyContactName,
+          counterpartyPhone: input.counterpartyPhone,
           buyerCnCompany: input.buyerCnCompany,
           buyerTaxNo: input.buyerTaxNo,
           buyerBankAccount: input.buyerBankAccount,
