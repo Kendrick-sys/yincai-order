@@ -13,6 +13,7 @@ import {
   transferCustomers, transferOrders,
   getDocumentDraft, upsertDocumentDraft,
   getUserById,
+  listYifengCostItems, createYifengCostItem, updateYifengCostItem, deleteYifengCostItem, replaceAllYifengCostItems,
 } from "./db";
 import {
   generateDocNo, createDocument, updateDocumentPdf,
@@ -875,6 +876,74 @@ export const appRouter = router({
           }))
         );
         return { id: newId };
+      }),
+  }),
+
+  // ─── 亿丰成本表管理（仅管理员）────────────────────────────────────────────────
+  costItems: router({
+    // 查询所有成本条目（所有登录用户可读，用于采购合同联动）
+    list: protectedProcedure.query(async () => {
+      return listYifengCostItems();
+    }),
+
+    // 创建单条
+    create: adminProcedure
+      .input(z.object({
+        model:        z.string().min(1, "型号不能为空"),
+        material:     z.string().default(""),
+        boxPrice:     z.string().default("0"),
+        puPrice:      z.string().default("0"),
+        evaPrice:     z.string().default("0"),
+        linerMoldFee: z.string().default("0"),
+        sortOrder:    z.number().int().default(0),
+      }))
+      .mutation(async ({ input }) => {
+        const id = await createYifengCostItem(input);
+        return { id };
+      }),
+
+    // 更新单条
+    update: adminProcedure
+      .input(z.object({
+        id:           z.number().int(),
+        model:        z.string().min(1).optional(),
+        material:     z.string().optional(),
+        boxPrice:     z.string().optional(),
+        puPrice:      z.string().optional(),
+        evaPrice:     z.string().optional(),
+        linerMoldFee: z.string().optional(),
+        sortOrder:    z.number().int().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updateYifengCostItem(id, data);
+        return { success: true };
+      }),
+
+    // 删除单条
+    delete: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input }) => {
+        await deleteYifengCostItem(input.id);
+        return { success: true };
+      }),
+
+    // 批量导入（Excel 解析后传入 JSON 数组，替换全部数据）
+    importAll: adminProcedure
+      .input(z.object({
+        items: z.array(z.object({
+          model:        z.string(),
+          material:     z.string().default(""),
+          boxPrice:     z.string().default("0"),
+          puPrice:      z.string().default("0"),
+          evaPrice:     z.string().default("0"),
+          linerMoldFee: z.string().default("0"),
+          sortOrder:    z.number().int().default(0),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        await replaceAllYifengCostItems(input.items);
+        return { count: input.items.length };
       }),
   }),
 });

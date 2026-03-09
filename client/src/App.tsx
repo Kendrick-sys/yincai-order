@@ -16,7 +16,8 @@ const Settings       = lazy(() => import("./pages/Settings"));
 const NotFound       = lazy(() => import("./pages/NotFound"));
 const Login          = lazy(() => import("./pages/Login"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
-const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const ChangePassword    = lazy(() => import("./pages/ChangePassword"));
+const CostItemsManager  = lazy(() => import("./pages/CostItemsManager"));
 
 // 通用加载占位（轻量，避免布局抖动）
 function PageLoader() {
@@ -46,6 +47,7 @@ function Router() {
         <Route path={"/login"} component={Login} />
         <Route path={"/admin/users"} component={UserManagement} />
         <Route path={"/change-password"} component={ChangePassword} />
+        <Route path={"/admin/cost-items"} component={CostItemsManager} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

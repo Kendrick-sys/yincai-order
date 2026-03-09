@@ -13,9 +13,10 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Settings as SettingsIcon, FileText, ArrowLeft, Save, RotateCcw, Info,
+  Settings as SettingsIcon, FileText, ArrowLeft, Save, RotateCcw, Info, Package, ChevronRight,
 } from "lucide-react";
 import { Link } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 // ─── 默认前缀 ──────────────────────────────────────────────────────────────────
 const DEFAULT_PREFIXES = {
@@ -27,6 +28,8 @@ const DEFAULT_PREFIXES = {
 // ─── 主组件 ────────────────────────────────────────────────────────────────────
 
 export default function Settings() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const { data: savedPrefixes, isLoading, refetch } = trpc.settings.getDocPrefixes.useQuery();
 
   const [prefixes, setPrefixes] = useState({
@@ -270,6 +273,28 @@ export default function Settings() {
               <Save className="w-4 h-4" />
               {saveMutation.isPending ? "保存中..." : "保存设置"}
             </Button>
+          </div>
+        )}
+        {/* 型号成本管理入口（仅管理员） */}
+        {isAdmin && (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+              <div className="w-1 h-6 rounded-full bg-[#1A3C5E] flex-shrink-0" />
+              <Package className="w-5 h-5 text-[#1A3C5E]" />
+              <div>
+                <h2 className="font-semibold text-gray-800 text-base">型号成本管理</h2>
+                <p className="text-xs text-gray-400 mt-0.5">管理吟彩→亿丰采购单价表，支持 Excel 导入/导出，用于采购合同自动填价</p>
+              </div>
+            </div>
+            <div className="p-6">
+              <Link href="/admin/cost-items">
+                <Button className="gap-2 bg-[#1A3C5E] hover:bg-[#15304d]">
+                  <Package className="w-4 h-4" />
+                  进入型号成本管理
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
       </main>

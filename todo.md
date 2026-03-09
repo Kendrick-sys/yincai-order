@@ -698,3 +698,17 @@
 - [x] PurchaseContractDialog.tsx：定制颜色联动——若来源单据有定制颜色则自动开启（黄色高亮提醒）
 - [x] PurchaseContractDialog.tsx："四、定制丝印"增加紫色高亮提醒标签
 - [x] TypeScript 0 错误，22/22 测试全部通过
+
+## 型号成本管理系统与联动优化（第八十七批）
+- [x] drizzle/schema.ts：新增 yifengCostItems 表（model/material/boxPrice/puPrice/evaPrice/linerMoldFee/sortOrder）
+- [x] pnpm db:push：推送 schema 变更到数据库
+- [x] seed-cost-items.mjs：将 183 条静态成本数据写入数据库
+- [x] server/db.ts：新增 yifengCostItems 的 CRUD 查询辅助函数
+- [x] server/routers.ts：新增 costItems 路由（list/create/update/delete/import/exportTemplate）
+- [x] client/src/pages/CostItemsManager.tsx：新建型号成本管理页面（仅管理员，支持表格查看/编辑/删除/Excel导入/导出模板）
+- [x] client/src/App.tsx：注册 /admin/cost-items 路由
+- [x] client/src/pages/Settings.tsx：增加"型号成本管理"入口卡片（仅管理员可见）
+- [x] PurchaseContractDialog.tsx：改为从数据库读取成本表（trpc.costItems.list），构建 lookupCostFn，回退到静态表
+- [x] PurchaseContractDialog.tsx：syncData useEffect 中的 lookupCost 全部改为 lookupCostFn
+- [x] 联动速度优化：PurchaseContractDialog 打开时立即从数据库加载成本表（enabled: open）
+- [x] TypeScript 0 错误，22/22 测试全部通过

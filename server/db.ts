@@ -5,6 +5,7 @@ import {
   orders, orderModels, InsertOrder, InsertOrderModel,
   customers, InsertCustomer,
   documentDrafts,
+  yifengCostItems, InsertYifengCostItem, YifengCostItem,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -388,4 +389,48 @@ export async function deleteDocumentDraft(orderId: number, draftType: string) {
   if (!db) return;
   await db.delete(documentDrafts)
     .where(and(eq(documentDrafts.orderId, orderId), eq(documentDrafts.draftType, draftType)));
+}
+
+// ─── 亿丰成本表 CRUD ───────────────────────────────────────────────────────────
+
+/** 查询所有亿丰成本条目（按 sortOrder 升序） */
+export async function listYifengCostItems(): Promise<YifengCostItem[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(yifengCostItems).orderBy(yifengCostItems.sortOrder, yifengCostItems.id);
+}
+
+/** 创建单条成本条目 */
+export async function createYifengCostItem(data: InsertYifengCostItem): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(yifengCostItems).values(data);
+  return (result as any).insertId as number;
+}
+
+/** 更新单条成本条目 */
+export async function updateYifengCostItem(id: number, data: Partial<InsertYifengCostItem>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(yifengCostItems).set(data).where(eq(yifengCostItems.id, id));
+}
+
+/** 删除单条成本条目 */
+export async function deleteYifengCostItem(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(yifengCostItems).where(eq(yifengCostItems.id, id));
+}
+
+/** 批量替换成本表（先清空再插入，用于 Excel 导入） */
+export async function replaceAllYifengCostItems(items: InsertYifengCostItem[]): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(yifengCostItems);
+  if (items.length > 0) {
+    // 分批插入，每批 50 条
+    for (let i = 0; i < items.length; i += 50) {
+      await db.insert(yifengCostItems).values(items.slice(i, i + 50));
+    }
+  }
 }

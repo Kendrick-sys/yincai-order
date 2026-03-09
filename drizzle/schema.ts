@@ -240,3 +240,20 @@ export const documentDrafts = mysqlTable("documentDrafts", {
 
 export type DocumentDraft = typeof documentDrafts.$inferSelect;
 export type InsertDocumentDraft = typeof documentDrafts.$inferInsert;
+
+// ─── 亿丰成本表（型号采购单价，管理员可维护） ─────────────────────────────────────
+export const yifengCostItems = mysqlTable("yifeng_cost_items", {
+  id:           int("id").autoincrement().primaryKey(),
+  model:        varchar("model", { length: 128 }).notNull(),       // 型号，如 "1409"
+  material:     varchar("material", { length: 64 }).notNull().default(""), // 材质，如 "PP"/"ABS"，空表示通用
+  boxPrice:     varchar("boxPrice", { length: 32 }).notNull().default("0"),    // 箱子采购价
+  puPrice:      varchar("puPrice", { length: 32 }).notNull().default("0"),     // PU 内衬单价
+  evaPrice:     varchar("evaPrice", { length: 32 }).notNull().default("0"),    // EVA 内衬单价
+  linerMoldFee: varchar("linerMoldFee", { length: 32 }).notNull().default("0"), // 内衬开模费
+  sortOrder:    int("sortOrder").default(0).notNull(),              // 排序（Excel 导入时按行序）
+  createdAt:    timestamp("createdAt").defaultNow().notNull(),
+  updatedAt:    timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type YifengCostItem = typeof yifengCostItems.$inferSelect;
+export type InsertYifengCostItem = typeof yifengCostItems.$inferInsert;

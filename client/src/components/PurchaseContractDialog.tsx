@@ -501,16 +501,38 @@ function PaymentTerms({
 function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
   const utils = trpc.useUtils();
 
+  // 从数据库读取最新成本表（staleTime 5min，避免频繁请求）
+  const { data: dbCostItems } = trpc.costItems.list.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000,
+    enabled: open,
+  });
+
+  // 构建本地 lookup 函数：优先用数据库数据，回退到静态表
+  const lookupCostFn = useCallback((model: string, material: string) => {
+    if (dbCostItems && dbCostItems.length > 0) {
+      const m = model.trim().toUpperCase();
+      const mat = material.trim().toUpperCase();
+      const exact = dbCostItems.find(e => e.model.toUpperCase() === m && e.material.toUpperCase() === mat);
+      if (exact) return { boxPrice: parseFloat(exact.boxPrice) || 0, puPrice: parseFloat(exact.puPrice) || 0, evaPrice: parseFloat(exact.evaPrice) || 0, linerMoldFee: parseFloat(exact.linerMoldFee) || 0 };
+      if (!mat) {
+        const fallback = dbCostItems.find(e => e.model.toUpperCase() === m);
+        if (fallback) return { boxPrice: parseFloat(fallback.boxPrice) || 0, puPrice: parseFloat(fallback.puPrice) || 0, evaPrice: parseFloat(fallback.evaPrice) || 0, linerMoldFee: parseFloat(fallback.linerMoldFee) || 0 };
+      }
+      return null;
+    }
+    return lookupCost(model, material);
+  }, [dbCostItems]);
+
   // 从订单 models 初始化产品明细，并自动匹配成本表单价
-  const buildInitialLineItems = (models: OrderModel[]): LineItemInput[] =>
-    (models ?? []).map(m => {
+  const buildInitialLineItems = useCallback((models: OrderModel[]): LineItemInput[] => {
+    return (models ?? []).map(m => {
       const spec = m.modelCode || m.modelName || "";
       const material = m.material || "PP";
-      const cost = lookupCost(spec, material);
+      const cost = lookupCostFn(spec, material);
       const unitPrice = cost ? cost.boxPrice : 0;
       const quantity = parseInt(m.quantity ?? "0") || 0;
       return {
-        modelName: "塑料工具箱",
+        modelName: "塑料工具筱",
         material,
         spec,
         quantity,
@@ -518,6 +540,7 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
         amount: round2(unitPrice * quantity),
       };
     });
+  }, [lookupCostFn]);
 
   const [lineItems, setLineItems] = useState<LineItemInput[]>(() =>
     buildInitialLineItems(order.models ?? [])
@@ -558,7 +581,7 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
         const newItems = srcItems.map((src, idx) => {
           const spec = src.spec || src.modelName || "";
           const material = src.material || "PP";
-          const cost = lookupCost(spec, material);
+          const cost = lookupCostFn(spec, material);
           const unitPrice = cost ? cost.boxPrice : (prev[idx]?.unitPrice ?? 0);
           const quantity = src.quantity || 0;
           return {
@@ -591,7 +614,7 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
         srcItems.forEach(src => {
           const spec = src.spec || src.modelName || "";
           const material = src.material || "PP";
-          const cost = lookupCost(spec, material);
+          const cost = lookupCostFn(spec, material);
           if (cost) {
             const matUpper = linerMat.toUpperCase();
             if (matUpper === "PU") linerUnitPrices.push(cost.puPrice);
@@ -618,7 +641,7 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
           srcItems.forEach(src => {
             const spec = src.spec || src.modelName || "";
             const material = src.material || "PP";
-            const cost = lookupCost(spec, material);
+            const cost = lookupCostFn(spec, material);
             if (cost && cost.linerMoldFee > 0) moldFees.push(cost.linerMoldFee);
           });
           if (moldFees.length > 0) {
@@ -641,7 +664,7 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
 
       return updated;
     });
-  }, [open, syncData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, syncData, lookupCostFn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 总价计算
   const boxSubtotal = useMemo(
