@@ -290,7 +290,7 @@ export async function createOrder(
   return orderId;
 }
 
-/** 更新订单（含型号，先删后插） */
+/** 更新订单（含型号，先删后插，使用事务确保一致性） */
 export async function updateOrder(
   id: number,
   orderData: Partial<Omit<InsertOrder, 'id' | 'createdAt' | 'updatedAt'>>,
@@ -298,15 +298,17 @@ export async function updateOrder(
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(orders).set(orderData).where(eq(orders.id, id));
-  if (modelsData !== undefined) {
-    await db.delete(orderModels).where(eq(orderModels.orderId, id));
-    if (modelsData.length > 0) {
-      await db.insert(orderModels).values(
-        modelsData.map((m, i) => ({ ...m, orderId: id, sortOrder: i }))
-      );
+  await db.transaction(async (tx) => {
+    await tx.update(orders).set(orderData).where(eq(orders.id, id));
+    if (modelsData !== undefined) {
+      await tx.delete(orderModels).where(eq(orderModels.orderId, id));
+      if (modelsData.length > 0) {
+        await tx.insert(orderModels).values(
+          modelsData.map((m, i) => ({ ...m, orderId: id, sortOrder: i }))
+        );
+      }
     }
-  }
+  });
 }
 
 /** 软删除订单（移入回收站） */
@@ -323,12 +325,14 @@ export async function restoreOrder(id: number) {
   await db.update(orders).set({ deletedAt: null }).where(eq(orders.id, id));
 }
 
-/** 彻底删除订单（含型号，不可恢复） */
+/** 彻底删除订单（含型号，不可恢复，使用事务确保一致性） */
 export async function hardDeleteOrder(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.delete(orderModels).where(eq(orderModels.orderId, id));
-  await db.delete(orders).where(eq(orders.id, id));
+  await db.transaction(async (tx) => {
+    await tx.delete(orderModels).where(eq(orderModels.orderId, id));
+    await tx.delete(orders).where(eq(orders.id, id));
+  });
 }
 
 /** 更新订单状态 */

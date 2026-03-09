@@ -189,9 +189,9 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
   // ── 第2行：订单基本信息行1（订单描述 / 客户 / 订单号）
   // totalCols = 14，分为 5-5-4 三段，与列标题行对齐
   ws.getRow(2).height = 20;
-  const isOverseas = (order as any).customerType === "overseas";
+  const isOverseas = order.customerType === "overseas";
   const customerTypeLabel = isOverseas ? "国外" : "国内";
-  const customsDeclared: boolean | null = (order as any).customsDeclared ?? null;
+  const customsDeclared: boolean | null = order.customsDeclared ?? null;
   // 行2：订单描述（列1-5）| 客户（列6-10）| 销售员（列11-14）
   mergeSet(ws, 2, 1, 2, 5,
     `订单描述：${order.orderDescription ?? ""}`,
@@ -235,12 +235,12 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
 
   // ── 第4行：订单渠道标注行（阿里巴巴 / 1688 / 亚马逊）
   ws.getRow(4).height = 20;
-  const isAlibaba: boolean = (order as any).isAlibaba ?? false;
-  const alibabaOrderNo: string = (order as any).alibabaOrderNo ?? "";
-  const is1688: boolean = (order as any).is1688 ?? false;
-  const alibaba1688OrderNo: string = (order as any).alibaba1688OrderNo ?? "";
-  const isAmazon: boolean = (order as any).isAmazon ?? false;
-  const amazonOrderNo: string = (order as any).amazonOrderNo ?? "";
+  const isAlibaba: boolean = order.isAlibaba ?? false;
+  const alibabaOrderNo: string = order.alibabaOrderNo ?? "";
+  const is1688: boolean = order.is1688 ?? false;
+  const alibaba1688OrderNo: string = order.alibaba1688OrderNo ?? "";
+  const isAmazon: boolean = order.isAmazon ?? false;
+  const amazonOrderNo: string = order.amazonOrderNo ?? "";
   if (isAlibaba || is1688 || isAmazon) {
     // 构建渠道标注文本
     const channelParts: string[] = [];
@@ -258,13 +258,9 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
     // 行4的日期区域：亚马逊/国外客户已在行3显示日期，行4不再重复，直接空白
     mergeSet(ws, 4, 6, 4, 10, "", COLORS.labelBg, COLORS.labelFg, false, 9);
   } else {
-    // 普通订单：显示下单日期和订单号
-    mergeSet(ws, 4, 1, 4, 5,
-      `下单日期：${order.orderDate ?? ""}`,
-      COLORS.labelBg, COLORS.labelFg, false, 9);
-    mergeSet(ws, 4, 6, 4, 10,
-      `交货日期：${order.deliveryDate ?? ""}`,
-      COLORS.labelBg, COLORS.labelFg, false, 9);
+    // 普通订单：行4左侧空白，中间空白，右侧显示订单号
+    mergeSet(ws, 4, 1, 4, 5, "", COLORS.labelBg, COLORS.labelFg, false, 9);
+    mergeSet(ws, 4, 6, 4, 10, "", COLORS.labelBg, COLORS.labelFg, false, 9);
     mergeSet(ws, 4, 11, 4, 14,
       `订单号：${order.orderNo ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
@@ -791,34 +787,34 @@ export async function generateMonthlyOrdersExcel(
     const models = modelsByOrderId.get(order.id) ?? [];
     // 汇总所有型号的数量（quantity 字段为字符串，尝试转整数求和）
     const totalQuantity = models.reduce((sum, m) => {
-      const q = parseInt((m as any).quantity ?? "0", 10);
+      const q = parseInt(m.quantity ?? "0", 10);
       return sum + (isNaN(q) ? 0 : q);
     }, 0);
     // 收集型号明细（用于第4工作表）
     for (const m of models) {
       allModelDetails.push({
-        modelName: (m as any).modelName as string | null,
-        modelCode: (m as any).modelCode as string | null,
-        quantity: (m as any).quantity as string | null,
+        modelName: m.modelName as string | null,
+        modelCode: m.modelCode as string | null,
+        quantity: m.quantity as string | null,
         orderDescription: order.orderDescription,
         customer: order.customer,
         orderDate: order.orderDate,
         orderId: order.id,
-        customerType: (order as any).customerType as string | null,
+        customerType: order.customerType as string | null,
       });
     }
     return {
       id: order.id,
       orderDescription: order.orderDescription,
       customer: order.customer,
-      customerType: (order as any).customerType as string | null,
-      customsDeclared: (order as any).customsDeclared as boolean | null,
-      isAlibaba: (order as any).isAlibaba as boolean | null,
-      alibabaOrderNo: (order as any).alibabaOrderNo as string | null,
-      is1688: (order as any).is1688 as boolean | null,
-      alibaba1688OrderNo: (order as any).alibaba1688OrderNo as string | null,
-      isAmazon: (order as any).isAmazon as boolean | null,
-      amazonOrderNo: (order as any).amazonOrderNo as string | null,
+      customerType: order.customerType as string | null,
+      customsDeclared: order.customsDeclared as boolean | null,
+      isAlibaba: order.isAlibaba as boolean | null,
+      alibabaOrderNo: order.alibabaOrderNo as string | null,
+      is1688: order.is1688 as boolean | null,
+      alibaba1688OrderNo: order.alibaba1688OrderNo as string | null,
+      isAmazon: order.isAmazon as boolean | null,
+      amazonOrderNo: order.amazonOrderNo as string | null,
       orderNo: order.orderNo,
       orderDate: order.orderDate,
       deliveryDate: order.deliveryDate,

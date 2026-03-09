@@ -501,7 +501,7 @@
 ### 后端安全与稳定性
 - [ ] Excel/ZIP/图片上传等 Express 路由添加认证中间件（防止未登录访问）
 - [ ] orders.get 路由增加 createdBy 权限校验（业务员不能查看他人订单详情）
-- [ ] duplicate 路由中的 `m: any` 类型改为具体类型
+- [x] duplicate 路由中的 `m: any` 类型改为具体类型（第八十批完成）
 
 ### 前端逻辑优化
 - [ ] Home.tsx：URL 参数 ?customer 处理后清除 URL，避免刷新后重复触发
@@ -631,3 +631,16 @@
 - [x] 亚马逊合同默认采购方：深圳市吟彩新型材料制品有限公司（含完整信息）
 - [x] 销售订单记录表亚马逊行日期（红框）改为空白
 - [x] 导出 Excel 文件默认命名：YYYYMMDD-吟彩销售订单记录表
+
+## 新功能（第八十批）
+
+- [x] 确认 INCHOI CASES LOGO 已正确嵌入所有合同 PDF（国内、PI、CI）左上角，位置美观
+- [x] 确认所有订单类型导出时行4中间日期区域已改为空白（渠道订单和普通订单均已处理）
+- [x] 系统逻辑和性能优化：
+  - [x] db.ts：updateOrder 和 hardDeleteOrder 使用 db.transaction() 事务包裹，保证原子性
+  - [x] routers.ts：提取 ensureOrderOwnership 辅助函数，消除5处重复的权限检查代码
+  - [x] routers.ts：登录错误处理改用 TRPCError（UNAUTHORIZED），返回正确 HTTP 状态码
+  - [x] routers.ts：duplicate 路由消除 m: any 类型断言
+  - [x] exportExcel.ts：消除所有 (order as any) 和 (m as any) 类型断言
+  - [x] Home.tsx：消除所有 as any 类型断言，修复 JSX 缩进格式问题
+  - [x] 新增 optimization.test.ts 测试文件（权限检查、事务安全、登录错误处理），22 个测试全部通过

@@ -183,18 +183,18 @@ export default function Home() {
       (o.customer ?? "").toLowerCase().includes(q) ||
       (o.orderDescription ?? "").toLowerCase().includes(q) ||
       (o.orderNo ?? "").toLowerCase().includes(q) ||
-      ((o as any).alibabaOrderNo ?? "").toLowerCase().includes(q) ||
-      ((o as any).alibaba1688OrderNo ?? "").toLowerCase().includes(q) ||
-      ((o as any).amazonOrderNo ?? "").toLowerCase().includes(q)
+      (o.alibabaOrderNo ?? "").toLowerCase().includes(q) ||
+      (o.alibaba1688OrderNo ?? "").toLowerCase().includes(q) ||
+      (o.amazonOrderNo ?? "").toLowerCase().includes(q)
     );
   }, [orders, search]);
 
   // 渠道过滤
   const channelFiltered = useMemo(() => {
     if (channelFilter === "all") return searchFiltered;
-    if (channelFilter === "alibaba") return searchFiltered.filter(o => (o as any).isAlibaba);
-    if (channelFilter === "1688")    return searchFiltered.filter(o => (o as any).is1688);
-    if (channelFilter === "amazon")  return searchFiltered.filter(o => (o as any).isAmazon);
+    if (channelFilter === "alibaba") return searchFiltered.filter(o => o.isAlibaba);
+    if (channelFilter === "1688")    return searchFiltered.filter(o => o.is1688);
+    if (channelFilter === "amazon")  return searchFiltered.filter(o => o.isAmazon);
     return searchFiltered;
   }, [searchFiltered, channelFilter]);
 
@@ -412,15 +412,15 @@ export default function Home() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-1.5 text-gray-500 border-gray-200 hover:text-[#1A3C5E] hover:border-[#1A3C5E]/30">
                     <User className="w-3.5 h-3.5" />
-                    <span className="max-w-[80px] truncate">{(user as any).displayName ?? user.name ?? "用户"}</span>
+                    <span className="max-w-[80px] truncate">{user.displayName ?? user.name ?? "用户"}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-44">
                   <div className="px-3 py-2 text-xs text-slate-400">
-                    {(user as any).role === "admin" ? "管理员" : "业务员"}
+                    {user.role === "admin" ? "管理员" : "业务员"}
                   </div>
-                  <DropdownMenuSeparator />
-                  {(user as any).role === "admin" && (
+                   <DropdownMenuSeparator />
+                   {user.role === "admin" && (
                     <DropdownMenuItem onClick={() => navigate("/admin/users")} className="gap-2 cursor-pointer">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       账号管理
@@ -467,8 +467,8 @@ export default function Home() {
                           <User className="w-4 h-4 text-white" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-800">{(user as any).displayName ?? user.name ?? "用户"}</p>
-                          <p className="text-xs text-gray-400">{(user as any).role === "admin" ? "管理员" : "业务员"}</p>
+                          <p className="text-sm font-medium text-gray-800">{user.displayName ?? user.name ?? "用户"}</p>
+                          <p className="text-xs text-gray-400">{user.role === "admin" ? "管理员" : "业务员"}</p>
                         </div>
                       </div>
                     </div>
@@ -505,7 +505,7 @@ export default function Home() {
                         系统设置
                       </button>
                     </Link>
-                    {(user as any)?.role === "admin" && (
+                    {user?.role === "admin" && (
                       <button
                         onClick={() => navigate("/admin/users")}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 text-left"
@@ -708,19 +708,19 @@ export default function Home() {
                           <p className="font-medium text-gray-800 text-sm leading-tight">
                             <HighlightText text={order.orderDescription || "（未填写描述）"} keyword={search} />
                           </p>
-                          {(order as any).isAlibaba && (
+                          {order.isAlibaba && (
                             <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1.5 py-0.5 rounded flex-shrink-0">阿里巴巴</span>
-                          )}
-                          {(order as any).is1688 && (
-                            <span className="text-xs font-medium text-[#6D28D9] bg-[#F5F3FF] px-1.5 py-0.5 rounded flex-shrink-0">1688</span>
-                          )}
-                          {(order as any).isAmazon && (
+                           )}
+                           {order.is1688 && (
+                             <span className="text-xs font-medium text-[#6D28D9] bg-[#F5F3FF] px-1.5 py-0.5 rounded flex-shrink-0">1688</span>
+                           )}
+                           {order.isAmazon && (
                             <span className="inline-flex items-center gap-0.5 text-xs font-medium text-[#1D6FA4] bg-[#EFF6FF] px-1.5 py-0.5 rounded flex-shrink-0">
                               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96C5 16.1 6.1 17 7 17h11v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63H18c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 22.46 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
                               亚马逊
                             </span>
                           )}
-                          {(order as any).customerType === "overseas" && (order as any).customsDeclared && (
+                          {order.customerType === "overseas" && order.customsDeclared && (
                             <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-orange-500 px-1.5 py-0.5 rounded flex-shrink-0">
                               <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
@@ -773,7 +773,7 @@ export default function Home() {
                       {/* 制单员 */}
                       <div className="flex flex-col items-center gap-0.5">
                         <span className="text-sm text-gray-600 text-center">{order.maker || "—"}</span>
-                        {(order as any).creatorIsActive === false && (
+                        {order.creatorIsActive === false && (
                           <span className="text-xs text-red-400">（已离职）</span>
                         )}
                       </div>
@@ -824,19 +824,19 @@ export default function Home() {
                             <p className="font-medium text-gray-800 text-sm leading-tight">
                               <HighlightText text={order.orderDescription || "（未填写描述）"} keyword={search} />
                             </p>
-                            {(order as any).isAlibaba && (
+                            {order.isAlibaba && (
                               <span className="text-xs font-medium text-[#CC4400] bg-[#FFF0E6] px-1 py-0.5 rounded">阿里</span>
-                            )}
-                            {(order as any).is1688 && (
-                              <span className="text-xs font-medium text-[#6D28D9] bg-[#F5F3FF] px-1 py-0.5 rounded">1688</span>
-                            )}
-                            {(order as any).isAmazon && (
+                             )}
+                             {order.is1688 && (
+                               <span className="text-xs font-medium text-[#6D28D9] bg-[#F5F3FF] px-1 py-0.5 rounded">1688</span>
+                             )}
+                             {order.isAmazon && (
                               <span className="inline-flex items-center gap-0.5 text-xs font-medium text-[#1D6FA4] bg-[#EFF6FF] px-1 py-0.5 rounded">
                                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96C5 16.1 6.1 17 7 17h11v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63H18c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 22.46 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
                                 亚马逊
                               </span>
                             )}
-                            {(order as any).customerType === "overseas" && (order as any).customsDeclared && (
+                            {order.customerType === "overseas" && order.customsDeclared && (
                               <span className="text-xs font-semibold text-white bg-orange-500 px-1 py-0.5 rounded">报关</span>
                             )}
                           </div>

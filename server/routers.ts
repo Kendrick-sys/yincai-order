@@ -27,7 +27,22 @@ import {
 } from "./auth";
 import { sdk } from "./_core/sdk";
 
-// ─── Zod Schemas ──────────────────────────────────────────────────────────────
+// ─── 权限检查辅助函数 ───────────────────────────────────────────────────────────────────────
+
+/** 业务员操作订单前的权限检查：管理员跳过，业务员只能操作自己的订单 */
+async function ensureOrderOwnership(
+  ctx: { user: { role: string; id: number } },
+  orderId: number,
+  action: string,
+) {
+  if (ctx.user.role === "admin") return;
+  const existing = await getOrderById(orderId);
+  if (!existing || existing.createdBy !== ctx.user.id) {
+    throw new TRPCError({ code: "FORBIDDEN", message: `无权${action}该订单` });
+  }
+}
+
+// ─── Zod Schemas ──────────────────────────────────────────────────────────────────────────────
 
 const modelSchema = z.object({
   modelName:       z.string().optional(),
@@ -162,14 +177,14 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         const user = await getUserByUsername(input.username);
         if (!user || !user.passwordHash) {
-          throw new Error("用户名或密码错误");
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "用户名或密码错误" });
         }
         if (!user.isActive) {
-          throw new Error("该账号已被停用，请联系管理员");
+          throw new TRPCError({ code: "FORBIDDEN", message: "该账号已被停用，请联系管理员" });
         }
         const valid = await verifyPassword(input.password, user.passwordHash);
         if (!valid) {
-          throw new Error("用户名或密码错误");
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "用户名或密码错误" });
         }
         // 记住我：30 天；不记住：8 小时
         const expiresInMs = input.rememberMe ? THIRTY_DAYS_MS : EIGHT_HOURS_MS;
@@ -752,12 +767,7 @@ export const appRouter = router({
     update: protectedProcedure
       .input(z.object({ id: z.number(), order: orderHeaderSchema, models: z.array(modelSchema) }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin") {
-          const existing = await getOrderById(input.id);
-          if (!existing || existing.createdBy !== ctx.user.id) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "无权修改该订单" });
-          }
-        }
+        await ensureOrderOwnership(ctx, input.id, "修改");
         await updateOrder(input.id, input.order, input.models);
         return { success: true };
       }),
@@ -769,12 +779,7 @@ export const appRouter = router({
         status: z.enum(["draft", "submitted", "in_production", "completed", "cancelled"]),
       }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin") {
-          const existing = await getOrderById(input.id);
-          if (!existing || existing.createdBy !== ctx.user.id) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "无权更新该订单状态" });
-          }
-        }
+        await ensureOrderOwnership(ctx, input.id, "更新状态");
         await updateOrderStatus(input.id, input.status);
         return { success: true };
       }),
@@ -783,12 +788,7 @@ export const appRouter = router({
     delete: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin") {
-          const existing = await getOrderById(input.id);
-          if (!existing || existing.createdBy !== ctx.user.id) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "无权删除该订单" });
-          }
-        }
+        await ensureOrderOwnership(ctx, input.id, "删除");
         await softDeleteOrder(input.id);
         return { success: true };
       }),
@@ -797,12 +797,7 @@ export const appRouter = router({
     restore: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin") {
-          const existing = await getOrderById(input.id);
-          if (!existing || existing.createdBy !== ctx.user.id) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "无权恢复该订单" });
-          }
-        }
+        await ensureOrderOwnership(ctx, input.id, "恢复");
         await restoreOrder(input.id);
         return { success: true };
       }),
@@ -811,12 +806,7 @@ export const appRouter = router({
     hardDelete: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin") {
-          const existing = await getOrderById(input.id);
-          if (!existing || existing.createdBy !== ctx.user.id) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "无权彻底删除该订单" });
-          }
-        }
+        await ensureOrderOwnership(ctx, input.id, "彻底删除");
         await hardDeleteOrder(input.id);
         return { success: true };
       }),
@@ -841,7 +831,7 @@ export const appRouter = router({
             status: "draft",
             createdBy: ctx.user.id,
           },
-          (original.models ?? []).map((m: any) => ({
+          (original.models ?? []).map((m) => ({
             modelName:       m.modelName ?? undefined,
             modelCode:       m.modelCode ?? undefined,
             quantity:        m.quantity ?? undefined,
