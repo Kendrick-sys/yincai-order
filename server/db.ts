@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import {
   InsertUser, users,
   orders, orderModels, InsertOrder, InsertOrderModel,
@@ -427,8 +428,14 @@ export async function deleteYifengCostItem(id: number): Promise<void> {
 export async function replaceAllYifengCostItems(items: InsertYifengCostItem[]): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  // 使用 TRUNCATE TABLE 清空表，不受 sql_safe_updates 模式限制（NAS MySQL 兼容）
-  await db.execute(sql`TRUNCATE TABLE yifeng_cost_items`);
+  // 使用原生 mysql2 连接执行 TRUNCATE TABLE，绕过 drizzle sql 模板参数限制
+  // TRUNCATE 不受 sql_safe_updates 模式影响（NAS MySQL 兼容）
+  const conn = await mysql.createConnection(process.env.DATABASE_URL!);
+  try {
+    await conn.execute('TRUNCATE TABLE yifeng_cost_items');
+  } finally {
+    await conn.end();
+  }
   if (items.length > 0) {
     // 分批插入，每批 50 条
     for (let i = 0; i < items.length; i += 50) {
