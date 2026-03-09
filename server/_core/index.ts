@@ -62,8 +62,13 @@ async function startServer() {
       const id = parseInt(req.params.id);
       if (isNaN(id)) { res.status(400).json({ error: "无效的订单ID" }); return; }
       const buffer = await generateOrderExcel(id);
+      const today = new Date();
+      const dateStr = today.getFullYear().toString() +
+        String(today.getMonth() + 1).padStart(2, '0') +
+        String(today.getDate()).padStart(2, '0');
+      const exportFilename = encodeURIComponent(`${dateStr}-\u541f\u5f69\u9500\u552e\u8ba2\u5355\u8bb0\u5f55\u8868.xlsx`);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent('吟彩订单_' + id + '.xlsx')}`);
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${exportFilename}`);
       res.send(buffer);
     } catch (err: any) {
       res.status(500).json({ error: err.message ?? "导出失败" });

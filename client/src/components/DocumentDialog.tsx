@@ -35,6 +35,30 @@ import { cn } from "@/lib/utils";
 const COMPANY_NAME_CN = "深圳市吟彩新型材料制品有限公司";
 const VAT_RATE = 1.13; // 增值税税率 13%
 
+// ─── 亚马逊合同：采购方（甲方）固定为吟彩 ────────────────────────────────────────
+const AMAZON_BUYER_INFO = {
+  name: "深圳市吟彩新型材料制品有限公司",
+  address: "深圳市龙华区龙华街道油松社区镇乾大厦520",
+  contactName: "张昊",
+  phone: "+86 15338774063",
+  bankAccount: "4000 0517 0910 0504 972",
+  bankName: "中国工商银行深圳市分行",
+};
+
+// ─── 亚马逊合同：供货方（乙方）选项 ─────────────────────────────────────────────
+const AMAZON_SUPPLIER_OPTIONS = [
+  {
+    label: "恩平市亿丰塑料模具有限公司",
+    name: "恩平市亿丰塑料模具有限公司",
+    address: "广东省恩平市恩城江门产业转移工业园恩平园区三区A10",
+    contactName: "冯瑞宁",
+    phone: "0750-7187777",
+    bankAccount: "2012 0090 0912 4868 277",
+    bankName: "中国工商银行恩平支行",
+    taxNo: "",
+  },
+];
+
 // 产品名称选项（国内合同）
 const PRODUCT_NAME_OPTIONS = ["塑料工具箱", "其他"];
 // 产品名称选项（PI/CI，英文）
@@ -1088,6 +1112,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   const [buyerTaxNo, setBuyerTaxNo] = useState("");
   const [buyerBankAccount, setBuyerBankAccount] = useState("");
   const [buyerBankName, setBuyerBankName] = useState("");
+  // 亚马逊合同：当前选中的供货商索引（0 = 恩平亿丰，-1 = 自定义）
+  const [amazonSupplierIdx, setAmazonSupplierIdx] = useState(0);
 
   // PI/CI 专属
   const [piExtras, setPiExtras] = useState<PiExtras>(defaultPiExtras());
@@ -1322,9 +1348,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           if (matchedCustomer.enAddress) setBuyerAddress(matchedCustomer.enAddress);
           else if (matchedCustomer.address) setBuyerAddress(matchedCustomer.address);
         }
-        // 国内客户 / 亚马逊订单供货商：自动填入甲乙方信息（空字段才填，不覆盖用户已修改的内容）
-        // 亚马逊订单：客户就是供货商（乙方），同样需要自动预填
-        if (matchedCustomer.country === "domestic" || isAmazonOrder) {
+        // 国内客户：自动填入甲方信息（空字段才填，不覆盖用户已修改的内容）
+        if (matchedCustomer.country === "domestic" && !isAmazonOrder) {
           if (matchedCustomer.cnCompany) setBuyerCnCompany(prev => prev || (matchedCustomer.cnCompany ?? ""));
           if (matchedCustomer.taxNo) setBuyerTaxNo(prev => prev || (matchedCustomer.taxNo ?? ""));
           if (matchedCustomer.bankAccount) setBuyerBankAccount(prev => prev || (matchedCustomer.bankAccount ?? ""));
@@ -1333,6 +1358,17 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           if (matchedCustomer.address) setCounterpartyAddress(prev => prev || (matchedCustomer.address ?? ""));
         }
       }
+    }
+
+    // 亚马逊订单：若草稿中没有供货商信息，默认填入恩平亿丰
+    if (isAmazonOrder && !cnRestoredFromCache) {
+      const defaultSupplier = AMAZON_SUPPLIER_OPTIONS[0];
+      setCounterpartyName(defaultSupplier.name);
+      setCounterpartyAddress(defaultSupplier.address);
+      setBuyerBankAccount(defaultSupplier.bankAccount);
+      setBuyerBankName(defaultSupplier.bankName);
+      if (defaultSupplier.taxNo) setBuyerTaxNo(defaultSupplier.taxNo);
+      setAmazonSupplierIdx(0);
     }
   }, [open, order, dbDraftCn, dbDraftPi]);
 
@@ -1517,6 +1553,15 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     setBuyerTaxNo("");
     setBuyerBankAccount("");
     setBuyerBankName("");
+    // 亚马逊订单：重置时恢复默认供货商（恩平亿丰）
+    if (isAmazonOrder) {
+      const defaultSupplier = AMAZON_SUPPLIER_OPTIONS[0];
+      setCounterpartyName(defaultSupplier.name);
+      setCounterpartyAddress(defaultSupplier.address);
+      setBuyerBankAccount(defaultSupplier.bankAccount);
+      setBuyerBankName(defaultSupplier.bankName);
+      setAmazonSupplierIdx(0);
+    }
   };
 
   // ── 从 PI 填充 CI ─────────────────────────────────────────────────────────────
@@ -2076,8 +2121,8 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
           {/* ─── 国内采购合同 ─── */}
           <TabsContent value="contract_cn" className="space-y-4 mt-4">
 
-            {/* 客户档案快速选择（可搜索 Combobox） */}
-            {domesticCustomers.length > 0 && (
+            {/* 客户档案快速选择（可搜索 Combobox）——仅非亚马逊订单显示 */}
+            {!isAmazonOrder && domesticCustomers.length > 0 && (
               <CustomerFillCombobox
                 customers={domesticCustomers}
                 label="从客户档案选择："
@@ -2104,15 +2149,63 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
             <div className="grid grid-cols-2 gap-4">
               {isAmazonOrder ? (
                 <>
-                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                    <p className="text-xs font-semibold text-primary mb-1">甲方（采购方）</p>
-                    <p className="text-sm font-medium text-foreground">{COMPANY_NAME_CN}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">即我方</p>
+                  {/* 甲方：吟彩完整信息展示 */}
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-0.5">
+                    <p className="text-xs font-semibold text-primary mb-1">甲方（采购方）——固定</p>
+                    <p className="text-sm font-medium text-foreground">{AMAZON_BUYER_INFO.name}</p>
+                    <p className="text-xs text-muted-foreground">{AMAZON_BUYER_INFO.address}</p>
+                    <p className="text-xs text-muted-foreground">联系人：{AMAZON_BUYER_INFO.contactName}　{AMAZON_BUYER_INFO.phone}</p>
+                    <p className="text-xs text-muted-foreground">开户行：{AMAZON_BUYER_INFO.bankName}</p>
+                    <p className="text-xs text-muted-foreground">账号：{AMAZON_BUYER_INFO.bankAccount}</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-muted/30 border border-border">
-                    <p className="text-xs font-semibold text-muted-foreground mb-1">乙方（供货方）</p>
-                    <p className="text-sm font-medium text-foreground">{order.customer || "—"}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">即本订单客户（供货商）</p>
+                  {/* 乙方：供货商选择 */}
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-muted-foreground">乙方（供货方）</p>
+                      <Select
+                        value={String(amazonSupplierIdx)}
+                        onValueChange={(v) => {
+                          const idx = parseInt(v);
+                          setAmazonSupplierIdx(idx);
+                          if (idx >= 0 && idx < AMAZON_SUPPLIER_OPTIONS.length) {
+                            const s = AMAZON_SUPPLIER_OPTIONS[idx];
+                            setCounterpartyName(s.name);
+                            setCounterpartyAddress(s.address);
+                            setBuyerBankAccount(s.bankAccount);
+                            setBuyerBankName(s.bankName);
+                            if (s.taxNo) setBuyerTaxNo(s.taxNo);
+                            toast.success(`已切换供货商：${s.name}`);
+                          } else {
+                            // 自定义：清空供货商字段
+                            setCounterpartyName("");
+                            setCounterpartyAddress("");
+                            setBuyerBankAccount("");
+                            setBuyerBankName("");
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-6 text-xs w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AMAZON_SUPPLIER_OPTIONS.map((s, i) => (
+                            <SelectItem key={i} value={String(i)} className="text-xs">{s.label}</SelectItem>
+                          ))}
+                          <SelectItem value="-1" className="text-xs">自定义</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {amazonSupplierIdx >= 0 && amazonSupplierIdx < AMAZON_SUPPLIER_OPTIONS.length ? (
+                      <>
+                        <p className="text-sm font-medium text-foreground">{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].name}</p>
+                        <p className="text-xs text-muted-foreground">{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].address}</p>
+                        <p className="text-xs text-muted-foreground">联系人：{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].contactName}　{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].phone}</p>
+                        <p className="text-xs text-muted-foreground">开户行：{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].bankName}</p>
+                        <p className="text-xs text-muted-foreground">账号：{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].bankAccount}</p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">请在下方手动填写供货商信息</p>
+                    )}
                   </div>
                 </>
               ) : (
@@ -2136,7 +2229,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                 <Label className="text-xs">{isAmazonOrder ? "乙方全称（供货商）" : "甲方全称（采购方）"}<span className="text-destructive ml-1">*</span></Label>
                 <Input
                   value={counterpartyName}
-                  onChange={e => setCounterpartyName(e.target.value)}
+                  onChange={e => { setCounterpartyName(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
                   placeholder={isAmazonOrder ? "请输入乙方（供货商）公司全称" : "请输入甲方（采购方）公司全称"}
                   className="h-8 text-sm"
                 />
@@ -2165,7 +2258,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                 <Label className="text-xs">{isAmazonOrder ? "乙方地址" : "交货地址"}</Label>
                 <Input
                   value={counterpartyAddress}
-                  onChange={e => setCounterpartyAddress(e.target.value)}
+                  onChange={e => { setCounterpartyAddress(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
                   placeholder="可选，如：广东省深圳市..."
                   className="h-8 text-sm"
                 />
@@ -2176,7 +2269,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                 <Label className="text-xs">{isAmazonOrder ? "乙方对公账号" : "甲方对公账号"}</Label>
                 <Input
                   value={buyerBankAccount}
-                  onChange={e => setBuyerBankAccount(e.target.value)}
+                  onChange={e => { setBuyerBankAccount(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
                   placeholder="可选"
                   className="h-8 text-sm"
                 />
@@ -2185,7 +2278,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
                 <Label className="text-xs">{isAmazonOrder ? "乙方对公开户行" : "甲方对公开户行"}</Label>
                 <Input
                   value={buyerBankName}
-                  onChange={e => setBuyerBankName(e.target.value)}
+                  onChange={e => { setBuyerBankName(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
                   placeholder="可选"
                   className="h-8 text-sm"
                 />

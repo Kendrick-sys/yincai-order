@@ -252,16 +252,11 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
     const channelBg = isAlibaba ? "FFF0E6" : is1688 ? "F5F3FF" : "EFF6FF";
     const channelFg = isAlibaba ? "CC4400" : is1688 ? "6D28D9" : "1D6FA4";
     mergeSet(ws, 4, 1, 4, 5, channelText, channelBg, channelFg, true, 10);
-    mergeSet(ws, 4, 6, 4, 10,
-      `下单日期：${order.orderDate ?? ""}   交货日期：${order.deliveryDate ?? ""}`,
-      COLORS.labelBg, COLORS.labelFg, false, 9);
     mergeSet(ws, 4, 11, 4, 14,
       `订单号：${order.orderNo ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
-    // 国外客户+渠道标注时，行3已显示日期，行4不再重复显示日期，改为空白
-    if (isOverseas) {
-      mergeSet(ws, 4, 6, 4, 10, "", COLORS.labelBg, COLORS.labelFg, false, 9);
-    }
+    // 行4的日期区域：亚马逊/国外客户已在行3显示日期，行4不再重复，直接空白
+    mergeSet(ws, 4, 6, 4, 10, "", COLORS.labelBg, COLORS.labelFg, false, 9);
   } else {
     // 普通订单：显示下单日期和订单号
     mergeSet(ws, 4, 1, 4, 5,
