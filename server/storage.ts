@@ -8,12 +8,21 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 // ─── MinIO / S3-compatible path ───────────────────────────────────────────────
 
 function isMinioConfigured(): boolean {
-  return !!(
-    process.env.MINIO_ENDPOINT &&
-    process.env.MINIO_ACCESS_KEY &&
-    process.env.MINIO_SECRET_KEY &&
-    process.env.MINIO_BUCKET
-  );
+  const hasEndpoint = !!process.env.MINIO_ENDPOINT;
+  const hasBucket = !!process.env.MINIO_BUCKET;
+  // Support both dedicated access keys and root user credentials
+  const hasCredentials = !!(getMinioAccessKey() && getMinioSecretKey());
+  return hasEndpoint && hasBucket && hasCredentials;
+}
+
+// Fallback: MINIO_ACCESS_KEY -> MINIO_ROOT_USER
+function getMinioAccessKey(): string {
+  return process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USER || '';
+}
+
+// Fallback: MINIO_SECRET_KEY -> MINIO_ROOT_PASSWORD
+function getMinioSecretKey(): string {
+  return process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD || '';
 }
 
 function getS3Client(): S3Client {
@@ -21,8 +30,8 @@ function getS3Client(): S3Client {
     endpoint: process.env.MINIO_ENDPOINT!,
     region: process.env.MINIO_REGION || "us-east-1",
     credentials: {
-      accessKeyId: process.env.MINIO_ACCESS_KEY!,
-      secretAccessKey: process.env.MINIO_SECRET_KEY!,
+      accessKeyId: getMinioAccessKey(),
+      secretAccessKey: getMinioSecretKey(),
     },
     forcePathStyle: true, // Required for MinIO
   });

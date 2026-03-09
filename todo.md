@@ -565,3 +565,9 @@
 - [x] 全面测试：检查所有功能在NAS局域网环境下正常运行（16个测试全部通过）
 - [x] 性能优化：修复 saveDraftToDb 防抖引用稳定性（useRef）、弹窗关闭时清除 timer 防止内存泄漏
 - [x] UI设计提升：ImageUploader 进度条动画、草稿作者信息卡片、toast 去重提示
+
+## Bug修复 + 优化（第七十一批）
+
+- [x] Bug：合同生成失败 "The Access Key Id you provided does not exist in our records"——storage.ts 已增加 MINIO_ROOT_USER 回退逻辑，用户需在 NAS .env 中确认 MINIO_ACCESS_KEY 与 MinIO 容器凭据一致
+- [x] 产品明细型号自动关联订单中的型号名称（格式：型号名称 (型号编码)，如「安卡手提箱 (25)」）
+- [x] 产品明细 UI 优化：表格圆角边框、表头加大间距、行高增至 h-8、字号增至 text-sm、小计行主色高亮、PI/CI 同步优化
