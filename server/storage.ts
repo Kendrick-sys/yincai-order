@@ -48,9 +48,16 @@ async function minioPut(
     })
   );
 
-  // Build public URL (bucket must be set to public in MinIO console)
-  const endpoint = process.env.MINIO_ENDPOINT!.replace(/\/+$/, "");
-  const url = `${endpoint}/${bucket}/${key}`;
+  // Build public URL using MINIO_PUBLIC_ENDPOINT if set.
+  // In NAS deployments, MINIO_ENDPOINT is the internal Docker network address
+  // (e.g. http://minio:9000) used for S3 API calls between containers,
+  // but browsers need the external address (e.g. http://192.168.2.97:9000).
+  // Set MINIO_PUBLIC_ENDPOINT=http://<NAS_IP>:9000 in .env to fix image display.
+  const publicEndpoint = (
+    process.env.MINIO_PUBLIC_ENDPOINT ||
+    process.env.MINIO_ENDPOINT!
+  ).replace(/\/+$/, "");
+  const url = `${publicEndpoint}/${bucket}/${key}`;
   return { key, url };
 }
 

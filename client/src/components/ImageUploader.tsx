@@ -48,11 +48,19 @@ export default function ImageUploader({
           credentials: "include",
           body: JSON.stringify({ base64, mimeType: file.type, category }),
         });
-        if (!res.ok) throw new Error("上传失败");
+        if (!res.ok) {
+          let errMsg = "上传失败";
+          try {
+            const errBody = await res.json();
+            if (errBody?.error) errMsg = errBody.error;
+          } catch {/* ignore */}
+          if (res.status === 401) errMsg = "登录已过期，请刷新页面重新登录";
+          throw new Error(errMsg);
+        }
         const { url } = await res.json();
         newUrls.push(url);
-      } catch {
-        toast.error(`${file.name || "图片"} 上传失败`);
+      } catch (err: any) {
+        toast.error(`${file.name || "图片"} 上传失败：${err?.message ?? "未知错误"}`);
       }
     }
 

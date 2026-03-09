@@ -41,8 +41,9 @@ async function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
     await sdk.authenticateRequest(req);
     next();
-  } catch {
-    res.status(401).json({ error: "请先登录" });
+  } catch (err: any) {
+    console.warn(`[requireAuth] 认证失败 ${req.method} ${req.path}:`, err?.message ?? err);
+    res.status(401).json({ error: "登录已过期，请刷新页面重新登录" });
   }
 }
 

@@ -758,16 +758,21 @@ async function htmlToPdf(html: string): Promise<Buffer> {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    // 设置超时为 60s，适配 NAS 环境 Chromium 启动较慢
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 60000 });
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
       margin: { top: "10mm", bottom: "10mm", left: "10mm", right: "10mm" },
+      timeout: 60000,
     });
     return Buffer.from(pdf);
+  } catch (err: any) {
+    console.error("[PDF生成失败]", err?.message ?? err);
+    throw new Error(`PDF 生成失败：${err?.message ?? "未知错误"}`);
   } finally {
     // 关闭页面，但保留浏览器实例供下次复用
-    await page.close();
+    await page.close().catch(() => {});
   }
 }
 

@@ -10,6 +10,7 @@ import {
   updateOrderStatus,
   listCustomers, listCustomersWithStats, createCustomer, updateCustomer, deleteCustomer, getCustomerById,
   transferCustomers, transferOrders,
+  getDocumentDraft, upsertDocumentDraft,
 } from "./db";
 import {
   generateDocNo, createDocument, updateDocumentPdf,
@@ -655,7 +656,33 @@ export const appRouter = router({
       }),
   }),
 
-  // ─── 系统设置 ───────────────────────────────────────────────────────────────
+  // ─── 系统设置 ────────  // ─── 单据草稿（跨设备共享） ───────────────────────────────────────────────
+  documentDrafts: router({
+    // 获取单据草稿
+    get: protectedProcedure
+      .input(z.object({
+        orderId: z.number(),
+        draftType: z.enum(["contract_cn", "pi"]),
+      }))
+      .query(async ({ input }) => {
+        const draft = await getDocumentDraft(input.orderId, input.draftType);
+        return draft ? { data: draft.data, updatedAt: draft.updatedAt } : null;
+      }),
+
+    // 保存单据草稿
+    save: protectedProcedure
+      .input(z.object({
+        orderId: z.number(),
+        draftType: z.enum(["contract_cn", "pi"]),
+        data: z.string(), // JSON 字符串
+      }))
+      .mutation(async ({ input, ctx }) => {
+        await upsertDocumentDraft(input.orderId, input.draftType, input.data, ctx.user.id);
+        return { success: true };
+      }),
+  }),
+
+  // ─── 系统设置 ───────────────────────────────────────────────
   settings: router({
     // 获取单据编号前缀
     getDocPrefixes: protectedProcedure

@@ -5,7 +5,7 @@
  * CI Tab 支持「从PI创建」：选择已有PI单据自动填充数据
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
@@ -1113,6 +1113,26 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     { enabled: open, staleTime: 60_000 }
   );
 
+  // 从数据库加载草稿（跨设备共享）
+  const { data: dbDraftCn } = trpc.documentDrafts.get.useQuery(
+    { orderId: order.id, draftType: "contract_cn" },
+    { enabled: open, staleTime: 0 }
+  );
+  const { data: dbDraftPi } = trpc.documentDrafts.get.useQuery(
+    { orderId: order.id, draftType: "pi" },
+    { enabled: open, staleTime: 0 }
+  );
+
+  // 保存草稿到数据库（防抖 1.5s）
+  const saveDraftMutation = trpc.documentDrafts.save.useMutation();
+  const saveDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveDraftToDb = useCallback((draftType: "contract_cn" | "pi", data: object) => {
+    if (saveDraftTimerRef.current) clearTimeout(saveDraftTimerRef.current);
+    saveDraftTimerRef.current = setTimeout(() => {
+      saveDraftMutation.mutate({ orderId: order.id, draftType, data: JSON.stringify(data) });
+    }, 1500);
+  }, [order.id, saveDraftMutation]);
+
   // ── 客户列表分组（useMemo 避免每次 render 重新过滤）─────────────────────────────────────────
   const domesticCustomers = useMemo(
     () => (customerList ?? []).filter((c: any) => c.country === "domestic"),
@@ -1127,7 +1147,7 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
   const storageKey = `yincai_contract_cn_${order.id}`;
   const piStorageKey = `yincai_pi_${order.id}`;
 
-  // 初始化行项目（优先从 localStorage 恢复，否则从订单数据初始化）
+  // 初始化行项目（优先从数据库草稿恢复，其次 localStorage，最后用订单数据初始化）
   useEffect(() => {
     if (!open) return;
 
@@ -1135,13 +1155,13 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
     setActiveTab(defaultTab);
     setSelectedPiId("");
 
-    // 先尝试从 localStorage 恢复国内合同内容
+    // 优先从数据库草稿恢复（跨设备共享）
     let cnRestoredFromCache = false;
     let piRestoredFromCache = false;
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
+
+    if (dbDraftCn?.data) {
+      try {
+        const parsed = JSON.parse(dbDraftCn.data);
         if (parsed.lineItems) setLineItems(parsed.lineItems);
         if (parsed.counterpartyName !== undefined) setCounterpartyName(parsed.counterpartyName);
         if (parsed.counterpartyAddress !== undefined) setCounterpartyAddress(parsed.counterpartyAddress);
@@ -1154,22 +1174,42 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         if (parsed.depositPct) setDepositPct(parsed.depositPct);
         if (parsed.balancePct) setBalancePct(parsed.balancePct);
         cnRestoredFromCache = true;
-      } else {
-        setLineItems(buildInitialLineItems(order.models ?? []));
-        setExtras(defaultExtras());
-        setNeedInvoice(false);
-        setCounterpartyName("");
-        setCounterpartyAddress("");
-      }
-    } catch {
-      setLineItems(buildInitialLineItems(order.models ?? []));
+      } catch { /* 解析失败则从 localStorage 恢复 */ }
     }
 
-    // 尝试从 localStorage 恢复 PI/CI 内容（优先级高于客户档案自动填充）
-    try {
-      const piSaved = localStorage.getItem(piStorageKey);
-      if (piSaved) {
-        const parsed = JSON.parse(piSaved);
+    if (!cnRestoredFromCache) {
+      // 备用：尝试从 localStorage 恢复国内合同内容
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.lineItems) setLineItems(parsed.lineItems);
+          if (parsed.counterpartyName !== undefined) setCounterpartyName(parsed.counterpartyName);
+          if (parsed.counterpartyAddress !== undefined) setCounterpartyAddress(parsed.counterpartyAddress);
+          if (parsed.buyerCnCompany !== undefined) setBuyerCnCompany(parsed.buyerCnCompany);
+          if (parsed.buyerTaxNo !== undefined) setBuyerTaxNo(parsed.buyerTaxNo);
+          if (parsed.buyerBankAccount !== undefined) setBuyerBankAccount(parsed.buyerBankAccount);
+          if (parsed.buyerBankName !== undefined) setBuyerBankName(parsed.buyerBankName);
+          if (parsed.needInvoice !== undefined) setNeedInvoice(parsed.needInvoice);
+          if (parsed.extras) setExtras({ ...defaultExtras(), ...parsed.extras });
+          if (parsed.depositPct) setDepositPct(parsed.depositPct);
+          if (parsed.balancePct) setBalancePct(parsed.balancePct);
+          cnRestoredFromCache = true;
+        } else {
+          setLineItems(buildInitialLineItems(order.models ?? []));
+          setExtras(defaultExtras());
+          setNeedInvoice(false);
+          setCounterpartyName("");
+          setCounterpartyAddress("");
+        }
+      } catch {
+        setLineItems(buildInitialLineItems(order.models ?? []));
+      }
+    }
+
+    if (dbDraftPi?.data) {
+      try {
+        const parsed = JSON.parse(dbDraftPi.data);
         if (parsed.piLineItems) setPiLineItems(parsed.piLineItems);
         if (parsed.buyerAttn !== undefined) setBuyerAttn(parsed.buyerAttn);
         if (parsed.buyerCompany !== undefined) setBuyerCompany(parsed.buyerCompany);
@@ -1185,12 +1225,37 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         if (parsed.depositPct) setDepositPct(parsed.depositPct);
         if (parsed.balancePct) setBalancePct(parsed.balancePct);
         piRestoredFromCache = true;
-      } else {
+      } catch { /* 解析失败则从 localStorage 恢复 */ }
+    }
+
+    if (!piRestoredFromCache) {
+      // 尝试从 localStorage 恢复 PI/CI 内容（优先级高于客户档案自动填充）
+      try {
+        const piSaved = localStorage.getItem(piStorageKey);
+        if (piSaved) {
+          const parsed = JSON.parse(piSaved);
+          if (parsed.piLineItems) setPiLineItems(parsed.piLineItems);
+          if (parsed.buyerAttn !== undefined) setBuyerAttn(parsed.buyerAttn);
+          if (parsed.buyerCompany !== undefined) setBuyerCompany(parsed.buyerCompany);
+          if (parsed.buyerAddress !== undefined) setBuyerAddress(parsed.buyerAddress);
+          if (parsed.buyerTel !== undefined) setBuyerTel(parsed.buyerTel);
+          if (parsed.buyerEmail !== undefined) setBuyerEmail(parsed.buyerEmail);
+          if (parsed.currency) setCurrency(parsed.currency);
+          if (parsed.incoterms) setIncoterms(parsed.incoterms);
+          if (parsed.portOfLoading !== undefined) setPortOfLoading(parsed.portOfLoading);
+          if (parsed.bankChoice) setBankChoice(parsed.bankChoice);
+          if (parsed.transitDays !== undefined) setTransitDays(parsed.transitDays);
+          if (parsed.piExtras) setPiExtras({ ...defaultPiExtras(), ...parsed.piExtras });
+          if (parsed.depositPct) setDepositPct(parsed.depositPct);
+          if (parsed.balancePct) setBalancePct(parsed.balancePct);
+          piRestoredFromCache = true;
+        } else {
+          setPiLineItems(buildInitialPiLineItems(order.models ?? []));
+          setPiExtras(defaultPiExtras());
+        }
+      } catch {
         setPiLineItems(buildInitialPiLineItems(order.models ?? []));
-        setPiExtras(defaultPiExtras());
       }
-    } catch {
-      setPiLineItems(buildInitialPiLineItems(order.models ?? []));
     }
 
     // 再从客户档案自动补全空字段（不覆盖用户已修改的内容）
@@ -1219,54 +1284,60 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
         }
       }
     }
-  }, [open, order]);
+  }, [open, order, dbDraftCn, dbDraftPi]);
 
-  // 每次国内合同字段变化时，自动保存到 localStorage
+  // 每次国内合同字段变化时，自动保存到 localStorage 和数据库
   useEffect(() => {
     if (!open) return;
+    const draftData = {
+      lineItems,
+      counterpartyName,
+      counterpartyAddress,
+      buyerCnCompany,
+      buyerTaxNo,
+      buyerBankAccount,
+      buyerBankName,
+      needInvoice,
+      extras,
+      depositPct,
+      balancePct,
+    };
     try {
-      localStorage.setItem(storageKey, JSON.stringify({
-        lineItems,
-        counterpartyName,
-        counterpartyAddress,
-        buyerCnCompany,
-        buyerTaxNo,
-        buyerBankAccount,
-        buyerBankName,
-        needInvoice,
-        extras,
-        depositPct,
-        balancePct,
-      }));
+      localStorage.setItem(storageKey, JSON.stringify(draftData));
     } catch {
       // 存储失败（如隐私模式），静默忽略
     }
-  }, [open, lineItems, counterpartyName, counterpartyAddress, buyerCnCompany, buyerTaxNo, buyerBankAccount, buyerBankName, needInvoice, extras, depositPct, balancePct]);
+    // 同时防抖保存到数据库（跨设备共享）
+    saveDraftToDb("contract_cn", draftData);
+  }, [open, lineItems, counterpartyName, counterpartyAddress, buyerCnCompany, buyerTaxNo, buyerBankAccount, buyerBankName, needInvoice, extras, depositPct, balancePct, saveDraftToDb]);
 
-  // 每次 PI/CI 字段变化时，自动保存到 localStorage
+  // 每次 PI/CI 字段变化时，自动保存到 localStorage 和数据库
   useEffect(() => {
     if (!open) return;
+    const piDraftData = {
+      piLineItems,
+      buyerAttn,
+      buyerCompany,
+      buyerAddress,
+      buyerTel,
+      buyerEmail,
+      currency,
+      incoterms,
+      portOfLoading,
+      bankChoice,
+      transitDays,
+      piExtras,
+      depositPct,
+      balancePct,
+    };
     try {
-      localStorage.setItem(piStorageKey, JSON.stringify({
-        piLineItems,
-        buyerAttn,
-        buyerCompany,
-        buyerAddress,
-        buyerTel,
-        buyerEmail,
-        currency,
-        incoterms,
-        portOfLoading,
-        bankChoice,
-        transitDays,
-        piExtras,
-        depositPct,
-        balancePct,
-      }));
+      localStorage.setItem(piStorageKey, JSON.stringify(piDraftData));
     } catch {
       // 存储失败，静默忽略
     }
-  }, [open, piLineItems, buyerAttn, buyerCompany, buyerAddress, buyerTel, buyerEmail, currency, incoterms, portOfLoading, bankChoice, transitDays, piExtras, depositPct, balancePct]);
+    // 同时防抖保存到数据库（跨设备共享）
+    saveDraftToDb("pi", piDraftData);
+  }, [open, piLineItems, buyerAttn, buyerCompany, buyerAddress, buyerTel, buyerEmail, currency, incoterms, portOfLoading, bankChoice, transitDays, piExtras, depositPct, balancePct, saveDraftToDb]);
 
   // 切换到 CI Tab 时重置 PI 选择
   useEffect(() => {
@@ -1363,11 +1434,14 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
   const isPaymentValid = depositPct + balancePct === 100;
 
-  // ── 重置表单 ─────────────────────────────────────────────────────────────────
+  // ── 重置表单 ─────────────────────────────────────────────────────────────────────────
   const handleResetForm = () => {
     if (!confirm("确定要清空本订单的所有填写内容吗？")) return;
     try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
     try { localStorage.removeItem(piStorageKey); } catch { /* ignore */ }
+    // 同时清除数据库草稿
+    saveDraftMutation.mutate({ orderId: order.id, draftType: "contract_cn", data: "{}" });
+    saveDraftMutation.mutate({ orderId: order.id, draftType: "pi", data: "{}" });
     setLineItems(buildInitialLineItems(order.models ?? []));
     setPiLineItems(buildInitialPiLineItems(order.models ?? []));
     setExtras(defaultExtras());
@@ -1924,11 +1998,11 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="contract_cn" disabled={isOverseas}>
+            <TabsTrigger value="contract_cn" disabled={isOverseas} title={isOverseas ? "国外客户不支持国内采购合同" : undefined}>
               国内采购合同
             </TabsTrigger>
-            <TabsTrigger value="pi">PI（形式发票）</TabsTrigger>
-            <TabsTrigger value="ci">CI（商业发票）</TabsTrigger>
+            <TabsTrigger value="pi" disabled={!isOverseas} title={!isOverseas ? "国内客户不支持 PI" : undefined}>PI（形式发票）</TabsTrigger>
+            <TabsTrigger value="ci" disabled={!isOverseas} title={!isOverseas ? "国内客户不支持 CI" : undefined}>CI（商业发票）</TabsTrigger>
           </TabsList>
 
           {/* ─── 国内采购合同 ─── */}

@@ -4,6 +4,7 @@ import {
   InsertUser, users,
   orders, orderModels, InsertOrder, InsertOrderModel,
   customers, InsertCustomer,
+  documentDrafts,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -338,4 +339,38 @@ export async function updateOrderStatus(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(orders).set({ status }).where(eq(orders.id, id));
+}
+
+// ─── 单据草稿（跨设备共享） ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** 获取单据草稿 */
+export async function getDocumentDraft(orderId: number, draftType: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(documentDrafts)
+    .where(and(eq(documentDrafts.orderId, orderId), eq(documentDrafts.draftType, draftType)))
+    .limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+/** 保存单据草稿（upsert） */
+export async function upsertDocumentDraft(orderId: number, draftType: string, data: string, updatedBy?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getDocumentDraft(orderId, draftType);
+  if (existing) {
+    await db.update(documentDrafts)
+      .set({ data, updatedBy: updatedBy ?? null })
+      .where(and(eq(documentDrafts.orderId, orderId), eq(documentDrafts.draftType, draftType)));
+  } else {
+    await db.insert(documentDrafts).values({ orderId, draftType, data, updatedBy: updatedBy ?? null });
+  }
+}
+
+/** 删除单据草稿 */
+export async function deleteDocumentDraft(orderId: number, draftType: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(documentDrafts)
+    .where(and(eq(documentDrafts.orderId, orderId), eq(documentDrafts.draftType, draftType)));
 }

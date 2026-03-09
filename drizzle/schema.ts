@@ -221,3 +221,17 @@ export const settings = mysqlTable("settings", {
 
 export type Setting = typeof settings.$inferSelect;
 export type InsertSetting = typeof settings.$inferInsert;
+
+// ─── 单据草稿（跨设备共享，替代 localStorage） ─────────────────────────────────
+export const documentDrafts = mysqlTable("documentDrafts", {
+  id:        int("id").autoincrement().primaryKey(),
+  orderId:   int("orderId").notNull(),            // 关联订单 ID
+  draftType: varchar("draftType", { length: 32 }).notNull(), // "contract_cn" | "pi"
+  data:      text("data").notNull(),              // JSON 字符串，存储草稿内容
+  updatedBy: int("updatedBy"),                    // 最后修改人的用户 ID
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DocumentDraft = typeof documentDrafts.$inferSelect;
+export type InsertDocumentDraft = typeof documentDrafts.$inferInsert;
