@@ -258,6 +258,10 @@ export async function generateOrderExcel(orderId: number): Promise<Buffer> {
     mergeSet(ws, 4, 11, 4, 14,
       `订单号：${order.orderNo ?? ""}`,
       COLORS.labelBg, COLORS.labelFg, false, 9);
+    // 国外客户+渠道标注时，行3已显示日期，行4不再重复显示日期，改为空白
+    if (isOverseas) {
+      mergeSet(ws, 4, 6, 4, 10, "", COLORS.labelBg, COLORS.labelFg, false, 9);
+    }
   } else {
     // 普通订单：显示下单日期和订单号
     mergeSet(ws, 4, 1, 4, 5,
