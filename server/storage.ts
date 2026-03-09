@@ -12,7 +12,12 @@ function isMinioConfigured(): boolean {
   const hasBucket = !!process.env.MINIO_BUCKET;
   // Support both dedicated access keys and root user credentials
   const hasCredentials = !!(getMinioAccessKey() && getMinioSecretKey());
-  return hasEndpoint && hasBucket && hasCredentials;
+  const configured = hasEndpoint && hasBucket && hasCredentials;
+  if (configured) {
+    const akSource = process.env.MINIO_ACCESS_KEY ? 'MINIO_ACCESS_KEY' : 'MINIO_ROOT_USER';
+    console.log(`[Storage] Using MinIO (endpoint=${process.env.MINIO_ENDPOINT}, bucket=${process.env.MINIO_BUCKET}, credentials from ${akSource})`);
+  }
+  return configured;
 }
 
 // Fallback: MINIO_ACCESS_KEY -> MINIO_ROOT_USER
@@ -48,14 +53,23 @@ async function minioPut(
 
   const body = typeof data === "string" ? Buffer.from(data) : Buffer.from(data as any);
 
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: body,
-      ContentType: contentType,
-    })
-  );
+  try {
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      })
+    );
+  } catch (err: any) {
+    const akSource = process.env.MINIO_ACCESS_KEY ? 'MINIO_ACCESS_KEY' : 'MINIO_ROOT_USER';
+    const akValue = getMinioAccessKey();
+    console.error(`[Storage] MinIO upload failed: ${err.message}`);
+    console.error(`[Storage] Credentials source: ${akSource}, accessKeyId: "${akValue.slice(0, 4)}...${akValue.slice(-2)}"`);
+    console.error(`[Storage] Endpoint: ${process.env.MINIO_ENDPOINT}, Bucket: ${bucket}`);
+    throw err;
+  }
 
   // Build public URL using MINIO_PUBLIC_ENDPOINT if set.
   // In NAS deployments, MINIO_ENDPOINT is the internal Docker network address

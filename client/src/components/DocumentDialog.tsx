@@ -223,14 +223,11 @@ function round2(n: number): number {
 
 function buildInitialLineItems(models: OrderModel[]): LineItemInput[] {
   return (models ?? []).map(m => {
-    // 型号列自动关联订单中的型号名称，格式：型号名称 (型号编码)
-    const specParts: string[] = [];
-    if (m.modelName) specParts.push(m.modelName);
-    if (m.modelCode) specParts.push(m.modelName ? `(${m.modelCode})` : m.modelCode);
+    // 型号列只显示型号编码（简短），如 "2519"
     return {
       modelName: "塑料工具箱", // 默认产品名称
       material: "PP",          // 默认材质
-      spec: specParts.join(' ') || "",
+      spec: m.modelCode || m.modelName || "",
       quantity: parseInt(m.quantity ?? "0") || 0,
       unitPrice: 0,
       amount: 0,
@@ -240,14 +237,11 @@ function buildInitialLineItems(models: OrderModel[]): LineItemInput[] {
 
 function buildInitialPiLineItems(models: OrderModel[]): LineItemInput[] {
   return (models ?? []).map(m => {
-    // PI/CI 型号列同样关联订单型号名称
-    const specParts: string[] = [];
-    if (m.modelName) specParts.push(m.modelName);
-    if (m.modelCode) specParts.push(m.modelName ? `(${m.modelCode})` : m.modelCode);
+    // PI/CI 型号列只显示型号编码（简短），如 "2519"
     return {
       modelName: "Plastic Case", // 默认产品名称（英文）
       material: "PP",
-      spec: specParts.join(' ') || "",
+      spec: m.modelCode || m.modelName || "",
       quantity: parseInt(m.quantity ?? "0") || 0,
       unitPrice: 0,
       amount: 0,
@@ -307,30 +301,30 @@ function DomesticLineItemsTable({
 
   return (
     <div className="space-y-3">
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm border-collapse">
+      <div className="rounded-lg border border-border">
+        <table className="w-full text-sm border-collapse table-fixed">
           <thead>
             <tr className="bg-muted/60">
-              <th className="border-b border-r border-border px-3 py-2.5 text-left font-medium text-xs tracking-wide text-muted-foreground w-36">产品名称</th>
-              <th className="border-b border-r border-border px-3 py-2.5 text-left font-medium text-xs tracking-wide text-muted-foreground min-w-[140px]">型号</th>
-              <th className="border-b border-r border-border px-3 py-2.5 text-left font-medium text-xs tracking-wide text-muted-foreground w-24">材质</th>
-              <th className="border-b border-r border-border px-3 py-2.5 text-center font-medium text-xs tracking-wide text-muted-foreground w-24">数量（个）</th>
-              <th className="border-b border-r border-border px-3 py-2.5 text-center font-medium text-xs tracking-wide text-muted-foreground w-28">单价（元）</th>
-              <th className="border-b border-border px-3 py-2.5 text-center font-medium text-xs tracking-wide text-muted-foreground w-28">金额（元）</th>
+              <th className="border-b border-r border-border px-2 py-2 text-left font-medium text-xs tracking-wide text-muted-foreground" style={{width:'22%'}}>产品名称</th>
+              <th className="border-b border-r border-border px-2 py-2 text-left font-medium text-xs tracking-wide text-muted-foreground" style={{width:'14%'}}>型号</th>
+              <th className="border-b border-r border-border px-2 py-2 text-left font-medium text-xs tracking-wide text-muted-foreground" style={{width:'16%'}}>材质</th>
+              <th className="border-b border-r border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'14%'}}>数量</th>
+              <th className="border-b border-r border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'16%'}}>单价(元)</th>
+              <th className="border-b border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'18%'}}>金额(元)</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item, idx) => (
               <tr key={idx} className="hover:bg-muted/20 transition-colors">
                 {/* 产品名称：下拉选择，选「其他」时手动输入 */}
-                <td className="border-b border-r border-border px-2 py-2">
+                <td className="border-b border-r border-border px-1 py-1">
                   {customProductName[idx] ? (
                     <div className="flex items-center gap-1">
                       <Input
                         value={item.modelName}
                         onChange={e => updateItem(idx, "modelName", e.target.value)}
-                        className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 px-1"
-                        placeholder="请输入产品名称"
+                        className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
+                        placeholder="产品名称"
                         autoFocus
                       />
                       <button
@@ -339,7 +333,7 @@ function DomesticLineItemsTable({
                           setCustomProductName(prev => ({ ...prev, [idx]: false }));
                           updateItem(idx, "modelName", "塑料工具箱");
                         }}
-                        className="text-xs text-muted-foreground hover:text-foreground px-1 flex-shrink-0"
+                        className="text-xs text-muted-foreground hover:text-foreground px-0.5 flex-shrink-0"
                         title="切换回下拉"
                       >↩</button>
                     </div>
@@ -348,7 +342,7 @@ function DomesticLineItemsTable({
                       value={PRODUCT_NAME_OPTIONS.includes(item.modelName) ? item.modelName : (item.modelName ? "其他" : "塑料工具箱")}
                       onValueChange={v => handleProductNameSelect(idx, v)}
                     >
-                      <SelectTrigger className="h-8 text-sm border-0 bg-transparent focus:ring-0 px-1">
+                      <SelectTrigger className="h-7 text-xs border-0 bg-transparent focus:ring-0 px-1">
                         <SelectValue placeholder="选择..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -359,24 +353,24 @@ function DomesticLineItemsTable({
                     </Select>
                   )}
                 </td>
-                {/* 型号：自动关联订单型号名称 */}
-                <td className="border-b border-r border-border px-2 py-2">
+                {/* 型号：自动关联订单型号编码 */}
+                <td className="border-b border-r border-border px-1 py-1">
                   <Input
                     value={item.spec}
                     onChange={e => updateItem(idx, "spec", e.target.value)}
-                    className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 px-1"
-                    placeholder="型号名称"
+                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
+                    placeholder="型号"
                   />
                 </td>
                 {/* 材质：下拉选择 PP / ABS / 其他（手动输入） */}
-                <td className="border-b border-r border-border px-2 py-2">
+                <td className="border-b border-r border-border px-1 py-1">
                   {customMaterial[idx] ? (
                     <div className="flex items-center gap-1">
                       <Input
                         value={item.material}
                         onChange={e => updateItem(idx, "material", e.target.value)}
-                        className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 px-1"
-                        placeholder="请输入材质"
+                        className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
+                        placeholder="材质"
                         autoFocus
                       />
                       <button
@@ -385,7 +379,7 @@ function DomesticLineItemsTable({
                           setCustomMaterial(prev => ({ ...prev, [idx]: false }));
                           updateItem(idx, "material", "PP");
                         }}
-                        className="text-xs text-muted-foreground hover:text-foreground px-1 flex-shrink-0"
+                        className="text-xs text-muted-foreground hover:text-foreground px-0.5 flex-shrink-0"
                         title="切换回下拉"
                       >↩</button>
                     </div>
@@ -394,8 +388,8 @@ function DomesticLineItemsTable({
                       value={BOX_MATERIAL_OPTIONS.includes(item.material) ? item.material : (item.material ? "其他" : "PP")}
                       onValueChange={v => handleMaterialSelect(idx, v)}
                     >
-                      <SelectTrigger className="h-8 text-sm border-0 bg-transparent focus:ring-0 px-1">
-                        <SelectValue placeholder="材质..." />
+                      <SelectTrigger className="h-7 text-xs border-0 bg-transparent focus:ring-0 px-1">
+                        <SelectValue placeholder="材质" />
                       </SelectTrigger>
                       <SelectContent>
                         {BOX_MATERIAL_OPTIONS.map(opt => (
@@ -405,35 +399,35 @@ function DomesticLineItemsTable({
                     </Select>
                   )}
                 </td>
-                <td className="border-b border-r border-border px-2 py-2 text-center">
+                <td className="border-b border-r border-border px-1 py-1 text-center">
                   <Input
                     type="number"
                     min={0}
                     value={item.quantity || ""}
                     onChange={e => updateItem(idx, "quantity", parseFloat(e.target.value) || 0)}
-                    className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
+                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
                     placeholder="0"
                   />
                 </td>
-                <td className="border-b border-r border-border px-2 py-2 text-center">
+                <td className="border-b border-r border-border px-1 py-1 text-center">
                   <Input
                     type="number"
                     step="0.01"
                     min={0}
                     value={item.unitPrice || ""}
                     onChange={e => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
-                    className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
+                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
                     placeholder="0.00"
                   />
                 </td>
-                <td className="border-b border-border px-3 py-2 text-center text-sm font-medium text-muted-foreground">
+                <td className="border-b border-border px-2 py-1 text-center text-xs font-medium text-muted-foreground">
                   {item.amount > 0 ? item.amount.toFixed(2) : "—"}
                 </td>
               </tr>
             ))}
             <tr className="bg-primary/5 font-semibold">
-              <td colSpan={5} className="border-r border-border px-3 py-2.5 text-right text-sm">箱子小计</td>
-              <td className="px-3 py-2.5 text-center text-sm font-bold text-primary">
+              <td colSpan={5} className="border-r border-border px-2 py-1.5 text-right text-xs">箱子小计</td>
+              <td className="px-2 py-1.5 text-center text-xs font-bold text-primary">
                 ¥{total.toFixed(2)}
               </td>
             </tr>
@@ -719,29 +713,29 @@ function LineItemsTable({
 
   return (
     <div className="space-y-3">
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm border-collapse">
+      <div className="rounded-lg border border-border">
+        <table className="w-full text-sm border-collapse table-fixed">
           <thead>
             <tr className="bg-muted/60">
-              <th className="border-b border-r border-border px-3 py-2.5 text-left font-medium text-xs tracking-wide text-muted-foreground w-36">Product Name</th>
-              <th className="border-b border-r border-border px-3 py-2.5 text-left font-medium text-xs tracking-wide text-muted-foreground min-w-[140px]">Model / Spec</th>
-              <th className="border-b border-r border-border px-3 py-2.5 text-center font-medium text-xs tracking-wide text-muted-foreground w-24">Qty</th>
-              <th className="border-b border-r border-border px-3 py-2.5 text-center font-medium text-xs tracking-wide text-muted-foreground w-28">Unit Price ({currency})</th>
-              <th className="border-b border-border px-3 py-2.5 text-center font-medium text-xs tracking-wide text-muted-foreground w-28">Amount ({currency})</th>
+              <th className="border-b border-r border-border px-2 py-2 text-left font-medium text-xs tracking-wide text-muted-foreground" style={{width:'26%'}}>Product Name</th>
+              <th className="border-b border-r border-border px-2 py-2 text-left font-medium text-xs tracking-wide text-muted-foreground" style={{width:'16%'}}>Model</th>
+              <th className="border-b border-r border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'14%'}}>Qty</th>
+              <th className="border-b border-r border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'22%'}}>Unit Price ({currency})</th>
+              <th className="border-b border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'22%'}}>Amount ({currency})</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item, idx) => (
               <tr key={idx} className="hover:bg-muted/20 transition-colors">
                 {/* Product Name: dropdown with Plastic Case / Other */}
-                <td className="border-b border-r border-border px-2 py-2">
+                <td className="border-b border-r border-border px-1 py-1">
                   {customProductName[idx] ? (
                     <div className="flex items-center gap-1">
                       <Input
                         value={item.modelName}
                         onChange={e => updateItem(idx, "modelName", e.target.value)}
-                        className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 px-1"
-                        placeholder="Enter product name"
+                        className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
+                        placeholder="Product name"
                         autoFocus
                       />
                       <button
@@ -750,7 +744,7 @@ function LineItemsTable({
                           setCustomProductName(prev => ({ ...prev, [idx]: false }));
                           updateItem(idx, "modelName", "Plastic Case");
                         }}
-                        className="text-xs text-muted-foreground hover:text-foreground px-1 flex-shrink-0"
+                        className="text-xs text-muted-foreground hover:text-foreground px-0.5 flex-shrink-0"
                         title="Back to dropdown"
                       >↩</button>
                     </div>
@@ -759,7 +753,7 @@ function LineItemsTable({
                       value={PI_PRODUCT_NAME_OPTIONS.includes(item.modelName) ? item.modelName : (item.modelName ? "Other" : "Plastic Case")}
                       onValueChange={v => handleProductNameSelect(idx, v)}
                     >
-                      <SelectTrigger className="h-8 text-sm border-0 bg-transparent focus:ring-0 px-1">
+                      <SelectTrigger className="h-7 text-xs border-0 bg-transparent focus:ring-0 px-1">
                         <SelectValue placeholder="Select..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -770,43 +764,43 @@ function LineItemsTable({
                     </Select>
                   )}
                 </td>
-                <td className="border-b border-r border-border px-2 py-2">
+                <td className="border-b border-r border-border px-1 py-1">
                   <Input
                     value={item.spec}
                     onChange={e => updateItem(idx, "spec", e.target.value)}
-                    className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 px-1"
-                    placeholder="Model / Spec"
+                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1"
+                    placeholder="Model"
                   />
                 </td>
-                <td className="border-b border-r border-border px-2 py-2 text-center">
+                <td className="border-b border-r border-border px-1 py-1 text-center">
                   <Input
                     type="number"
                     min={0}
                     value={item.quantity || ""}
                     onChange={e => updateItem(idx, "quantity", parseFloat(e.target.value) || 0)}
-                    className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
+                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
                     placeholder="0"
                   />
                 </td>
-                <td className="border-b border-r border-border px-2 py-2 text-center">
+                <td className="border-b border-r border-border px-1 py-1 text-center">
                   <Input
                     type="number"
                     step="0.01"
                     min={0}
                     value={item.unitPrice || ""}
                     onChange={e => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
-                    className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
+                    className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1 text-center"
                     placeholder="0.00"
                   />
                 </td>
-                <td className="border-b border-border px-3 py-2 text-center text-sm font-medium text-muted-foreground">
+                <td className="border-b border-border px-2 py-1 text-center text-xs font-medium text-muted-foreground">
                   {item.amount > 0 ? item.amount.toFixed(2) : "—"}
                 </td>
               </tr>
             ))}
             <tr className="bg-primary/5 font-semibold">
-              <td colSpan={4} className="border-r border-border px-3 py-2.5 text-right text-sm">Subtotal</td>
-              <td className="px-3 py-2.5 text-center text-sm font-bold text-primary">
+              <td colSpan={4} className="border-r border-border px-2 py-1.5 text-right text-xs">Subtotal</td>
+              <td className="px-2 py-1.5 text-center text-xs font-bold text-primary">
                 {currencySymbol}{total.toFixed(2)}
               </td>
             </tr>
