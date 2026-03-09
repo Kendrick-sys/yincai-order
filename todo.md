@@ -644,3 +644,8 @@
   - [x] exportExcel.ts：消除所有 (order as any) 和 (m as any) 类型断言
   - [x] Home.tsx：消除所有 as any 类型断言，修复 JSX 缩进格式问题
   - [x] 新增 optimization.test.ts 测试文件（权限检查、事务安全、登录错误处理），22 个测试全部通过
+
+## Bug修复 + UI优化（第八十一批）
+
+- [x] Bug：亚马逊合同PDF甲方信息为空——根本原因是NAS上.env未配置COMPANY_CN_*环境变量，代码逻辑正确，已告知用户在NAS上填写公司信息
+- [x] UI优化：DocumentDialog亚马逊模式选择预设供货商时自动隐藏冗余的乙方输入字段（全称/税号/地址/账号/开户行），只有“自定义”时才显示

@@ -2224,66 +2224,71 @@ export default function DocumentDialog({ open, onClose, order }: Props) {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{isAmazonOrder ? "乙方全称（供货商）" : "甲方全称（采购方）"}<span className="text-destructive ml-1">*</span></Label>
-                <Input
-                  value={counterpartyName}
-                  onChange={e => { setCounterpartyName(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
-                  placeholder={isAmazonOrder ? "请输入乙方（供货商）公司全称" : "请输入甲方（采购方）公司全称"}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">{isAmazonOrder ? "乙方公司全称（合同封面显示）" : "甲方公司全称（合同封面显示）"}</Label>
-                <Input
-                  value={buyerCnCompany}
-                  onChange={e => setBuyerCnCompany(e.target.value)}
-                  placeholder="如与全称相同可不填"
-                  className="h-8 text-sm"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{isAmazonOrder ? "乙方税号" : "甲方税号"}</Label>
-                <Input
-                  value={buyerTaxNo}
-                  onChange={e => setBuyerTaxNo(e.target.value)}
-                  placeholder="18 位统一社会信用代码"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">{isAmazonOrder ? "乙方地址" : "交货地址"}</Label>
-                <Input
-                  value={counterpartyAddress}
-                  onChange={e => { setCounterpartyAddress(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
-                  placeholder="可选，如：广东省深圳市..."
-                  className="h-8 text-sm"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{isAmazonOrder ? "乙方对公账号" : "甲方对公账号"}</Label>
-                <Input
-                  value={buyerBankAccount}
-                  onChange={e => { setBuyerBankAccount(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
-                  placeholder="可选"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">{isAmazonOrder ? "乙方对公开户行" : "甲方对公开户行"}</Label>
-                <Input
-                  value={buyerBankName}
-                  onChange={e => { setBuyerBankName(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
-                  placeholder="可选"
-                  className="h-8 text-sm"
-                />
-              </div>
-            </div>
+            {/* 亚马逊模式：选择预设供货商时隐藏冗余输入框；非亚马逊或自定义时显示 */}
+            {(!isAmazonOrder || amazonSupplierIdx === -1) && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">{isAmazonOrder ? "乙方全称（供货商）" : "甲方全称（采购方）"}<span className="text-destructive ml-1">*</span></Label>
+                    <Input
+                      value={counterpartyName}
+                      onChange={e => { setCounterpartyName(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
+                      placeholder={isAmazonOrder ? "请输入乙方（供货商）公司全称" : "请输入甲方（采购方）公司全称"}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">{isAmazonOrder ? "乙方公司全称（合同封面显示）" : "甲方公司全称（合同封面显示）"}</Label>
+                    <Input
+                      value={buyerCnCompany}
+                      onChange={e => setBuyerCnCompany(e.target.value)}
+                      placeholder="如与全称相同可不填"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">{isAmazonOrder ? "乙方税号" : "甲方税号"}</Label>
+                    <Input
+                      value={buyerTaxNo}
+                      onChange={e => setBuyerTaxNo(e.target.value)}
+                      placeholder="18 位统一社会信用代码"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">{isAmazonOrder ? "乙方地址" : "交货地址"}</Label>
+                    <Input
+                      value={counterpartyAddress}
+                      onChange={e => { setCounterpartyAddress(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
+                      placeholder="可选，如：广东省深圳市..."
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">{isAmazonOrder ? "乙方对公账号" : "甲方对公账号"}</Label>
+                    <Input
+                      value={buyerBankAccount}
+                      onChange={e => { setBuyerBankAccount(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
+                      placeholder="可选"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">{isAmazonOrder ? "乙方对公开户行" : "甲方对公开户行"}</Label>
+                    <Input
+                      value={buyerBankName}
+                      onChange={e => { setBuyerBankName(e.target.value); if (isAmazonOrder) setAmazonSupplierIdx(-1); }}
+                      placeholder="可选"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* 是否开票 */}
             <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
