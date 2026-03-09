@@ -5,8 +5,9 @@
  * - 乙方（供货方）：恩平市亿丰塑料模具有限公司（固定）
  * - 无需填写甲乙方信息，直接填写产品明细和付款条款即可
  */
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
+import { lookupCost } from "@/lib/yifengCostTable";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -33,11 +34,10 @@ const YINCAI_INFO = {
 
 const YIFENG_INFO = {
   name: "恩平市亿丰塑料模具有限公司",
-  address: "广东省恩平市恩城江门产业转移工业园恩平园区三区A10",
-  contactName: "冯瑞宁",
-  phone: "0750-7187777",
+  address: "恩平市恩城江门产业转移工业园恩平园区三区A10",
+  taxNo: "91440785584676855C",
   bankAccount: "2012 0090 0912 4868 277",
-  bankName: "中国工商银行恩平支行",
+  bankName: "中国工商銀行恩平支行",
 };
 
 const PRODUCT_NAME_OPTIONS = ["塑料工具箱", "其他"];
@@ -111,9 +111,11 @@ function defaultExtras(): DomesticExtras {
 interface OrderModel {
   modelName?: string | null;
   modelCode?: string | null;
+  material?: string | null;
   quantity?: string | null;
   topCover?: string | null;
   bottomCover?: string | null;
+  hasCustomColor?: boolean | null;
 }
 
 interface OrderData {
@@ -492,20 +494,27 @@ function PaymentTerms({
   );
 }
 
-// ─── 主组件 ──────────────────────────────────────────────────────────────────────
-export default function PurchaseContractDialog({ open, onClose, order }: Props) {
+// // ─── 主组件 ──────────────────────────────────────────────────────────────────────────────────
+function PurchaseContractDialog({ open, onClose, order }: Props) {
   const utils = trpc.useUtils();
 
-  // 从订单 models 初始化产品明细
+  // 从订单 models 初始化产品明细，并自动匹配成本表单价
   const buildInitialLineItems = (models: OrderModel[]): LineItemInput[] =>
-    (models ?? []).map(m => ({
-      modelName: "塑料工具箱",
-      material: "PP",
-      spec: m.modelCode || m.modelName || "",
-      quantity: parseInt(m.quantity ?? "0") || 0,
-      unitPrice: 0,
-      amount: 0,
-    }));
+    (models ?? []).map(m => {
+      const spec = m.modelCode || m.modelName || "";
+      const material = m.material || "PP";
+      const cost = lookupCost(spec, material);
+      const unitPrice = cost ? cost.boxPrice : 0;
+      const quantity = parseInt(m.quantity ?? "0") || 0;
+      return {
+        modelName: "塑料工具笱",
+        material,
+        spec,
+        quantity,
+        unitPrice,
+        amount: round2(unitPrice * quantity),
+      };
+    });
 
   const [lineItems, setLineItems] = useState<LineItemInput[]>(() =>
     buildInitialLineItems(order.models ?? [])
@@ -591,10 +600,8 @@ export default function PurchaseContractDialog({ open, onClose, order }: Props) 
       isAmazon: true,
       counterpartyName: YIFENG_INFO.name,
       counterpartyAddress: YIFENG_INFO.address,
-      counterpartyContactName: YIFENG_INFO.contactName,
-      counterpartyPhone: YIFENG_INFO.phone,
       buyerCnCompany: undefined,
-      buyerTaxNo: undefined,
+      buyerTaxNo: YIFENG_INFO.taxNo,
       buyerBankAccount: YIFENG_INFO.bankAccount,
       buyerBankName: YIFENG_INFO.bankName,
       lineItems: lineItems.map(item => ({
@@ -664,7 +671,6 @@ export default function PurchaseContractDialog({ open, onClose, order }: Props) 
               <p className="text-xs font-semibold text-primary mb-2">甲方（采购方）——固定</p>
               <p className="text-sm font-semibold text-foreground">{YINCAI_INFO.name}</p>
               <p className="text-xs text-muted-foreground">{YINCAI_INFO.address}</p>
-              <p className="text-xs text-muted-foreground">联系人：{YINCAI_INFO.contactName}　{YINCAI_INFO.phone}</p>
               <p className="text-xs text-muted-foreground">开户行：{YINCAI_INFO.bankName}</p>
               <p className="text-xs text-muted-foreground">账号：{YINCAI_INFO.bankAccount}</p>
             </div>
@@ -673,7 +679,7 @@ export default function PurchaseContractDialog({ open, onClose, order }: Props) 
               <p className="text-xs font-semibold text-orange-700 mb-2">乙方（供货方）——固定</p>
               <p className="text-sm font-semibold text-foreground">{YIFENG_INFO.name}</p>
               <p className="text-xs text-muted-foreground">{YIFENG_INFO.address}</p>
-              <p className="text-xs text-muted-foreground">联系人：{YIFENG_INFO.contactName}　{YIFENG_INFO.phone}</p>
+              <p className="text-xs text-muted-foreground">税号：{YIFENG_INFO.taxNo}</p>
               <p className="text-xs text-muted-foreground">开户行：{YIFENG_INFO.bankName}</p>
               <p className="text-xs text-muted-foreground">账号：{YIFENG_INFO.bankAccount}</p>
             </div>
@@ -818,6 +824,9 @@ export default function PurchaseContractDialog({ open, onClose, order }: Props) 
           <div className="flex items-center gap-3">
             <Switch id="pc-hasCustomColor" checked={extras.hasCustomColor} onCheckedChange={v => updateExtra("hasCustomColor", v)} />
             <label htmlFor="pc-hasCustomColor" className="text-xs font-semibold text-foreground/70 cursor-pointer">五、定制颜色费</label>
+            <span className="ml-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 font-medium">
+              ⚠️ 请对照国内合同/PI/CI 确认是否有定制颜色费
+            </span>
           </div>
           {extras.hasCustomColor && (
             <div className="pl-2">
@@ -951,3 +960,5 @@ export default function PurchaseContractDialog({ open, onClose, order }: Props) 
     </Dialog>
   );
 }
+
+export default PurchaseContractDialog;

@@ -39,10 +39,9 @@ const VAT_RATE = 1.13; // 增值税税率 13%
 const AMAZON_BUYER_INFO = {
   name: "深圳市吟彩新型材料制品有限公司",
   address: "深圳市龙华区龙华街道油松社区镇乾大厦520",
-  contactName: "张昊",
-  phone: "+86 15338774063",
+  taxNo: "91440300MAD58M3244",
   bankAccount: "4000 0517 0910 0504 972",
-  bankName: "中国工商银行深圳市分行",
+  bankName: "中国工商銀行深圳市分行",
 };
 
 // ─── 亚马逊合同：供货方（乙方）选项 ─────────────────────────────────────────────
@@ -50,12 +49,10 @@ const AMAZON_SUPPLIER_OPTIONS = [
   {
     label: "恩平市亿丰塑料模具有限公司",
     name: "恩平市亿丰塑料模具有限公司",
-    address: "广东省恩平市恩城江门产业转移工业园恩平园区三区A10",
-    contactName: "冯瑞宁",
-    phone: "0750-7187777",
+    address: "恩平市恩城江门产业转移工业园恩平园区三区A10",
     bankAccount: "2012 0090 0912 4868 277",
-    bankName: "中国工商银行恩平支行",
-    taxNo: "",
+    bankName: "中国工商銀行恩平支行",
+    taxNo: "91440785584676855C",
   },
 ];
 
@@ -744,11 +741,12 @@ function LineItemsTable({
         <table className="w-full text-sm border-collapse table-fixed">
           <thead>
             <tr className="bg-muted/60">
-              <th className="border-b border-r border-border px-2 py-2 text-left font-medium text-xs tracking-wide text-muted-foreground" style={{width:'26%'}}>Product Name</th>
-              <th className="border-b border-r border-border px-2 py-2 text-left font-medium text-xs tracking-wide text-muted-foreground" style={{width:'16%'}}>Model</th>
-              <th className="border-b border-r border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'14%'}}>Qty</th>
-              <th className="border-b border-r border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'22%'}}>Unit Price ({currency})</th>
-              <th className="border-b border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'22%'}}>Amount ({currency})</th>
+              <th className="border-b border-r border-border px-2 py-2 text-left font-medium text-xs tracking-wide text-muted-foreground" style={{width:'22%'}}>Product Name</th>
+              <th className="border-b border-r border-border px-2 py-2 text-left font-medium text-xs tracking-wide text-muted-foreground" style={{width:'13%'}}>Model</th>
+              <th className="border-b border-r border-border px-2 py-2 text-left font-medium text-xs tracking-wide text-muted-foreground" style={{width:'13%'}}>Material</th>
+              <th className="border-b border-r border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'12%'}}>Qty</th>
+              <th className="border-b border-r border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'20%'}}>Unit Price ({currency})</th>
+              <th className="border-b border-border px-2 py-2 text-center font-medium text-xs tracking-wide text-muted-foreground" style={{width:'20%'}}>Amount ({currency})</th>
             </tr>
           </thead>
           <tbody>
@@ -799,6 +797,21 @@ function LineItemsTable({
                     placeholder="Model"
                   />
                 </td>
+                <td className="border-b border-r border-border px-1 py-1">
+                  <Select
+                    value={["PP", "ABS", "Other"].includes(item.material) ? item.material : "PP"}
+                    onValueChange={v => updateItem(idx, "material", v)}
+                  >
+                    <SelectTrigger className="h-7 text-xs border-0 bg-transparent focus:ring-0 px-1">
+                      <SelectValue placeholder="PP" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PP">PP</SelectItem>
+                      <SelectItem value="ABS">ABS</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </td>
                 <td className="border-b border-r border-border px-1 py-1 text-center">
                   <Input
                     type="number"
@@ -826,7 +839,7 @@ function LineItemsTable({
               </tr>
             ))}
             <tr className="bg-primary/5 font-semibold">
-              <td colSpan={4} className="border-r border-border px-2 py-1.5 text-right text-xs">Subtotal</td>
+              <td colSpan={5} className="border-r border-border px-2 py-1.5 text-right text-xs">Subtotal</td>
               <td className="px-2 py-1.5 text-center text-xs font-bold text-primary">
                 {currencySymbol}{total.toFixed(2)}
               </td>
@@ -1373,8 +1386,6 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng }: 
       setBuyerBankAccount(defaultSupplier.bankAccount);
       setBuyerBankName(defaultSupplier.bankName);
       if (defaultSupplier.taxNo) setBuyerTaxNo(defaultSupplier.taxNo);
-      setCounterpartyContactName(defaultSupplier.contactName);
-      setCounterpartyPhone(defaultSupplier.phone);
       setAmazonSupplierIdx(0);
     }
 
@@ -1386,8 +1397,6 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng }: 
       setCounterpartyAddress(yifeng.address);
       setBuyerBankAccount(yifeng.bankAccount);
       setBuyerBankName(yifeng.bankName);
-      setCounterpartyContactName(yifeng.contactName);
-      setCounterpartyPhone(yifeng.phone);
       if (yifeng.taxNo) setBuyerTaxNo(yifeng.taxNo);
     }
   }, [open, order, dbDraftCn, dbDraftPi, prefillYifeng]);
@@ -1580,8 +1589,7 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng }: 
       setCounterpartyAddress(defaultSupplier.address);
       setBuyerBankAccount(defaultSupplier.bankAccount);
       setBuyerBankName(defaultSupplier.bankName);
-      setCounterpartyContactName(defaultSupplier.contactName);
-      setCounterpartyPhone(defaultSupplier.phone);
+      if (defaultSupplier.taxNo) setBuyerTaxNo(defaultSupplier.taxNo);
       setAmazonSupplierIdx(0);
     }
   };
@@ -2176,9 +2184,9 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng }: 
                   {/* 甲方：吟彩完整信息展示 */}
                   <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-0.5">
                     <p className="text-xs font-semibold text-primary mb-1">甲方（采购方）——固定</p>
-                    <p className="text-sm font-medium text-foreground">{AMAZON_BUYER_INFO.name}</p>
-                    <p className="text-xs text-muted-foreground">{AMAZON_BUYER_INFO.address}</p>
-                    <p className="text-xs text-muted-foreground">联系人：{AMAZON_BUYER_INFO.contactName}　{AMAZON_BUYER_INFO.phone}</p>
+                    <p className="text-sm font-bold text-foreground">{AMAZON_BUYER_INFO.name}</p>
+                    <p className="text-xs text-muted-foreground">地址：{AMAZON_BUYER_INFO.address}</p>
+                    <p className="text-xs text-muted-foreground">税号：{AMAZON_BUYER_INFO.taxNo}</p>
                     <p className="text-xs text-muted-foreground">开户行：{AMAZON_BUYER_INFO.bankName}</p>
                     <p className="text-xs text-muted-foreground">账号：{AMAZON_BUYER_INFO.bankAccount}</p>
                   </div>
@@ -2198,8 +2206,7 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng }: 
                             setBuyerBankAccount(s.bankAccount);
                             setBuyerBankName(s.bankName);
                             if (s.taxNo) setBuyerTaxNo(s.taxNo);
-                            setCounterpartyContactName(s.contactName);
-                            setCounterpartyPhone(s.phone);
+                            // contactName and phone removed from AMAZON_SUPPLIER_OPTIONS
                             toast.success(`已切换供货商：${s.name}`);
                           } else {
                             // 自定义：清空供货商字段
@@ -2207,8 +2214,7 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng }: 
                             setCounterpartyAddress("");
                             setBuyerBankAccount("");
                             setBuyerBankName("");
-                            setCounterpartyContactName("");
-                            setCounterpartyPhone("");
+                            // contactName and phone removed from AMAZON_SUPPLIER_OPTIONS
                           }
                         }}
                       >
@@ -2225,9 +2231,9 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng }: 
                     </div>
                     {amazonSupplierIdx >= 0 && amazonSupplierIdx < AMAZON_SUPPLIER_OPTIONS.length ? (
                       <>
-                        <p className="text-sm font-medium text-foreground">{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].name}</p>
-                        <p className="text-xs text-muted-foreground">{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].address}</p>
-                        <p className="text-xs text-muted-foreground">联系人：{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].contactName}　{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].phone}</p>
+                        <p className="text-sm font-bold text-foreground">{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].name}</p>
+                        <p className="text-xs text-muted-foreground">地址：{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].address}</p>
+                        {AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].taxNo && <p className="text-xs text-muted-foreground">税号：{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].taxNo}</p>}
                         <p className="text-xs text-muted-foreground">开户行：{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].bankName}</p>
                         <p className="text-xs text-muted-foreground">账号：{AMAZON_SUPPLIER_OPTIONS[amazonSupplierIdx].bankAccount}</p>
                       </>
@@ -2238,15 +2244,22 @@ export default function DocumentDialog({ open, onClose, order, prefillYifeng }: 
                 </>
               ) : (
                 <>
-                  <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border space-y-0.5">
                     <p className="text-xs font-semibold text-muted-foreground mb-1">甲方（采购方）</p>
-                    <p className="text-sm font-medium text-foreground">{order.customer || "—"}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">即本订单客户</p>
+                    <p className="text-sm font-bold text-foreground">{counterpartyName || order.customer || "—"}</p>
+                    {counterpartyAddress && <p className="text-xs text-muted-foreground">地址：{counterpartyAddress}</p>}
+                    {buyerTaxNo && <p className="text-xs text-muted-foreground">税号：{buyerTaxNo}</p>}
+                    {buyerBankName && <p className="text-xs text-muted-foreground">开户行：{buyerBankName}</p>}
+                    {buyerBankAccount && <p className="text-xs text-muted-foreground">账号：{buyerBankAccount}</p>}
+                    {!counterpartyAddress && !buyerTaxNo && !buyerBankName && <p className="text-xs text-muted-foreground">即本订单客户（可从客户档案选择填充详细信息）</p>}
                   </div>
-                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                    <p className="text-xs font-semibold text-primary mb-1">乙方（供货方）</p>
-                    <p className="text-sm font-medium text-foreground">{COMPANY_NAME_CN}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">即我方</p>
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-0.5">
+                    <p className="text-xs font-semibold text-primary mb-1">乙方（供货方）——固定</p>
+                    <p className="text-sm font-bold text-foreground">{AMAZON_BUYER_INFO.name}</p>
+                    <p className="text-xs text-muted-foreground">地址：{AMAZON_BUYER_INFO.address}</p>
+                    <p className="text-xs text-muted-foreground">税号：{AMAZON_BUYER_INFO.taxNo}</p>
+                    <p className="text-xs text-muted-foreground">开户行：{AMAZON_BUYER_INFO.bankName}</p>
+                    <p className="text-xs text-muted-foreground">账号：{AMAZON_BUYER_INFO.bankAccount}</p>
                   </div>
                 </>
               )}

@@ -552,13 +552,19 @@ export default function OrderView() {
             customer: order.customer,
             orderDate: order.orderDate,
             deliveryDate: order.deliveryDate,
-            models: (order.models ?? []).map((m: any) => ({
-              modelName: m.modelName,
-              modelCode: m.modelCode,
-              quantity: m.quantity,
-              topCover: m.topCover,
-              bottomCover: m.bottomCover,
-            })),
+            models: (order.models ?? []).map((m: any) => {
+              // 从 topCover/bottomCover 文本中提取材质（PP/ABS）
+              const coverText = ((m.topCover || '') + ' ' + (m.bottomCover || '')).toUpperCase();
+              const material = coverText.includes('ABS') ? 'ABS' : 'PP';
+              return {
+                modelName: m.modelName,
+                modelCode: m.modelCode,
+                material,
+                quantity: m.quantity,
+                topCover: m.topCover,
+                bottomCover: m.bottomCover,
+              };
+            }),
           }}
         />
       )}

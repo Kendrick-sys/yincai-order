@@ -478,7 +478,6 @@ function buildContractCnHtml(data: ContractCnData): string {
     <div class="party-card-title">甲方（采购方）</div>
     <div class="party-card-name">${partyA.name}</div>
     ${partyA.address ? `<div class="party-card-row"><span>地址：</span>${partyA.address}</div>` : ''}
-    ${partyA.contactName ? `<div class="party-card-row"><span>联系人：</span>${partyA.contactName}${partyA.phone ? '　' + partyA.phone : ''}</div>` : (partyA.phone ? `<div class="party-card-row"><span>电话：</span>${partyA.phone}</div>` : '')}
     ${partyA.taxNo ? `<div class="party-card-row"><span>税号：</span>${partyA.taxNo}</div>` : ''}
     ${partyA.bankName ? `<div class="party-card-row"><span>开户行：</span>${partyA.bankName}</div>` : ''}
     ${partyA.bankAccount ? `<div class="party-card-row"><span>账号：</span>${partyA.bankAccount}</div>` : ''}
@@ -487,7 +486,6 @@ function buildContractCnHtml(data: ContractCnData): string {
     <div class="party-card-title">乙方（供货方）</div>
     <div class="party-card-name">${partyB.name}</div>
     ${partyB.address ? `<div class="party-card-row"><span>地址：</span>${partyB.address}</div>` : ''}
-    ${partyB.contactName ? `<div class="party-card-row"><span>联系人：</span>${partyB.contactName}${partyB.phone ? '　' + partyB.phone : ''}</div>` : (partyB.phone ? `<div class="party-card-row"><span>电话：</span>${partyB.phone}</div>` : '')}
     ${partyB.taxNo ? `<div class="party-card-row"><span>税号：</span>${partyB.taxNo}</div>` : ''}
     ${partyB.bankName ? `<div class="party-card-row"><span>开户行：</span>${partyB.bankName}</div>` : ''}
     ${partyB.bankAccount ? `<div class="party-card-row"><span>账号：</span>${partyB.bankAccount}</div>` : ''}
@@ -596,6 +594,7 @@ function buildPiCiHtml(data: PiCiData): string {
       <td>${idx + 1}</td>
       <td style="text-align:left">${item.modelName || ""}</td>
       <td>${item.spec || ""}</td>
+      <td>${item.material || "PP"}</td>
       <td>${item.quantity || ""}</td>
       <td>${item.unitPrice > 0 ? currencySymbol + item.unitPrice.toFixed(2) : ""}</td>
       <td>${item.amount > 0 ? currencySymbol + item.amount.toFixed(2) : ""}</td>
@@ -608,32 +607,32 @@ function buildPiCiHtml(data: PiCiData): string {
     if (extras.hasLiner && extras.linerAmount > 0) {
       const matLabel = extras.linerMaterial ? ` (${linerMatEn(extras.linerMaterial)})` : "";
       const desc = extras.linerDescription ? ` - ${extras.linerDescription}` : "";
-      extraRows.push(`<tr><td colspan="3" style="text-align:left">Foam${matLabel}${desc}</td><td>${extras.linerQuantity}</td><td>${extras.linerUnitPrice > 0 ? currencySymbol + extras.linerUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerAmount.toFixed(2)}</td></tr>`);
+      extraRows.push(`<tr><td colspan="4" style="text-align:left">Foam${matLabel}${desc}</td><td>${extras.linerQuantity}</td><td>${extras.linerUnitPrice > 0 ? currencySymbol + extras.linerUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerAmount.toFixed(2)}</td></tr>`);
     }
     if (extras.hasLiner && extras.hasLinerTemplate && extras.linerTemplateAmount > 0) {
-      extraRows.push(`<tr><td colspan="3" style="text-align:left">Foam Mold Fee</td><td>${extras.linerTemplateQuantity}</td><td>${extras.linerTemplateUnitPrice > 0 ? currencySymbol + extras.linerTemplateUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerTemplateAmount.toFixed(2)}</td></tr>`);
+      extraRows.push(`<tr><td colspan="4" style="text-align:left">Foam Mold Fee</td><td>${extras.linerTemplateQuantity}</td><td>${extras.linerTemplateUnitPrice > 0 ? currencySymbol + extras.linerTemplateUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.linerTemplateAmount.toFixed(2)}</td></tr>`);
     }
     if (extras.hasLogo && extras.logoAmount > 0) {
       const matLabel = extras.logoMaterial ? ` (${logoMatEn(extras.logoMaterial)})` : "";
       const desc = extras.logoDescription ? ` - ${extras.logoDescription}` : "";
-      extraRows.push(`<tr><td colspan="3" style="text-align:left">Custom Logo${matLabel}${desc}</td><td>${extras.logoQuantity}</td><td>${extras.logoUnitPrice > 0 ? currencySymbol + extras.logoUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.logoAmount.toFixed(2)}</td></tr>`);
+      extraRows.push(`<tr><td colspan="4" style="text-align:left">Custom Logo${matLabel}${desc}</td><td>${extras.logoQuantity}</td><td>${extras.logoUnitPrice > 0 ? currencySymbol + extras.logoUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.logoAmount.toFixed(2)}</td></tr>`);
     }
     if (extras.hasSilkPrint && extras.silkPrintAmount > 0) {
       const desc = extras.silkPrintDescription ? ` - ${extras.silkPrintDescription}` : "";
-      extraRows.push(`<tr><td colspan="3" style="text-align:left">Silk Printing${desc}</td><td>${extras.silkPrintQuantity}</td><td>${extras.silkPrintUnitPrice > 0 ? currencySymbol + extras.silkPrintUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.silkPrintAmount.toFixed(2)}</td></tr>`);
+      extraRows.push(`<tr><td colspan="4" style="text-align:left">Silk Printing${desc}</td><td>${extras.silkPrintQuantity}</td><td>${extras.silkPrintUnitPrice > 0 ? currencySymbol + extras.silkPrintUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.silkPrintAmount.toFixed(2)}</td></tr>`);
     }
     if (extras.hasSilkPrint && extras.hasSilkPrintTemplate && extras.silkPrintTemplateAmount > 0) {
-      extraRows.push(`<tr><td colspan="3" style="text-align:left">Silk Print Mold Fee</td><td>${extras.silkPrintTemplateQuantity}</td><td>${extras.silkPrintTemplateUnitPrice > 0 ? currencySymbol + extras.silkPrintTemplateUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.silkPrintTemplateAmount.toFixed(2)}</td></tr>`);
+      extraRows.push(`<tr><td colspan="4" style="text-align:left">Silk Print Mold Fee</td><td>${extras.silkPrintTemplateQuantity}</td><td>${extras.silkPrintTemplateUnitPrice > 0 ? currencySymbol + extras.silkPrintTemplateUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.silkPrintTemplateAmount.toFixed(2)}</td></tr>`);
     }
     if (extras.hasCustomColor && extras.customColorAmount > 0) {
-      extraRows.push(`<tr><td colspan="3" style="text-align:left">Custom Color Fee</td><td>${extras.customColorQuantity}</td><td>${extras.customColorUnitPrice > 0 ? currencySymbol + extras.customColorUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.customColorAmount.toFixed(2)}</td></tr>`);
+      extraRows.push(`<tr><td colspan="4" style="text-align:left">Custom Color Fee</td><td>${extras.customColorQuantity}</td><td>${extras.customColorUnitPrice > 0 ? currencySymbol + extras.customColorUnitPrice.toFixed(2) : ""}</td><td>${currencySymbol}${extras.customColorAmount.toFixed(2)}</td></tr>`);
     }
     if (extras.domesticFreight > 0) {
-      extraRows.push(`<tr><td colspan="5" style="text-align:left">Domestic Freight (China Inland)</td><td>${currencySymbol}${extras.domesticFreight.toFixed(2)}</td></tr>`);
+      extraRows.push(`<tr><td colspan="6" style="text-align:left">Domestic Freight (China Inland)</td><td>${currencySymbol}${extras.domesticFreight.toFixed(2)}</td></tr>`);
     }
     if (extras.internationalFreight > 0) {
       const freightMode = extras.internationalFreightType === "air" ? " (Air Freight)" : extras.internationalFreightType === "sea" ? " (Sea Freight)" : "";
-      extraRows.push(`<tr><td colspan="5" style="text-align:left">International Freight${freightMode}</td><td>${currencySymbol}${extras.internationalFreight.toFixed(2)}</td></tr>`);
+      extraRows.push(`<tr><td colspan="6" style="text-align:left">International Freight${freightMode}</td><td>${currencySymbol}${extras.internationalFreight.toFixed(2)}</td></tr>`);
     }
   }
 
@@ -723,6 +722,7 @@ function buildPiCiHtml(data: PiCiData): string {
       <th>#</th>
       <th>Description</th>
       <th>Specification</th>
+      <th>Material</th>
       <th>Qty (pcs)</th>
       <th>Unit Price (${currency})</th>
       <th>Amount (${currency})</th>
@@ -732,7 +732,7 @@ function buildPiCiHtml(data: PiCiData): string {
     ${tableRows}
     ${extraRows.join("\n")}
     <tr class="total-row">
-      <td colspan="5">TOTAL</td>
+      <td colspan="6">TOTAL</td>
       <td>${currencySymbol}${totalAmount.toFixed(2)}</td>
     </tr>
   </tbody>

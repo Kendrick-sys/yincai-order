@@ -674,3 +674,13 @@
 - [x] PurchaseContractDialog：复用现有 documents.generateContractCn 路由（isAmazon=true），生成甲方=吟彩/乙方=亿丰的采购合同 PDF
 - [x] OrderView.tsx：替换旧的 prefillYifeng DocumentDialog 方案，改用新的 PurchaseContractDialog
 - [x] OrderView.tsx：移除关闭采购合同弹窗后自动标记已签的逻辑（需手动点"标记为已签"）
+
+## 采购合同与单据优化（第八十五批）
+- [x] generatePdf.ts：采购合同（isAmazon=true）乙方格式改为：公司名字加粗→地址→税号→开户行→账号（删联系人，与甲方格式一致）
+- [x] generatePdf.ts：普通国内合同（isAmazon=false）甲方格式改为：公司名字加粗→地址→税号→开户行→账号
+- [x] PurchaseContractDialog.tsx：YIFENG_INFO 删除"广东省"，地址改为"恩平市恩城江门产业转移工业园恩平园区三区A10"；删除 contactName/phone；增加 taxNo: "91440785584676855C"
+- [x] PurchaseContractDialog.tsx：弹窗预览中乙方信息同步更新（删联系人，加税号，删广东省）
+- [x] PurchaseContractDialog.tsx：内置型号成本数据（190条），匹配型号+材质自动填充筱子采购价/PU/EVA/内衬开模费；若有定制颜色费则高亮提醒
+- [x] DocumentDialog.tsx：国内合同填写区域优化（截图4红框区域）——甲方信息展示格式与乙方一致
+- [x] DocumentDialog.tsx：PI/CI 产品明细表增加 Material 列
+- [x] generatePdf.ts：PI/CI PDF 产品明细表增加 Material 列
