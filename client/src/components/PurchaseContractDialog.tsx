@@ -27,6 +27,7 @@ import { Loader2, Download, AlertCircle, ShoppingCart, Lock, LockOpen } from "lu
 const YINCAI_INFO = {
   name: "深圳市吟彩新型材料制品有限公司",
   address: "深圳市龙华区龙华街道油松社区镇乾大厦520",
+  taxNo: "91440300MAD58M3244",
   contactName: "张昊",
   phone: "+86 15338774063",
   bankAccount: "4000 0517 0910 0504 972",
@@ -857,6 +858,7 @@ function PurchaseContractDialog({ open, onClose, order, syncData }: Props) {
               <p className="text-xs font-semibold text-primary mb-2">甲方（采购方）——固定</p>
               <p className="text-sm font-semibold text-foreground">{YINCAI_INFO.name}</p>
               <p className="text-xs text-muted-foreground">{YINCAI_INFO.address}</p>
+              <p className="text-xs text-muted-foreground">税号：{YINCAI_INFO.taxNo}</p>
               <p className="text-xs text-muted-foreground">开户行：{YINCAI_INFO.bankName}</p>
               <p className="text-xs text-muted-foreground">账号：{YINCAI_INFO.bankAccount}</p>
             </div>
