@@ -11,7 +11,7 @@ import {
 import CustomerCombobox from "@/components/CustomerCombobox";
 import {
   ArrowLeft, Plus, Trash2, Save, ChevronDown, ChevronUp,
-  Package, Tag, Printer, Layers, Archive, AlertCircle
+  Package, Tag, Printer, Layers, Archive, AlertCircle, RefreshCw
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useState, useEffect } from "react";
@@ -346,6 +346,22 @@ export default function OrderForm() {
     undefined,
     { staleTime: 60_000 }
   );
+
+  // 新建订单时自动生成订单号（只在非编辑模式下触发）
+  const { data: generatedOrderNo, isLoading: isGeneratingOrderNo, refetch: refetchOrderNo } =
+    trpc.orders.generateOrderNo.useQuery(undefined, {
+      enabled: !isEdit,
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+    });
+
+  // 自动填充生成的订单号（仅新建时，且用户尚未手动修改）
+  const [orderNoManuallyEdited, setOrderNoManuallyEdited] = useState(false);
+  useEffect(() => {
+    if (!isEdit && generatedOrderNo?.orderNo && !orderNoManuallyEdited) {
+      setHeader(h => ({ ...h, orderNo: generatedOrderNo.orderNo }));
+    }
+  }, [generatedOrderNo, isEdit, orderNoManuallyEdited]);
 
   // 订单头部
   const [header, setHeader] = useState({
@@ -749,8 +765,46 @@ export default function OrderForm() {
               </div>
             </div>
             <div>
-              <Label className="text-xs text-gray-500 mb-1 block">订单号</Label>
-              <Input placeholder="如：ODYC-20260307-001" value={header.orderNo} onChange={e => setHeader(h => ({ ...h, orderNo: e.target.value }))} className="h-9 text-sm" />
+              <Label className="text-xs text-gray-500 mb-1 block">
+                订单号
+                {!isEdit && (
+                  <span className="ml-1.5 text-[10px] text-[#1A3C5E]/60 font-normal bg-[#1A3C5E]/8 px-1.5 py-0.5 rounded">自动生成</span>
+                )}
+              </Label>
+              <div className="flex items-center gap-1.5">
+                <div className="relative flex-1">
+                  <Input
+                    readOnly={!isEdit}
+                    placeholder={isGeneratingOrderNo ? "生成中..." : "ODYC-YYYYMMDD-001"}
+                    value={header.orderNo}
+                    onChange={isEdit ? e => setHeader(h => ({ ...h, orderNo: e.target.value })) : undefined}
+                    className={`h-9 text-sm pr-2 ${
+                      !isEdit
+                        ? "bg-[#F0F4F8] text-[#1A3C5E] font-mono font-medium cursor-default select-all border-[#1A3C5E]/20"
+                        : ""
+                    }`}
+                  />
+                  {isGeneratingOrderNo && !isEdit && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <RefreshCw className="w-3.5 h-3.5 text-[#1A3C5E]/40 animate-spin" />
+                    </div>
+                  )}
+                </div>
+                {!isEdit && (
+                  <button
+                    type="button"
+                    title="重新生成订单号"
+                    disabled={isGeneratingOrderNo}
+                    onClick={() => {
+                      setOrderNoManuallyEdited(false);
+                      refetchOrderNo();
+                    }}
+                    className="h-9 w-9 flex items-center justify-center rounded-lg border border-[#1A3C5E]/20 bg-white hover:bg-[#1A3C5E]/5 hover:border-[#1A3C5E]/40 transition-colors disabled:opacity-40 flex-shrink-0"
+                  >
+                    <RefreshCw className={`w-4 h-4 text-[#1A3C5E]/60 ${isGeneratingOrderNo ? "animate-spin" : ""}`} />
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">预计交货日期</Label>

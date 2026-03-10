@@ -15,6 +15,7 @@ import {
   getUserById,
   listYifengCostItems, createYifengCostItem, updateYifengCostItem, deleteYifengCostItem, replaceAllYifengCostItems,
   listCostSnapshots, createCostSnapshot, getCostSnapshotById, rollbackCostSnapshot,
+  generateNextOrderNo,
 } from "./db";
 import {
   generateDocNo, createDocument, updateDocumentPdf,
@@ -758,6 +759,12 @@ export const appRouter = router({
           throw new TRPCError({ code: "FORBIDDEN", message: "无权查看该订单" });
         }
         return order;
+      }),
+
+    // 生成下一个唯一订单号（ODYC-YYYYMMDD-NNN）
+    generateOrderNo: protectedProcedure
+      .query(async () => {
+        return { orderNo: await generateNextOrderNo() };
       }),
 
     // 创建订单（自动设置 createdBy）

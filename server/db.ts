@@ -480,3 +480,41 @@ export async function createCostSnapshot(data: Omit<InsertCostSnapshot, 'id' | '
 export async function rollbackCostSnapshot(items: InsertYifengCostItem[]): Promise<void> {
   return replaceAllYifengCostItems(items);
 }
+
+// ─── 订单号自动生成 ────────────────────────────────────────────────────────────
+
+/**
+ * 生成下一个唯一订单号，格式：ODYC-YYYYMMDD-NNN
+ * 查询当天已有订单号中最大的序号，返回递增后的新订单号。
+ */
+export async function generateNextOrderNo(): Promise<string> {
+  const db = await getDb();
+  // 当天日期字符串，如 20260310
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+  const prefix = `ODYC-${dateStr}-`;
+
+  if (!db) {
+    // 数据库不可用时返回序号 001
+    return `${prefix}001`;
+  }
+
+  // 查询当天所有以 prefix 开头的订单号，找最大序号
+  const rows = await db
+    .select({ orderNo: orders.orderNo })
+    .from(orders)
+    .where(sql`${orders.orderNo} LIKE ${prefix + '%'}`);
+
+  let maxSeq = 0;
+  for (const row of rows) {
+    const no = row.orderNo;
+    if (!no) continue;
+    const seqStr = no.slice(prefix.length);
+    const seq = parseInt(seqStr, 10);
+    if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+  }
+
+  const nextSeq = String(maxSeq + 1).padStart(3, '0');
+  return `${prefix}${nextSeq}`;
+}

@@ -28,6 +28,42 @@ function createCtx(): TrpcContext {
 }
 
 describe("orders router", () => {
+  it("generateOrderNo returns ODYC-YYYYMMDD-NNN format", async () => {
+    const caller = appRouter.createCaller(createCtx());
+    const result = await caller.orders.generateOrderNo();
+    expect(result).toHaveProperty("orderNo");
+    // 格式应为 ODYC-YYYYMMDD-NNN
+    expect(result.orderNo).toMatch(/^ODYC-\d{8}-\d{3}$/);
+    // 日期应为当天
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const dateStr = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
+    expect(result.orderNo.startsWith(`ODYC-${dateStr}-`)).toBe(true);
+  });
+
+  it("generateOrderNo increments when same-day order exists", async () => {
+    const caller = appRouter.createCaller(createCtx());
+    // 获取第一个编号
+    const first = await caller.orders.generateOrderNo();
+    // 创建一个使用该编号的订单
+    const { id } = await caller.orders.create({
+      order: {
+        orderNo: first.orderNo,
+        orderDescription: "测试订单号递增",
+        customer: "测试客户",
+        status: "draft",
+      },
+      models: [],
+    });
+    // 再次获取编号，应该比上一个大 1
+    const second = await caller.orders.generateOrderNo();
+    const firstSeq = parseInt(first.orderNo.split("-")[2], 10);
+    const secondSeq = parseInt(second.orderNo.split("-")[2], 10);
+    expect(secondSeq).toBeGreaterThan(firstSeq);
+    // 清理测试数据
+    await caller.orders.hardDelete({ id });
+  });
+
   it("list returns an array", async () => {
     const caller = appRouter.createCaller(createCtx());
     const result = await caller.orders.list();
