@@ -753,3 +753,9 @@
 ## Bug修复（第九十一批）
 
 - [x] Bug修复：NAS MySQL sql_safe_updates 限制导致 Excel 导入失败——改用 TRUNCATE TABLE 替代 DELETE WHERE 1=1
+
+## 优化（第九十四批）
+
+- [x] 优化：定金/尾款比例联动（定金改变时自动计算尾款 = 100 - 定金）
+- [x] 优化：全款（定金100%）时 PDF 合同中隐藏尾款行
+- [x] 修复：PI/CI 联系人 Contact 改为 Kendrick Zhang（原为张昊）

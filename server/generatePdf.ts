@@ -522,8 +522,11 @@ function buildContractCnHtml(data: ContractCnData): string {
 <p class="clause"><span class="clause-num">3. 售后处理：</span>在质保期内，如发现产品存在非人为的质量问题（包括但不限于功能故障、外观缺陷、材质不符），乙方应在收到通知后3日内予以免费维修、包换或包退，并承担由此产生的往返运费及相关损失。</p>
 
 <div class="section-title">三、付款方式：</div>
-<p class="clause"><span class="clause-num">1. 定金：</span>合同签订后3个工作日内，甲方向乙方支付合同总金额的 ${depositPct}% 作为预付款（${formatAmount(depositAmount)}）。</p>
-<p class="clause"><span class="clause-num">2. 尾款：</span>乙方完成生产，经甲方（或甲方指定代表）验货合格${needInvoice ? "，并提供全额增值税专用发票" : ""}后，甲方向乙方支付剩余 ${balancePct}% 尾款（${formatAmount(balanceAmount)}）。乙方收到尾款后应在24小时内安排发货。</p>
+${depositPct >= 100
+  ? `<p class="clause"><span class="clause-num">1. 全款：</span>合同签订后3个工作日内，甲方向乙方支付合同总金额的100%（${formatAmount(totalAmount)}）作为全款，一次性付清。</p>`
+  : `<p class="clause"><span class="clause-num">1. 定金：</span>合同签订后3个工作日内，甲方向乙方支付合同总金额的 ${depositPct}% 作为预付款（${formatAmount(depositAmount)}）。</p>
+<p class="clause"><span class="clause-num">2. 尾款：</span>乙方完成生产，经甲方（或甲方指定代表）验货合格${needInvoice ? "，并提供全额增值税专用发票" : ""}后，甲方向乙方支付剩余 ${balancePct}% 尾款（${formatAmount(balanceAmount)}）。乙方收到尾款后应在24小时内安排发货。</p>`
+}
 
 <div class="section-title">四、交货地点及运输：</div>
 <p class="clause"><span class="clause-num">1. 交货地点：</span><strong>${counterpartyAddress || "（以双方确认为准）"}</strong></p>
@@ -740,8 +743,11 @@ function buildPiCiHtml(data: PiCiData): string {
 
 <div class="payment-section">
   <h3>Payment Terms:</h3>
-  <p>1. Deposit: ${depositPct}% of total amount (${currencySymbol}${depositAmount.toFixed(2)}) to be paid within 3 working days after signing this ${docType.toUpperCase()}.</p>
-  <p>2. Balance: ${balancePct}% of total amount (${currencySymbol}${balanceAmount.toFixed(2)}) to be paid before shipment.</p>
+  ${depositPct >= 100
+    ? `<p>Full Payment: 100% of total amount (${currencySymbol}${totalAmount.toFixed(2)}) to be paid within 3 working days after signing this ${docType.toUpperCase()}.</p>`
+    : `<p>1. Deposit: ${depositPct}% of total amount (${currencySymbol}${depositAmount.toFixed(2)}) to be paid within 3 working days after signing this ${docType.toUpperCase()}.</p>
+  <p>2. Balance: ${balancePct}% of total amount (${currencySymbol}${balanceAmount.toFixed(2)}) to be paid before shipment.</p>`
+  }
 </div>
 
 <div class="bank-section">

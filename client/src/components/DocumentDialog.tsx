@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, FileText, Download, AlertCircle, Copy, RotateCcw, Check, ChevronsUpDown, UserRound } from "lucide-react";
+import { Loader2, FileText, Download, AlertCircle, Copy, RotateCcw, Check, ChevronsUpDown, UserRound, CheckCircle2 } from "lucide-react";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
@@ -889,19 +889,21 @@ function PaymentTerms({
   const sum = depositPct + balancePct;
   const isValid = sum === 100;
 
+  const isFullPayment = depositPct >= 100;
+
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-4">
+      <div className={`grid gap-4 ${isFullPayment ? 'grid-cols-1 max-w-[50%]' : 'grid-cols-2'}`}>
         <div className="space-y-1.5">
           <Label className="text-xs">定金比例 (%)</Label>
           <div className="flex items-center gap-2">
             <Input
               type="number"
-              min={1}
-              max={99}
+              min={0}
+              max={100}
               value={depositPct}
               onChange={e => {
-                const v = parseInt(e.target.value) || 0;
+                const v = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
                 onDepositChange(v);
                 onBalanceChange(100 - v);
               }}
@@ -912,28 +914,36 @@ function PaymentTerms({
             </span>
           </div>
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">尾款比例 (%)</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              max={99}
-              value={balancePct}
-              onChange={e => {
-                const v = parseInt(e.target.value) || 0;
-                onBalanceChange(v);
-                onDepositChange(100 - v);
-              }}
-              className="h-8 text-sm"
-            />
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
-              = {currencySymbol}{balanceAmount.toFixed(2)}
-            </span>
+        {!isFullPayment && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">尾款比例 (%)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={balancePct}
+                onChange={e => {
+                  const v = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                  onBalanceChange(v);
+                  onDepositChange(100 - v);
+                }}
+                className="h-8 text-sm"
+              />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                = {currencySymbol}{balanceAmount.toFixed(2)}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
-      {!isValid && (
+      {isFullPayment && (
+        <div className="flex items-center gap-1.5 text-xs text-green-600">
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          全款付清，无尾款
+        </div>
+      )}
+      {!isFullPayment && !isValid && (
         <div className="flex items-center gap-1.5 text-xs text-destructive">
           <AlertCircle className="w-3.5 h-3.5" />
           定金 + 尾款比例之和必须等于 100%（当前 {sum}%）
